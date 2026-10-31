@@ -133,6 +133,19 @@ export interface Card extends AlertRow { headline: string | null; workflow: Work
 export interface Feed { issued_at: string; counts: { needs_action: number; compromise: number; closed: number }; cards: Card[] }
 export interface LedgerEvent { seq: number; ts: string; kind: string; subject: string; source: string; provenance: string }
 
+export interface TranslatedLine { source: string; text: string | null; status: 'validated' | 'withheld'; problems: string[] }
+export interface Translation {
+  lang: 'hi' | 'mr'
+  model: string
+  seconds: number
+  headline: TranslatedLine
+  why_it_matters: TranslatedLine[]
+  what_to_do: TranslatedLine[]
+  validated: number
+  total: number
+  cached: boolean
+}
+
 export interface Health {
   status: string
   ledger_intact: boolean
@@ -157,6 +170,8 @@ export const api = {
   brief: (orgId: string, cveId: string) => get<Brief>(`/api/alerts/${orgId}/${cveId}/brief`),
   replay: (orgId: string, cveId: string) => get<Replay>(`/api/replay/${orgId}/${cveId}`),
   feed: () => get<Feed>('/api/feed'),
+  translate: (orgId: string, cveId: string, lang: 'hi' | 'mr') =>
+    get<Translation>(`/api/alerts/${orgId}/${cveId}/brief/translate?lang=${lang}`),
   recent: () => get<LedgerEvent[]>('/api/events/recent?limit=25'),
   act: async (orgId: string, cveId: string, action: string) => {
     const res = await fetch(`/api/alerts/${orgId}/${cveId}/workflow/${action}`, { method: 'POST' })

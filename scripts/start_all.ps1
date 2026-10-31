@@ -28,6 +28,15 @@ if (-not (Test-Port 8000)) {
 }
 Wait-Port 8000 'API'
 
+# 2b. Indic translation service (IndicTrans2, own Python 3.14 env)
+if (-not (Test-Port 8010)) {
+    $env:HF_HOME = 'D:\hf-cache'; $env:HF_HUB_OFFLINE = '1'
+    Start-Process -WindowStyle Hidden -WorkingDirectory $root -FilePath "$root\.venv-mt\Scripts\python.exe" `
+        -ArgumentList '-m', 'uvicorn', 'backend.mt_service:app', '--host', '127.0.0.1', '--port', '8010' `
+        -RedirectStandardOutput "$logs\mt.log" -RedirectStandardError "$logs\mt.err.log"
+}
+Wait-Port 8010 'Translation'
+
 # 3. Dashboard
 if (-not (Test-Port 5173)) {
     Start-Process -WindowStyle Hidden -WorkingDirectory "$root\frontend" -FilePath $node `

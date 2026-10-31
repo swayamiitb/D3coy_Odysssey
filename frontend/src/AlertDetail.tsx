@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { AlertDetail as Detail } from './api'
 import { BriefPanel } from './BriefPanel'
+import { ExportPanel } from './ExportPanel'
 import { ReplayPanel } from './ReplayPanel'
 import { Badge, deadlineText, fmtDate, Panel, TierPill } from './ui'
 
@@ -133,6 +134,8 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
             </tbody>
           </table>
         </Panel>
+
+        <ExportPanel orgId={d.org.id} cveId={v.id} compromise={a.tier === 'Compromise'} />
 
         <Panel title="Recommended actions">
           <ul className="space-y-2 text-xs">

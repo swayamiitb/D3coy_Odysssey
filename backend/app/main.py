@@ -232,6 +232,98 @@ def replay_alert(org_id: str, cve_id: str) -> dict:
                 if first_warning and v["published"] else None)}
 
 
+def _context(org_id: str, cve_id: str) -> tuple[dict, dict | None, dict | None, dict | None]:
+    """Alert detail plus the evidence the outbound artefacts need: beacon sighting, workflow, cached AI brief."""
+    conn = db()
+    detail = alert_detail(org_id, cve_id)
+    asset_ids = {a["asset_id"] for a in detail["assets"]}
+    sighting = None
+    for aid in asset_ids:
+        ev = Ledger(conn=conn).events(subject=aid, kind="ioc.sighting")
+        if ev:
+            sighting = ev[-1]["payload"]
+    wf = workflow_state(org_id, cve_id)
+    brief = None
+    if conn.execute("SELECT name FROM sqlite_master WHERE name='briefs'").fetchone():
+        row = conn.execute("SELECT body FROM briefs WHERE org_id=? AND cve_id=? ORDER BY created DESC",
+                           (org_id, cve_id)).fetchone()
+        brief = json.loads(row[0]) if row else None
+    return detail, sighting, wf, brief
+
+
+@app.get("/api/alerts/{org_id}/{cve_id}/certin-report")
+def certin_report(org_id: str, cve_id: str) -> dict:
+    from .engine.reports import certin_report as build
+    detail, sighting, wf, brief = _context(org_id, cve_id)
+    return build(detail, sighting, wf, brief)
+
+
+@app.get("/api/alerts/{org_id}/{cve_id}/stix")
+def stix(org_id: str, cve_id: str, tlp: str = "AMBER") -> dict:
+    from .engine.reports import stix_bundle
+    detail, sighting, _, brief = _context(org_id, cve_id)
+    return stix_bundle(detail, sighting, brief, tlp.upper())
+
+
+MT_URL = "http://127.0.0.1:8010"
+
+
+@app.get("/api/alerts/{org_id}/{cve_id}/brief/translate")
+def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
+    """Hindi/Marathi version of the *validated* brief via the local IndicTrans2 service. Protected identifiers
+    are preserved and every sentence is validated; failures are withheld, never guessed."""
+    import httpx
+    from datetime import datetime, timezone
+
+    if lang not in {"hi", "mr"}:
+        raise HTTPException(400, "lang must be hi or mr")
+    conn = db()
+    conn.execute("""CREATE TABLE IF NOT EXISTS translations (org_id TEXT, cve_id TEXT, lang TEXT, created TEXT,
+                    body TEXT, PRIMARY KEY (org_id, cve_id, lang))""")
+    row = conn.execute("SELECT body FROM translations WHERE org_id=? AND cve_id=? AND lang=?",
+                       (org_id, cve_id, lang)).fetchone()
+    if row:
+        return {**json.loads(row[0]), "cached": True}
+    brief = alert_brief(org_id, cve_id)
+    if not brief.get("brief"):
+        raise HTTPException(409, "no validated English brief to translate")
+    b = brief["brief"]
+    texts = [b["headline"]] + [x["text"] for x in b["why_it_matters"]] + [x["text"] for x in b["what_to_do"]]
+    detail = alert_detail(org_id, cve_id)
+    protect = sorted({a["label"] for a in detail["assets"]} | {detail["org"]["name"]})
+    try:
+        r = httpx.post(f"{MT_URL}/translate", json={"texts": texts, "lang": lang, "protect": protect}, timeout=300)
+        r.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(503, f"translation service unavailable: {exc}") from exc
+    out = r.json()
+    res = out["results"]
+    n_why = len(b["why_it_matters"])
+    body = {"lang": lang, "model": out["model"], "seconds": out["seconds"],
+            "headline": res[0], "why_it_matters": res[1:1 + n_why], "what_to_do": res[1 + n_why:],
+            "validated": sum(x["status"] == "validated" for x in res), "total": len(res)}
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    Ledger(conn=conn).append(ts=now, kind="model.output", subject=f"{org_id}:{cve_id}", source=f"MODEL:{out['model']}",
+                             provenance="AI", payload={"role": "translate", "lang": lang,
+                                                       "validated": body["validated"], "total": body["total"]})
+    conn.execute("INSERT OR REPLACE INTO translations VALUES (?,?,?,?,?)",
+                 (org_id, cve_id, lang, now, json.dumps(body, ensure_ascii=False)))
+    conn.commit()
+    return {**body, "cached": False}
+
+
+_SCORECARD_CACHE: dict = {}
+
+
+@app.get("/api/scorecard")
+def scorecard_view(refresh: bool = False) -> dict:
+    """Measured proof: model evals, noise reduction, exposure precision, brief grounding, real KEV backtest."""
+    from .engine.scorecard import scorecard
+    if refresh or "data" not in _SCORECARD_CACHE:
+        _SCORECARD_CACHE["data"] = scorecard(db())
+    return _SCORECARD_CACHE["data"]
+
+
 def _issued_at(conn: sqlite3.Connection) -> str:
     row = conn.execute("SELECT value FROM meta WHERE key = 'built_at'").fetchone()
     return (row[0] if row else "") + "+05:30"

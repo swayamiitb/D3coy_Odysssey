@@ -1,6 +1,7 @@
-import { ArrowRight, Check, ChevronRight, Clock, ShieldX } from 'lucide-react'
+import { ArrowRight, Check, ChevronRight, Clock, FileText, ShieldX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, type Card, type Feed } from './api'
+import { CertInReportModal } from './ExportPanel'
 import { TIER_FILL, TierPill } from './ui'
 
 const JOURNEY = [
@@ -94,6 +95,7 @@ export function Now({ onOpen, tick }: { onOpen: (c: Card) => void; tick: number 
   const [feed, setFeed] = useState<Feed>()
   const load = () => api.feed().then(setFeed).catch(() => undefined)
   useEffect(() => { load() }, [tick])
+  const [reportFor, setReportFor] = useState<Card>()
 
   if (!feed) return <div className="p-8 text-mute">Loading the national picture…</div>
   const [hero, ...rest] = feed.cards
@@ -131,11 +133,20 @@ export function Now({ onOpen, tick }: { onOpen: (c: Card) => void; tick: number 
         <div className="my-6"><Journey state={hero.workflow.state} /></div>
         <div className="flex items-center justify-between">
           <ActionButtons c={hero} onChanged={load} size="lg" />
-          <button onClick={() => onOpen(hero)} className="flex items-center gap-1 text-sm text-accent hover:underline">
-            Why this warning? <ChevronRight size={16} />
-          </button>
+          <div className="flex items-center gap-4">
+            {hero.tier === 'Compromise' && (
+              <button onClick={() => setReportFor(hero)}
+                      className="flex items-center gap-1 rounded-full px-4 py-2 text-sm text-fuchsia-300 ring-1 ring-fuchsia-400/50 hover:bg-fuchsia-500/10">
+                <FileText size={14} /> Draft CERT-In report
+              </button>
+            )}
+            <button onClick={() => onOpen(hero)} className="flex items-center gap-1 text-sm text-accent hover:underline">
+              Why this warning? <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </article>
+      {reportFor && <CertInReportModal orgId={reportFor.org_id} cveId={reportFor.cve_id} onClose={() => setReportFor(undefined)} />}
 
       <div className="space-y-2">
         <div className="text-xs uppercase tracking-wider text-mute">Up next</div>

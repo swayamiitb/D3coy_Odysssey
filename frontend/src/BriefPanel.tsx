@@ -1,25 +1,77 @@
-import { Bot, Loader2, ShieldCheck, ShieldOff } from 'lucide-react'
+import { Bot, Languages, Loader2, ShieldCheck, ShieldOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { api, type Brief } from './api'
+import { api, type Brief, type TranslatedLine, type Translation } from './api'
 import { Badge, Panel } from './ui'
+
+type Lang = 'en' | 'hi' | 'mr'
+const LANG_LABEL: Record<Lang, string> = { en: 'EN', hi: 'हिन्दी', mr: 'मराठी' }
 
 export function BriefPanel({ orgId, cveId }: { orgId: string; cveId: string }) {
   const [brief, setBrief] = useState<Brief>()
   const [error, setError] = useState<string>()
   const [openFact, setOpenFact] = useState<string>()
+  const [lang, setLang] = useState<Lang>('en')
+  const [tr, setTr] = useState<Partial<Record<'hi' | 'mr', Translation>>>({})
+  const [trBusy, setTrBusy] = useState(false)
 
   useEffect(() => {
     setBrief(undefined)
     setError(undefined)
+    setLang('en')
+    setTr({})
     api.brief(orgId, cveId).then(setBrief).catch((e) => setError(String(e)))
   }, [orgId, cveId])
+
+  const pick = (l: Lang) => {
+    setLang(l)
+    if (l === 'en' || tr[l]) return
+    setTrBusy(true)
+    api.translate(orgId, cveId, l).then((t) => setTr((m) => ({ ...m, [l]: t })))
+      .catch((e) => setError(String(e))).finally(() => setTrBusy(false))
+  }
 
   const status = brief && (brief.status === 'validated'
     ? <Badge tone="ok"><ShieldCheck size={12} /> validated</Badge>
     : <Badge tone="crit"><ShieldOff size={12} /> withheld</Badge>)
+  const toggle = brief?.brief && (
+    <div className="flex rounded-full bg-panel-2 p-0.5">
+      {(Object.keys(LANG_LABEL) as Lang[]).map((l) => (
+        <button key={l} onClick={() => pick(l)}
+                className={`rounded-full px-2 py-0.5 text-xs ${lang === l ? 'bg-accent font-semibold text-ink' : 'text-mute hover:text-text'}`}>
+          {LANG_LABEL[l]}
+        </button>
+      ))}
+    </div>
+  )
+  const t = lang !== 'en' ? tr[lang] : undefined
+
+  if (lang !== 'en') {
+    return (
+      <Panel title="AI analyst brief" right={<div className="flex items-center gap-2">{toggle}{status}</div>}>
+        {(trBusy || !t) && (
+          <div className="flex items-center gap-2 text-xs text-mute">
+            <Loader2 size={14} className="animate-spin" /> IndicTrans2 is translating the validated brief on this laptop…
+          </div>
+        )}
+        {t && (
+          <div className="space-y-2 text-sm">
+            <Line l={t.headline} strong />
+            <div className="text-xs font-semibold uppercase tracking-wide text-mute">{lang === 'hi' ? 'यह क्यों मायने रखता है' : 'हे का महत्त्वाचे आहे'}</div>
+            {t.why_it_matters.map((x, i) => <Line key={i} l={x} />)}
+            <div className="text-xs font-semibold uppercase tracking-wide text-mute">{lang === 'hi' ? 'क्या करें' : 'काय करावे'}</div>
+            {t.what_to_do.map((x, i) => <Line key={i} l={x} />)}
+            <div className="mt-3 flex flex-wrap items-center gap-1 text-xs text-mute">
+              <Languages size={12} /> Translated on-device by IndicTrans2 (AI4Bharat) · {t.validated}/{t.total} sentences validated
+              (identifiers preserved, script checked) · {t.cached ? 'cached' : `${t.seconds}s`}
+            </div>
+          </div>
+        )}
+      </Panel>
+    )
+  }
 
   return (
-    <Panel title="AI analyst brief" right={<div className="flex items-center gap-1">{status}</div>}>
+    <Panel title="AI analyst brief" right={<div className="flex items-center gap-2">{toggle}{status}</div>}>
       {!brief && !error && (
         <div className="flex items-center gap-2 text-xs text-mute">
           <Loader2 size={14} className="animate-spin" /> Local security model is writing a grounded brief…
@@ -54,6 +106,15 @@ export function BriefPanel({ orgId, cveId }: { orgId: string; cveId: string }) {
         </div>
       )}
     </Panel>
+  )
+}
+
+function Line({ l, strong }: { l: TranslatedLine; strong?: boolean }) {
+  if (l.status === 'validated') return <div className={strong ? 'font-medium' : 'text-xs leading-relaxed'}>{l.text}</div>
+  return (
+    <div className="text-xs leading-relaxed text-mute">
+      {l.source} <Badge tone="crit">translation withheld</Badge>
+    </div>
   )
 }
 
