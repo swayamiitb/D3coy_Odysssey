@@ -16,6 +16,26 @@ def defang(ip: str) -> str:
     return ip.replace(".", "[.]")
 
 
+_LABELS = {
+    "decoy.surge": lambda p, c, h: f"Decoy grid: scanning surge on {p['tag']} (z={p['z_sessions']}, {p['sensors']} sensors)",
+    "vuln.published": lambda p, c, h: f"CVE published by the vendor (CNA), CVSS vector {p.get('cvss_vector') or 'n/a'}",
+    "ssvc.updated": lambda p, c, h: f"CISA SSVC: Exploitation={p.get('Exploitation')}, Automatable={p.get('Automatable')}",
+    "kev.added": lambda p, c, h: f"Added to CISA KEV (due {p.get('dueDate')})",
+    "decoy.exploit": lambda p, c, h: f"Decoy grid: exploit payloads for {c} on {p['sensors']} sensors",
+    "ioc.sighting": lambda p, c, h: (f"Firewall logs: {p['connections']} beacons every ~{p['mean_interval_s']}s from "
+                                     f"{h} to {p['dst_defanged']} ({p['malware']} C2, {p['c2_source']})"),
+}
+
+
+def evidence(ledger, cve_id: str, asset: dict) -> list[dict]:
+    """Every evidence event relevant to one (asset, CVE), labelled for people: the CVE's own record, scanning
+    surges on the asset's product, and C2 sightings on the asset itself."""
+    events = (ledger.events(subject=cve_id) + ledger.events(subject=f"product:{asset['product_key']}", kind="decoy.surge")
+              + ledger.events(subject=asset["id"], kind="ioc.sighting"))
+    return [{**ev, "label": _LABELS[ev["kind"]](ev["payload"], cve_id, asset["hostname"])}
+            for ev in events if ev["kind"] in _LABELS]
+
+
 def replay(rec: dict, asset: dict, org: dict, events: list[dict]) -> list[dict]:
     """events: dicts with ts, kind, provenance, label and payload, from the ledger and the detectors.
     kinds used: decoy.surge, vuln.published, kev.added, ssvc.updated, decoy.exploit, ioc.sighting."""

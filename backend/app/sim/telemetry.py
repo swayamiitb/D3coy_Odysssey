@@ -29,7 +29,9 @@ TAGS = {
 CAMPAIGNS = [
     ("ivanti_cs", dt.date(2026, 10, 1), 4, 9, 8.0, 5.0, "CVE-2026-104935"),   # ~12 days before disclosure
     ("ivanti_cs", dt.date(2026, 10, 11), 3, 11, 6.0, 4.0, "CVE-2026-104935"),  # second wave
-    ("confluence", dt.date(2026, 9, 14), 3, 7, 6.0, 4.0, None),                # surge with no CVE: false positive
+    # Negative control: a surge with no CVE (false positive). Dated after the detector's 28-day baseline and so that
+    # no real remotely exploitable Confluence disclosure follows within the stand-down window (the next is 2026-10-05).
+    ("confluence", dt.date(2026, 9, 1), 3, 7, 6.0, 4.0, None),
 ]
 EXPLOIT_TAGS = [("CVE-2026-104935", dt.date(2026, 10, 14), 6, 14)]  # (cve, first day, days, sensors)
 C2 = {"ip": "50.16.16.211", "port": 443, "malware": "QakBot", "source": "Feodo Tracker (abuse.ch)"}

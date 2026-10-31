@@ -1,6 +1,7 @@
 import { Activity } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, type Campaign, type LedgerEvent, type Summary } from './api'
+import { KIND } from './proactive'
 import { Badge, TIER_FILL } from './ui'
 
 const SECTORS = ['Power & Energy', 'BFSI', 'Telecom', 'Transport', 'Government', 'Strategic & Public Enterprises']
@@ -13,7 +14,7 @@ const KIND_LABEL: Record<string, string> = {
   'ioc.sighting': 'C2 beacon detected',
   'model.output': 'AI brief issued',
 }
-const TONE: Record<string, 'ok' | 'accent' | 'crit' | 'mute'> = { REAL: 'ok', SIM: 'accent', AI: 'mute', HUMAN: 'crit' }
+const TONE: Record<string, 'ok' | 'accent' | 'crit' | 'mute'> = { REAL: 'ok', SIM: 'accent', AI: 'mute', HUMAN: 'crit', AUTO: 'mute' }
 
 export function Pulse({ summary, live }: { summary?: Summary; live: LedgerEvent[] }) {
   const [recent, setRecent] = useState<LedgerEvent[]>([])
@@ -78,7 +79,7 @@ export function Pulse({ summary, live }: { summary?: Summary; live: LedgerEvent[
             <li key={e.seq} className="flex items-start gap-2">
               <Badge tone={TONE[e.provenance] ?? 'mute'}>{e.provenance}</Badge>
               <div className="min-w-0">
-                <div className="truncate">{KIND_LABEL[e.kind] ?? e.kind.replace('analyst.', 'Analyst: ')}</div>
+                <div className="truncate">{KIND_LABEL[e.kind] ?? KIND[e.kind]?.label ?? e.kind.replace('analyst.', 'Analyst: ')}</div>
                 <div className="truncate font-mono text-mute">{e.subject} · {e.ts.slice(5, 16).replace('T', ' ')}</div>
               </div>
             </li>

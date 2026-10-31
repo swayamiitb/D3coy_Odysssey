@@ -155,7 +155,7 @@ def alert_detail(org_id: str, cve_id: str) -> dict:
                "asset_tier": r["tier"]} for r in rows]
     vuln = {"id": v["id"], "published": v["published"], "description": v["description"], "kev": kev,
             "epss": v["epss"], "ssvc": json.loads(v["ssvc"] or "{}"), "cvss_vector": v["cvss_vector"],
-            "cvss_source": v["cvss_source"], "nvd_status": v["nvd_status"]}
+            "cvss_source": v["cvss_source"], "nvd_status": v["nvd_status"], "forecast": record.get("forecast")}
     timeline = Ledger(conn=conn).events(subject=cve_id)
     from .engine.attack import map_alert
     top = assets[0] if assets else {}
@@ -211,22 +211,8 @@ def replay_alert(org_id: str, cve_id: str) -> dict:
            "kev": json.loads(v["kev"]) if v["kev"] and v["kev"] != "null" else None,
            "ssvc": json.loads(v["ssvc"] or "{}"), "cvss_vector": v["cvss_vector"], "cvss_source": v["cvss_source"],
            "published": v["published"]}
-    led = Ledger(conn=conn)
-    labels = {
-        "decoy.surge": lambda p: f"Decoy grid: scanning surge on {p['tag']} (z={p['z_sessions']}, {p['sensors']} sensors)",
-        "vuln.published": lambda p: f"CVE published by the vendor (CNA), CVSS vector {p.get('cvss_vector') or 'n/a'}",
-        "ssvc.updated": lambda p: f"CISA SSVC: Exploitation={p.get('Exploitation')}, Automatable={p.get('Automatable')}",
-        "kev.added": lambda p: f"Added to CISA KEV (due {p.get('dueDate')})",
-        "decoy.exploit": lambda p: f"Decoy grid: exploit payloads for {cve_id} on {p['sensors']} sensors",
-        "ioc.sighting": lambda p: (f"Firewall logs: {p['connections']} beacons every ~{p['mean_interval_s']}s from "
-                                   f"{asset['hostname']} to {p['dst_defanged']} ({p['malware']} C2, {p['c2_source']})"),
-    }
-    events = []
-    for ev in (led.events(subject=cve_id) + led.events(subject=f"product:{asset['product_key']}", kind="decoy.surge")
-               + led.events(subject=asset["id"], kind="ioc.sighting")):
-        if ev["kind"] in labels:
-            events.append({**ev, "label": labels[ev["kind"]](ev["payload"])})
-    steps = replay(rec, asset, org, events)
+    from .engine.replay import evidence
+    steps = replay(rec, asset, org, evidence(Ledger(conn=conn), cve_id, asset))
     first_warning = next((s for s in steps if s["tier"] != "Watch" or s["stage"] == "pre-disclosure warning"), None)
     return {"org": dict(o), "asset": {k: asset[k] for k in ("id", "hostname", "label", "version", "zone")},
             "cve_id": cve_id, "published": v["published"], "steps": steps,
@@ -353,8 +339,14 @@ def _analyse_advisory(adv: dict) -> dict:
 
 @app.get("/api/advisories")
 def advisories() -> list[dict]:
-    """Advisory inbox (SIM, CERT-In style) with Odyssey's analysis of each."""
-    items = json.loads(ADVISORIES.read_text(encoding="utf-8"))
+    """Advisory inbox with Odyssey's analysis of each: real CISA ICS advisories that name an inventory product,
+    plus sample national advisories (SIM, CERT-In style)."""
+    from .engine.intel import advisories_matched, cisa_advisories
+    text = {a["link"]: a["text"] for a in cisa_advisories()}
+    real = [{"id": a["id"].upper(), "title": a["title"], "severity": "—", "published": a["published"],
+             "provenance": "REAL", "note": f"CISA {'ICS advisory' if a['kind'] == 'ics' else 'alert'} (real, {a['link']})",
+             "text": text[a["link"]][:8000]} for a in advisories_matched(db()) if a["matches"]]
+    items = real + json.loads(ADVISORIES.read_text(encoding="utf-8"))
     return [{**{k: a[k] for k in ("id", "title", "severity", "published", "provenance", "note", "text")},
              "analysis": _analyse_advisory(a)} for a in items]
 
@@ -502,3 +494,172 @@ def ledger_verify() -> dict:
     n = conn.execute("SELECT COUNT(*) FROM ledger").fetchone()[0]
     head = conn.execute("SELECT hash FROM ledger ORDER BY seq DESC LIMIT 1").fetchone()
     return {"intact": ok, "first_bad_seq": bad, "events": n, "head": head[0] if head else None}
+
+
+# ---------------------------------------------------------------- proactive layer: autopilot, human in the loop
+def _events(where: str, args: tuple, limit: int) -> list[dict]:
+    rows = db().execute(f"""SELECT seq, ts, kind, subject, source, provenance, payload FROM ledger
+                            WHERE (kind LIKE 'auto.%' OR kind IN ('analyst.approve', 'analyst.reject')) {where}
+                            ORDER BY ts DESC, seq DESC LIMIT ?""", (*args, limit)).fetchall()
+    return [{**{k: r[k] for k in ("seq", "ts", "kind", "subject", "source", "provenance")},
+             "payload": json.loads(r["payload"])} for r in rows]
+
+
+@app.get("/api/autopilot")
+def autopilot(limit: int = 200, org_id: str | None = None, kind: str | None = None) -> dict:
+    """Everything Odyssey did without being asked (and every human decision on its proposals), newest first."""
+    from .engine.sentinel import summary
+    where, args = "", ()
+    if org_id:
+        where, args = "AND json_extract(payload, '$.org_id') = ?", (org_id,)
+    if kind:
+        where, args = where + " AND kind = ?", (*args, kind)
+    return {"summary": summary(db()), "events": _events(where, args, limit)}
+
+
+@app.get("/api/approvals")
+def approvals(status: str = "pending", limit: int = 50) -> list[dict]:
+    rows = db().execute("""SELECT id, proposed_at, kind, subject, org_id, title, payload, status, decided_by,
+                                  decided_at, note FROM approvals WHERE status = ? ORDER BY proposed_at DESC LIMIT ?""",
+                        (status, limit)).fetchall()
+    out = []
+    for r in rows:
+        p = json.loads(r["payload"])
+        acts = p.get("actions", [])
+        out.append({**{k: r[k] for k in ("id", "proposed_at", "kind", "subject", "org_id", "title", "status",
+                                          "decided_by", "decided_at", "note")},
+                    "orgs": p.get("orgs", []), "count": p.get("count"), "basis": p.get("basis"),
+                    "provenance": p.get("provenance"), "p": p.get("p"),
+                    "preview": [a["payload"].get("title") for a in acts][:3],
+                    "items": (acts[0]["payload"].get("items") or [])[:6] if acts else [],
+                    "recipients": sorted({x for a in acts for x in a["payload"].get("recipients", [])}),
+                    "langs": sorted({a["payload"]["lang"] for a in acts if a["payload"].get("lang")})})
+    return out
+
+
+@app.post("/api/approvals/{approval_id}/{decision}")
+def decide_approval(approval_id: int, decision: str, actor: str = "analyst@ncew", note: str | None = None) -> dict:
+    """Human in the loop: approve executes the grouped actions now; reject records the reason for calibration."""
+    from .engine.sentinel import decide
+    if decision not in ("approve", "reject"):
+        raise HTTPException(400, "decision must be approve or reject")
+    try:
+        return decide(db(), approval_id, decision == "approve", actor, note)
+    except KeyError as exc:
+        raise HTTPException(404, "unknown proposal") from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.get("/api/forecast")
+def forecast_view(days: int = 45, limit: int = 40) -> dict:
+    """Ahead of the threat: recent CVEs the day-0 model flags, affecting exposed assets, with what happened next."""
+    import datetime as _dt
+    conn = db()
+    snap = conn.execute("SELECT value FROM meta WHERE key = 'snapshot_date'").fetchone()[0]
+    since = (_dt.date.fromisoformat(snap) - _dt.timedelta(days=days)).isoformat()
+    rows = conn.execute("""SELECT v.id, v.published, v.kev, substr(v.description, 1, 220) AS description,
+                                  json_extract(v.record, '$.forecast') AS fc,
+                                  COUNT(DISTINCT a.org_id) AS orgs, COUNT(DISTINCT a.asset_id) AS assets,
+                                  GROUP_CONCAT(DISTINCT a.org_id) AS org_ids, MIN(a.asset_id) AS first_asset
+                           FROM vulns v JOIN assessments a ON a.cve_id = v.id AND a.R > 0
+                           WHERE json_extract(v.record, '$.forecast.flag') = 1 AND v.published >= ?
+                           GROUP BY v.id ORDER BY v.published DESC""", (since,)).fetchall()
+    items = []
+    for r in rows:
+        fc = json.loads(r["fc"])
+        kev = json.loads(r["kev"]) if r["kev"] not in (None, "null") else None
+        label = conn.execute("SELECT label FROM assets WHERE id = ?", (r["first_asset"],)).fetchone()
+        items.append({"cve": r["id"], "published": r["published"], "product": label[0] if label else None,
+                      "p": fc["p"], "reasons": fc.get("reasons", []),
+                      "median_days_to_exploit": fc.get("median_days_to_exploit"), "orgs": r["orgs"],
+                      "assets": r["assets"], "org_ids": sorted((r["org_ids"] or "").split(",")),
+                      "description": r["description"], "kev_added": kev["dateAdded"] if kev else None})
+    meta = json.loads((conn.execute("SELECT value FROM meta WHERE key = 'sentinel'").fetchone() or ["{}"])[0])
+    from .engine.scorecard import _read
+    ev = _read("eval_exploit_forecast.json") or {}
+    return {"since": since, "flagged": len(items), "since_exploited": sum(1 for i in items if i["kev_added"]),
+            "items": items[:limit], "lead": meta.get("lead"),
+            "model": {"threshold": ev.get("threshold"), "features": ev.get("features"), "live": ev.get("live"),
+                      "test": ev.get("test")}}
+
+
+@app.get("/api/riskplan")
+def riskplan(org_id: str | None = None, limit: int = 25) -> dict:
+    from .engine.riskplan import plan
+    return plan(db(), org_id, limit)
+
+
+@app.get("/api/intel/sources")
+def intel_sources() -> list[dict]:
+    from .engine.intel import sources
+    return sources(db(), scoring_config()[0])
+
+
+@app.get("/api/intel/advisories")
+def intel_advisories() -> list[dict]:
+    from .engine.intel import advisories_matched
+    return advisories_matched(db())
+
+
+@app.get("/api/intel/attacks")
+def intel_attacks() -> dict:
+    """Real global attack telemetry (SANS ISC DShield) next to the national decoy grid (SIM)."""
+    from .engine.intel import PORTS, dshield, port_trend
+    conn = db()
+    ports = sorted({p for ps in PORTS.values() for p in ps})
+    decoy = [dict(r) for r in conn.execute("SELECT date, tag, sessions, unique_ips FROM decoy_daily ORDER BY date")]
+    surges = [dict(r) for r in conn.execute("SELECT * FROM decoy_surges")]
+    ds = dshield()
+    return {"dshield": {"top_ports": ds["top_ports"][:12], "top_sources": ds["top_sources"][:10],
+                        "trends": [t for p in ports if (t := port_trend(p))]},
+            "decoy": {"daily": decoy, "surges": surges}}
+
+
+@app.get("/api/orgs/{org_id}/profile")
+def org_profile(org_id: str) -> dict:
+    """Organisation-based view: OSINT exposure, threat activity, risk plan, and everything Odyssey sent them."""
+    from .engine.intel import org_osint
+    from .engine.riskplan import plan
+    conn = db()
+    try:
+        osint = org_osint(conn, org_id)
+    except KeyError as exc:
+        raise HTTPException(404, "unknown organisation") from exc
+    s = scoring_config()[0]["sentinel"]
+    lang = s["state_language"].get(osint["org"]["state"], "hi")
+    tiers = dict(conn.execute("""SELECT tier, COUNT(DISTINCT cve_id) FROM assessments WHERE org_id = ? AND R > 0
+                                 GROUP BY tier""", (org_id,)).fetchall())
+    return {**osint, "language": lang, "csirt": s["sector_csirt"].get(osint["org"]["sector"]), "tiers": tiers,
+            "alerts": _alerts(" AND a.org_id = ? AND a.tier IN ('Compromise','Critical','High')", (org_id,), limit=8),
+            "risk": plan(conn, org_id, 8),
+            "inbox": _events("AND json_extract(payload, '$.org_id') = ? AND kind != 'auto.proposed'", (org_id,), 40)}
+
+
+@app.get("/api/soc")
+def soc() -> dict:
+    """One-screen SOC picture: posture, intake, autonomy, the human queue and the risk headline."""
+    from .engine.riskplan import plan
+    from .engine.sentinel import summary
+    conn = db()
+    meta = dict(conn.execute("SELECT key, value FROM meta").fetchall())
+    rp = plan(conn, None, 5)
+    worst = conn.execute("""SELECT org_id, cve_id, MAX(CASE tier WHEN 'Compromise' THEN 4 WHEN 'Critical' THEN 3
+                            WHEN 'High' THEN 2 WHEN 'Medium' THEN 1 ELSE 0 END) FROM assessments WHERE R > 0
+                            GROUP BY org_id, cve_id""").fetchall()
+    names = {4: "Compromise", 3: "Critical", 2: "High", 1: "Medium"}
+    tiers: dict[str, int] = {}
+    for _, _, t in worst:
+        if t in names:
+            tiers[names[t]] = tiers.get(names[t], 0) + 1
+    orgs_rows = conn.execute("""SELECT o.id, o.name, o.sector, o.state,
+                                COUNT(DISTINCT CASE WHEN a.tier IN ('Compromise','Critical') THEN a.cve_id END) AS critical,
+                                COUNT(DISTINCT CASE WHEN a.tier = 'Compromise' THEN a.cve_id END) AS compromise
+                                FROM orgs o LEFT JOIN assessments a ON a.org_id = o.id AND a.R > 0
+                                GROUP BY o.id ORDER BY compromise DESC, critical DESC""").fetchall()
+    lang = scoring_config()[0]["sentinel"]["state_language"]
+    return {"built_at": meta.get("built_at"), "tiers": tiers, "pressure": json.loads(meta.get("pressure", "[]")),
+            "autopilot": summary(conn),
+            "pending": conn.execute("SELECT COUNT(*) FROM approvals WHERE status = 'pending'").fetchone()[0],
+            "risk": {k: rp[k] for k in ("total_risk", "tickets", "for_50_pct", "for_80_pct", "assets_at_risk")},
+            "orgs": [{**dict(r), "lang": lang.get(r["state"], "hi")} for r in orgs_rows]}

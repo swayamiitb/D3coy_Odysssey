@@ -15,17 +15,24 @@ from __future__ import annotations
 
 
 def posterior(cfg: dict, *, exposed: bool, exploited: bool, internet: bool,
-              beacon: bool | None = None, anomaly: bool | None = None) -> dict:
+              beacon: bool | None = None, anomaly: bool | None = None, p_exploit: float | None = None) -> dict:
+    """p_exploit: the day-0 forecast that a not-yet-exploited CVE will be exploited (engine/forecast.py). It
+    replaces the fixed 'not exploited' prior by total probability: P(A) = p*P(A|X) + (1-p)*P(A|not X)."""
     b = cfg["bayes"]
+    zone = "internet" if internet else "internal"
     if not exposed:
         p_attack = b["p_attack_not_exposed"]
+    elif exploited:
+        p_attack = b[f"p_attack_exploited_{zone}"]
+    elif p_exploit is not None:
+        p_attack = p_exploit * b[f"p_attack_exploited_{zone}"] + (1 - p_exploit) * b[f"p_attack_not_exploited_{zone}"]
     else:
-        key = f"p_attack_{'exploited' if exploited else 'not_exploited'}_{'internet' if internet else 'internal'}"
-        p_attack = b[key]
+        p_attack = b[f"p_attack_not_exploited_{zone}"]
     prior = p_attack * b["p_compromise_given_attack"] + (1 - p_attack) * b["p_compromise_other_vector"]
     odds = prior / (1 - prior)
+    forecast = f", day-0 exploitation forecast={p_exploit:.0%}" if exposed and not exploited and p_exploit is not None else ""
     factors = [{"factor": "prior from exposure, exploitation and reachability", "value": round(prior, 4),
-                "detail": f"exposed={exposed}, exploited in the wild={exploited}, internet-facing={internet}"}]
+                "detail": f"exposed={exposed}, exploited in the wild={exploited}, internet-facing={internet}{forecast}"}]
     for name, observed, (p_true, p_false) in (("beacon to known C2", beacon, b["beacon_tpr_fpr"]),
                                               ("host behaviour anomaly", anomaly, b["anomaly_tpr_fpr"])):
         if observed is None:

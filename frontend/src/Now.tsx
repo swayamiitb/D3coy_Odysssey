@@ -2,7 +2,8 @@ import { ArrowRight, Check, ChevronRight, Clock, FileText, ShieldX } from 'lucid
 import { useEffect, useState } from 'react'
 import { api, type Card, type Feed } from './api'
 import { CertInReportModal } from './ExportPanel'
-import { TIER_FILL, TierPill } from './ui'
+import { ApprovalQueue, ForecastPanel } from './proactive'
+import { Panel, TIER_FILL, TierPill } from './ui'
 
 const JOURNEY = [
   { key: 'new', label: 'Issued' },
@@ -147,6 +148,15 @@ export function Now({ onOpen, tick }: { onOpen: (c: Card) => void; tick: number 
         </div>
       </article>
       {reportFor && <CertInReportModal orgId={reportFor.org_id} cveId={reportFor.cve_id} onClose={() => setReportFor(undefined)} />}
+
+      <div className="grid gap-4 2xl:grid-cols-2">
+        <Panel title="Needs your decision" right={<span className="text-xs text-mute">Odyssey proposes, you decide</span>}>
+          <ApprovalQueue limit={2} onChanged={load} />
+        </Panel>
+        <Panel title="Ahead of the threat · day-0 exploitation forecast" right={<span className="text-xs text-mute">before CISA confirms</span>}>
+          <ForecastPanel limit={5} />
+        </Panel>
+      </div>
 
       <div className="space-y-2">
         <div className="text-xs uppercase tracking-wider text-mute">Up next</div>

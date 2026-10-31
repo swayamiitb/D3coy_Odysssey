@@ -113,8 +113,12 @@ def assess(vuln: dict, asset: dict, org: dict, exposure, signals: dict | None = 
                            "CISA_ADP" if ssvc.get("Automatable") else "CNA"))
     if vec and cvss.base_score(vec) >= 9.0:
         rules.append(_rule("CVSS_CRIT", f"base {cvss.base_score(vec)}", vuln.get("cvss_source", "CNA")))
+    fc = vuln.get("forecast") or {}
+    if fc.get("flag"):  # a prediction, not evidence: it raises likelihood but never sets Exploitation=active
+        rules.append(_rule("FORECAST", f"day-0 forecast {fc['p']:.0%} likely to be exploited "
+                                       f"({', '.join(fc.get('reasons', [])[:3])})", "ODYSSEY_FORECAST"))
     floor = max([_floor(r.id) for r in rules] + [0.0])
-    L = round(max(floor, epss or 0.0), 3)
+    L = round(max(floor, epss or 0.0, fc.get("p") or 0.0), 3)
 
     # ---- severity / impact (never from the LLM)
     tech_impact = ssvc.get("Technical Impact") or ("total" if vec and vec["C"] == "H" and vec["I"] == "H" else "partial")
@@ -130,7 +134,8 @@ def assess(vuln: dict, asset: dict, org: dict, exposure, signals: dict | None = 
     # ---- confidence: noisy-OR over independent origins (max reliability per origin)
     rel, origin = cfg["source_reliability"], cfg["independent_origins"]
     weights: dict[str, float] = {}
-    sources = {r.source for r in rules} | {v.source if v.source != "TEXT" else "CNA" for v in exposure.votes
+    sources = {r.source for r in rules if r.source != "ODYSSEY_FORECAST"}  # a prediction is not corroboration
+    sources |= {v.source if v.source != "TEXT" else "CNA" for v in exposure.votes
                                           if v.verdict == "affected"}
     if epss is not None:
         sources.add("EPSS")
@@ -215,7 +220,7 @@ def assess(vuln: dict, asset: dict, org: dict, exposure, signals: dict | None = 
     # ---- decision model: Bayesian P(compromise | exposure, exploitation, reachability, telemetry)
     sighting = signals.get("ioc_sighting")
     bayes = posterior(cfg, exposed=R >= 0.6, exploited=exploitation == "active", internet=asset["zone"] == "internet",
-                      beacon=True if sighting else None, anomaly=signals.get("anomaly"))
+                      beacon=True if sighting else None, anomaly=signals.get("anomaly"), p_exploit=fc.get("p"))
     if sighting:
         rules.append(Rule("IOC_SIGHTING", 4, "Own telemetry: periodic beacon to a known C2 address",
                           f"{sighting.get('connections')} connections every ~{sighting.get('mean_interval_s')}s",

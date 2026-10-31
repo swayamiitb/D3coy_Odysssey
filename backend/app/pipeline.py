@@ -14,12 +14,12 @@ from pathlib import Path
 
 import networkx as nx
 
-from .engine import detectors
+from .engine import detectors, forecast, sentinel
 from .engine import replay as replay_mod
 from .engine.exposure import reconcile
 from .engine.ledger import Ledger
 from .engine.products import mentions, same_product
-from .engine.scoring import assess
+from .engine.scoring import assess, config as scoring_config
 from .ingest.cve_records import RAW, build_record, load_cve5, load_epss, load_kev, load_nvd
 from .sim import telemetry
 
@@ -90,6 +90,13 @@ def main() -> None:
     ids, month_counts = select_candidates(products, kev)
     nvd = load_nvd(ids)
     print(f"{len(ids)} candidate CVEs ({sum(1 for i in ids if i in kev)} in KEV); NVD records for {len(nvd)}")
+    # Day-0 exploitation forecast, only where it is out-of-sample (published after the model was frozen).
+    model = forecast.load()
+    fresh = [forecast.day0_fields(nvd[c]) for c in sorted(ids) if c in nvd and model
+             and nvd[c]["published"][:10] > model["frozen"]]
+    forecasts = dict(zip((f["id"] for f in fresh), forecast.predict(fresh)))
+    print(f"forecast: {len(forecasts)} CVEs published after {model['frozen'] if model else '-'}, "
+          f"{sum(f['flag'] for f in forecasts.values())} flagged likely-to-be-exploited")
 
     if DB_PATH.exists():
         DB_PATH.unlink()
@@ -167,12 +174,16 @@ def main() -> None:
         return sig
 
     n_assess = 0
+    recs: dict[str, dict] = {}
+    product_cves: dict[str, set[str]] = {}
     for cid in sorted(ids):
         rec = build_record(cid, nvd.get(cid), kev.get(cid), epss.get(cid))
+        rec["forecast"] = forecasts.get(cid)
+        recs[cid] = rec
         db.execute("INSERT INTO vulns VALUES (?,?,?,?,?,?,?,?,?,?)",
                    (cid, rec["published"], rec["description"], json.dumps(rec["kev"]), rec["epss"],
                     json.dumps(rec["ssvc"]), rec["cvss_vector"], rec["cvss_source"], rec["nvd_status"],
-                    json.dumps({k: rec[k] for k in ("cna_affected", "nvd_configurations")})))
+                    json.dumps({k: rec[k] for k in ("cna_affected", "nvd_configurations", "forecast")})))
         # REAL evidence events, each at its own timestamp (drives replay and the early-warning timeline)
         if rec["published"]:
             ledger.append(ts=rec["published"], kind="vuln.published", subject=cid, source="CNA",
@@ -207,6 +218,8 @@ def main() -> None:
             for asset in assets:
                 org = orgs[asset["org_id"]]
                 exp = reconcile(asset, rec)
+                if exp.relevance > 0:
+                    product_cves.setdefault(asset["product_key"], set()).add(cid)
                 a = assess(rec, asset, org, exp, signals_for(asset, rec))
                 detail = {**a.to_dict(), "exposure": {"status": exp.status, "votes": [vars(v) for v in exp.votes]}}
                 db.execute("INSERT OR REPLACE INTO assessments VALUES (?,?,?,?,?,?,?,?,?,?,?)",
@@ -214,7 +227,9 @@ def main() -> None:
                             a.decision, a.deadline_hours, json.dumps(detail)))
                 n_assess += 1
 
-    meta = {"snapshot_date": SNAPSHOT_DATE.isoformat(), "epss_header": epss_header,
+    stats = run_sentinel(db, ledger, recs, orgs, {a["id"]: {**a, "tier1_reachable": reach[a["id"]]}
+                                                  for a in world["assets"]}, surge_runs, product_cves, sightings)
+    meta = {"snapshot_date": SNAPSHOT_DATE.isoformat(), "epss_header": epss_header, "sentinel": json.dumps(stats),
             "nvd_month_counts": json.dumps(month_counts), "built_at": dt.datetime.now().isoformat(timespec="seconds"),
             "candidates": str(len(ids))}
     db.executemany("INSERT INTO meta VALUES (?,?)", meta.items())
@@ -223,6 +238,46 @@ def main() -> None:
     tiers = dict(db.execute("SELECT tier, COUNT(*) FROM assessments WHERE R > 0 GROUP BY tier").fetchall())
     print(f"{n_assess} asset x CVE assessments; exposed by tier: {tiers}; ledger ok={ok}; "
           f"{time.time() - started:.0f}s -> {DB_PATH}")
+
+
+def run_sentinel(db, ledger, recs, orgs, assets, surge_runs, product_cves, sightings) -> dict:
+    """Autopilot over every alert's time line: what Odyssey would have done on its own, and when."""
+    pilot = sentinel.Autopilot(db, ledger, scoring_config()[0], orgs, assets)
+    pilot.surges([r for runs in surge_runs.values() for r in runs], recs, product_cves)
+    rows = db.execute("""SELECT org_id, cve_id, asset_id FROM assessments WHERE R > 0
+                         AND tier IN ('High', 'Critical', 'Compromise') ORDER BY risk DESC""").fetchall()
+    top: dict[tuple[str, str], str] = {}
+    exposed_orgs: dict[str, set[str]] = {}
+    for org_id, cid, asset_id in rows:
+        top.setdefault((org_id, cid), asset_id)
+        exposed_orgs.setdefault(cid, set()).add(org_id)
+    items = []
+    for (org_id, cid), asset_id in top.items():
+        asset, org = assets[asset_id], {**orgs[org_id], "cii": bool(orgs[org_id]["cii"])}
+        steps = replay_mod.replay(recs[cid], asset, org, replay_mod.evidence(ledger, cid, asset))
+        items.append({"org": org, "asset": asset, "rec": recs[cid], "steps": steps, "sighting": sightings.get(asset_id)})
+    peers = {cid: sorted(o - {org_id for (org_id, c), a in top.items() if c == cid and a in sightings})
+             for cid, o in exposed_orgs.items()}
+    pilot.alerts(items, peers, (len(assets), len(orgs)))
+    pilot.flush()
+    kev_ts = {r[0]: r[1] for r in db.execute("SELECT subject, ts FROM ledger WHERE kind = 'kev.added'").fetchall()}
+    lead = sentinel.lead_times(pilot.actions, kev_ts, pilot.go_live, {cid for _, cid in top})
+    go = pilot.go_live.date()
+    db.execute("INSERT INTO meta VALUES ('pressure', ?)",
+               (json.dumps(sentinel.pressure(items, go - dt.timedelta(days=14), SNAPSHOT_DATE)),))
+    counts: dict[str, int] = {}
+    for a in pilot.actions:
+        counts[a["kind"]] = counts.get(a["kind"], 0) + 1
+    langs = sorted({a["payload"]["lang"] for a in pilot.actions if a["payload"].get("lang")})
+    print(f"sentinel: {len(pilot.actions)} autonomous actions {counts}; KEV after go-live {lead['kev_after_go_live']}, "
+          f"acted before KEV on {lead['acted_before_kev']} (median lead {lead['median_lead_days']} d); "
+          f"languages {langs}")
+    pending = db.execute("SELECT COUNT(*) FROM approvals WHERE status = 'pending'").fetchone()[0]
+    print(f"sentinel: {pending} proposals pending analyst approval (live window); REAL signals only: "
+          f"{lead['real_signals_only']}")
+    return {"go_live": pilot.s["go_live"], "actions": len(pilot.actions), "by_kind": counts, "languages": langs,
+            "lead": lead, "pending": pending,
+            "by_mode": {m: sum(a["mode"] == m for a in pilot.actions) for m in ("auto", "approve")}}
 
 
 if __name__ == "__main__":

@@ -1,6 +1,9 @@
 """Snapshot every public threat-intel source into data/raw so the demo runs fully offline.
 
-Usage: python scripts/snapshot_feeds.py [--skip-nvd] [--vulnrichment-days 90]
+Usage: python scripts/snapshot_feeds.py [--skip-nvd] [--vulnrichment-days 90] [--intel-only]
+
+--intel-only refreshes just the attack-telemetry and advisory feeds (SANS ISC DShield, CISA advisories) and merges
+them into the existing manifest. All sources are passive public feeds: lists and statistics, never malware.
 """
 
 import argparse
@@ -15,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
-UA = {"User-Agent": "D3COY-EWS/0.1 (hackathon research; passive feed snapshot)"}
+UA = {"User-Agent": "Odyssey-EWS/0.2 (D3COY 1.0 hackathon research; passive feed snapshot)"}
 
 FEEDS = {
     "kev.json": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
@@ -24,6 +27,18 @@ FEEDS = {
     "openphish.txt": "https://openphish.com/feed.txt",
     "enterprise-attack.json": "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json",
 }
+# Real attack telemetry and advisories (no API key needed). DShield: SANS ISC's global honeypot/firewall-log network.
+INTEL = {
+    "dshield/topports.json": "https://isc.sans.edu/api/topports/records/50?json",
+    "dshield/sources.json": "https://isc.sans.edu/api/sources/attacks/100?json",
+    "cisa_advisories.xml": "https://www.cisa.gov/cybersecurity-advisories/all.xml",
+}
+# Ports the constituency's products listen on, including ICS protocols (daily history since go-live).
+DSHIELD_PORTS = {22: "SSH", 23: "Telnet", 25: "SMTP / mail gateways", 80: "HTTP", 443: "HTTPS / SSL-VPN",
+                 445: "SMB", 3389: "RDP", 8443: "HTTPS-alt (appliance admin)", 10443: "FortiGate SSL-VPN",
+                 8090: "Confluence", 5432: "PostgreSQL", 1521: "Oracle DB", 102: "Siemens S7 (ICS)",
+                 502: "Modbus (ICS)", 20000: "DNP3 (ICS)", 44818: "EtherNet/IP (ICS)"}
+HISTORY_FROM = "2026-08-01"
 NVD_YEARS = range(2021, dt.date.today().year + 1)
 NVD_EXTRA = ["recent", "modified"]
 
@@ -54,7 +69,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-nvd", action="store_true")
     ap.add_argument("--vulnrichment-days", type=int, default=90)
+    ap.add_argument("--intel-only", action="store_true")
     args = ap.parse_args()
+    if args.intel_only:
+        return intel_only()
 
     jobs = [(url, RAW / name) for name, url in FEEDS.items()]
     if not args.skip_nvd:
@@ -86,6 +104,33 @@ def main() -> int:
     (RAW / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     failed = [r for r in results if not r["ok"]]
     print(f"done in {manifest['seconds']}s, {len(results) - len(failed)} ok, {len(failed)} failed")
+    return 0 if not failed else 1
+
+
+def intel_jobs() -> list[tuple[str, Path]]:
+    today = dt.date.today().isoformat()
+    jobs = [(url, RAW / name) for name, url in INTEL.items()]
+    jobs += [(f"https://isc.sans.edu/api/porthistory/{port}/{HISTORY_FROM}/{today}?json",
+              RAW / "dshield" / f"port_{port}.json") for port in DSHIELD_PORTS]
+    return jobs
+
+
+def intel_only() -> int:
+    started = time.time()
+    results = []
+    for url, dest in intel_jobs():  # sequential and slow on purpose: be polite to a community service
+        r = fetch(url, dest, retries=2, timeout=60)
+        print(("OK  " if r["ok"] else "FAIL"), r["file"], r.get("bytes", r.get("error")), flush=True)
+        results.append(r)
+        time.sleep(1.0)
+    path = RAW / "manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"items": []}
+    fresh = {r["file"] for r in results}
+    manifest["items"] = [i for i in manifest["items"] if i["file"] not in fresh] + results
+    manifest["intel_snapshot_at"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    failed = [r for r in results if not r["ok"]]
+    print(f"intel done in {time.time() - started:.0f}s, {len(results) - len(failed)} ok, {len(failed)} failed")
     return 0 if not failed else 1
 
 

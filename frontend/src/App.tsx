@@ -1,16 +1,18 @@
-import { Cpu, FileSearch, FlaskConical, LayoutList, Radar, ShieldCheck, WifiOff, Zap } from 'lucide-react'
+import { Building2, Cpu, FileSearch, FlaskConical, LayoutDashboard, LayoutList, Radar, ShieldCheck, WifiOff, Zap } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
 import { AlertQueue } from './AlertQueue'
 import { api, type AlertDetail as Detail, type AlertRow, type Health, type LedgerEvent, type Summary, type Tier } from './api'
 import { Now } from './Now'
+import { Orgs } from './Orgs'
 import { Funnel, SectorHeatmap } from './Overview'
 import { Proof } from './Proof'
 import { Pulse } from './Pulse'
+import { Soc } from './Soc'
 import { Badge } from './ui'
 
-type View = 'now' | 'advisories' | 'explore' | 'proof'
+type View = 'now' | 'soc' | 'orgs' | 'advisories' | 'explore' | 'proof'
 
 export default function App() {
   const [view, setView] = useState<View>(() => (new URLSearchParams(window.location.search).get('view') as View) || 'now')
@@ -20,6 +22,7 @@ export default function App() {
   const [tier, setTier] = useState<Tier>()
   const [sector, setSector] = useState<string>()
   const [selected, setSelected] = useState<{ id: string; org_id: string; cve_id: string }>()
+  const [org, setOrg] = useState<string | undefined>(() => new URLSearchParams(window.location.search).get('org') ?? undefined)
   const [detail, setDetail] = useState<Detail>()
   const [error, setError] = useState<string>()
   const [live, setLive] = useState<LedgerEvent[]>([])
@@ -72,7 +75,7 @@ export default function App() {
             <p className="text-xs text-mute">Know first. Act first. Every warning explained.</p>
           </div>
           <nav className="ml-6 flex rounded-full bg-panel p-1">
-            {([['now', 'Now', Zap], ['advisories', 'Advisories', FileSearch], ['explore', 'All warnings', LayoutList], ['proof', 'Proof', FlaskConical]] as const).map(([k, label, Icon]) => (
+            {([['now', 'Now', Zap], ['soc', 'SOC', LayoutDashboard], ['orgs', 'Organisations', Building2], ['advisories', 'Advisories', FileSearch], ['explore', 'All warnings', LayoutList], ['proof', 'Proof', FlaskConical]] as const).map(([k, label, Icon]) => (
               <button key={k} onClick={() => setView(k)}
                       className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm ${view === k ? 'bg-accent text-ink font-semibold' : 'text-mute hover:text-text'}`}>
                 <Icon size={14} /> {label}
@@ -99,6 +102,10 @@ export default function App() {
       <main className="flex min-h-0 flex-1 gap-5 p-5">
         {view === 'proof' ? (
           <Proof />
+        ) : view === 'soc' ? (
+          <Soc tick={tick} onOrg={(id) => { setOrg(id); setView('orgs') }} />
+        ) : view === 'orgs' ? (
+          <Orgs selected={org} onSelect={setOrg} onAlert={(o, c) => setSelected({ id: `${o}:${c}`, org_id: o, cve_id: c })} />
         ) : view === 'advisories' ? (
           <Advisories />
         ) : view === 'now' ? (

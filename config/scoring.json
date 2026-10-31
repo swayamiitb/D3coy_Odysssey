@@ -62,6 +62,12 @@
       "crit": 1,
       "floor": 0.0,
       "text": "CVSS base score >= 9.0"
+    },
+    {
+      "id": "FORECAST",
+      "crit": 2,
+      "floor": 0.0,
+      "text": "Odyssey day-0 forecast: likely to be exploited (prediction, not evidence)"
     }
   ],
   "impact": {
@@ -168,5 +174,58 @@
     ],
     "threshold_compromise": 0.5,
     "threshold_hunt": 0.2
+  },
+  "sentinel": {
+    "_comment": "Autopilot policy: what Odyssey does without being asked. Monitoring starts at go_live; earlier exposures are baselined.",
+    "go_live": "2026-08-01",
+    "notify_now_tiers": [
+      "Critical",
+      "Compromise"
+    ],
+    "digest_tiers": [
+      "High"
+    ],
+    "forecast_notify_zones": [
+      "internet",
+      "dmz"
+    ],
+    "surge_stand_down_days": 21,
+    "sla_escalate_fraction": 0.5,
+    "state_language": {
+      "Maharashtra": "mr",
+      "Gujarat": "gu",
+      "Karnataka": "kn",
+      "Tamil Nadu": "ta",
+      "Odisha": "or",
+      "Delhi": "hi",
+      "Telangana": "te",
+      "Andhra Pradesh": "te",
+      "Kerala": "ml",
+      "Rajasthan": "hi",
+      "West Bengal": "bn",
+      "Uttar Pradesh": "hi"
+    },
+    "sector_csirt": {
+      "Power & Energy": "CSIRT-Power",
+      "BFSI": "CSIRT-Fin",
+      "Telecom": "CSIRT-Telecom",
+      "Transport": "CSIRT-Transport",
+      "Government": "CERT-In (Govt.)",
+      "Strategic & Public Enterprises": "NCIIPC"
+    },
+    "live_window_hours": 72,
+    "autonomy": {
+      "_comment": "auto = Odyssey acts on its own; approve = Odyssey proposes, an analyst decides (human in the loop)",
+      "notify": "auto",
+      "digest": "auto",
+      "baseline": "auto",
+      "hunt": "auto",
+      "report": "auto",
+      "confirm": "auto",
+      "stand_down": "auto",
+      "forecast": "approve",
+      "warn": "approve",
+      "escalate": "approve"
+    }
   }
 }
