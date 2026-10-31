@@ -1,6 +1,6 @@
 """Thin client for the local Ollama server. Every model call in the system goes through here.
 
-Model-agnostic: callers ask for a *role* (extract, narrate, classify, copilot, reason, embed) and
+Model-agnostic: callers ask for a *role* (extract, narrate, classify, reason, embed) and
 config/models.json names the one model serving it. EWS_MODEL_<ROLE> environment variables override it
 (e.g. EWS_MODEL_NARRATE=foundation-sec:8b-reasoning). There are deliberately no fallbacks.
 """

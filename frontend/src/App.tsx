@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
-import { Copilot } from './Copilot'
 import { HowItWorks } from './HowItWorks'
+import { Live, LiveFigures, useLive } from './Live'
 import { api, type AlertDetail as Detail, type Health } from './api'
 import { Now } from './Now'
 import { Orgs } from './Orgs'
 import { Proof } from './Proof'
-import { Footer, IntelFigures, OrgsFigures, ProofFigures, SocFigures, TopNav, type View } from './Shell'
+import { Footer, IntelFigures, OrgsFigures, ProofFigures, SocFigures, TopNav, type Go, type View } from './Shell'
 import { Soc } from './Soc'
 import { CaseBoard, OpsLog, OpsOverview, SystemView, WarningList } from './SocOps'
 import { Hero, Tabs, ToastProvider, WRAP } from './ui'
@@ -27,7 +27,20 @@ function initial(): { view: View; tab?: string } {
   const q = new URLSearchParams(window.location.search)
   const v = q.get('view') ?? 'now'
   if (LEGACY[v]) return { view: LEGACY[v][0], tab: q.get('tab') ?? LEGACY[v][1] }
-  return { view: (['now', 'soc', 'intel', 'orgs', 'proof'].includes(v) ? v : 'now') as View, tab: q.get('tab') ?? undefined }
+  return { view: (['now', 'live', 'soc', 'intel', 'orgs', 'proof'].includes(v) ? v : 'now') as View, tab: q.get('tab') ?? undefined }
+}
+
+/** Live: the running system. One poll feeds the hero figures and the page. */
+function LivePage({ go }: { go: Go }) {
+  const s = useLive()
+  return (
+    <>
+      <Hero title="Live" sub="Odyssey running right now: sensors, real feeds, detectors and the autopilot, refreshed every few seconds.">
+        <LiveFigures s={s} />
+      </Hero>
+      <main className={`${WRAP} flex flex-1 py-12`}><Live s={s} onGo={(v, t) => go(v, t)} /></main>
+    </>
+  )
 }
 
 export default function App() {
@@ -43,8 +56,6 @@ export default function App() {
   const [error, setError] = useState<string>()
   const [tick, setTick] = useState(0)
   const [connected, setConnected] = useState(false)
-  const askParam = new URLSearchParams(window.location.search).get('ask') ?? undefined // ?ask=<question> opens the copilot
-  const [copilot, setCopilot] = useState(askParam != null)
   const [pending, setPending] = useState<number>()
   const esRef = useRef<EventSource | null>(null)
   const staticMode = new URLSearchParams(window.location.search).has('nolive')
@@ -91,13 +102,15 @@ export default function App() {
   return (
     <ToastProvider>
     <div className="flex min-h-screen flex-col bg-ink">
-      <TopNav view={view} go={go} onAsk={() => setCopilot(true)} pending={pending} connected={connected} status={status} health={health} />
+      <TopNav view={view} go={go} pending={pending} connected={connected} status={status} health={health} />
 
       {error && <div className="bg-crit px-6 py-2 text-sm font-medium text-white">Cannot reach the engine ({error}). Start the API on :8000.</div>}
 
       {view === 'now' && (
         <Now onOpen={(c) => setSelected(c)} tick={tick} onOrg={(id) => { setOrg(id); go('orgs') }} onGo={(v, t) => go(v, t)} />
       )}
+
+      {view === 'live' && <LivePage go={go} />}
 
       {view === 'soc' && (
         <>
@@ -151,12 +164,6 @@ export default function App() {
       )}
 
       <Footer go={go} health={health} />
-
-      {copilot && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={() => setCopilot(false)}>
-          <div className="h-full p-3" onClick={(e) => e.stopPropagation()}><Copilot onClose={() => setCopilot(false)} initial={askParam && askParam !== '1' ? askParam : undefined} /></div>
-        </div>
-      )}
 
       {detail && selected && (
         <div className="fixed inset-0 z-40 flex justify-end bg-black/50 backdrop-blur-sm" onClick={() => setSelected(undefined)}>

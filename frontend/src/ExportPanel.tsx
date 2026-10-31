@@ -31,7 +31,7 @@ export function CertInReportModal({ orgId, cveId, onClose }: { orgId: string; cv
   const [report, setReport] = useState<Report>()
   if (!report) fetch(`/api/alerts/${orgId}/${cveId}/certin-report`).then((r) => r.json()).then(setReport)
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
       <div className="max-h-full w-[760px] overflow-auto rounded-2xl border border-line bg-panel p-6" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-start justify-between gap-4">
           <div>

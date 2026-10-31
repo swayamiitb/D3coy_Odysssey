@@ -401,6 +401,20 @@ def decide(conn: sqlite3.Connection, approval_id: int, approve: bool, actor: str
 
 
 def summary(conn: sqlite3.Connection) -> dict:
+    """Build-time summary plus everything the running system did since: actions it took on its own after the build
+    (live detections, drills, approvals carried out) are added, so the figures stay in sync with the audit trail."""
     rows = conn.execute("SELECT kind, COUNT(*) FROM ledger WHERE kind LIKE 'auto.%' GROUP BY kind").fetchall()
     meta = conn.execute("SELECT value FROM meta WHERE key = 'sentinel'").fetchone()
-    return {"counts": dict(rows), **(json.loads(meta[0]) if meta else {})}
+    out = {"counts": dict(rows), **(json.loads(meta[0]) if meta else {})}
+    row = conn.execute("SELECT value FROM meta WHERE key = 'built_at'").fetchone()
+    built = (dt.datetime.fromisoformat(row[0]).replace(tzinfo=dt.timezone(dt.timedelta(hours=5, minutes=30))).timestamp()
+             if row else None)  # built_at is IST wall-clock; ledger 'ingested' is epoch seconds
+    if built is not None and out.get("by_mode"):
+        since = conn.execute("""SELECT json_extract(payload, '$.autonomy'), COUNT(*) FROM ledger
+                                WHERE ingested > ? AND kind LIKE 'auto.%'
+                                  AND kind NOT IN ('auto.proposed', 'auto.withdrawn') GROUP BY 1""", (built,)).fetchall()
+        live = {k or "auto": n for k, n in since}
+        out["by_mode"] = {"auto": out["by_mode"]["auto"] + live.get("auto", 0),
+                          "approve": out["by_mode"]["approve"] + live.get("approve", 0)}
+        out["since_build"] = live
+    return out

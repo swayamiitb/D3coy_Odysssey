@@ -52,6 +52,11 @@ class Ledger:
 
     def append(self, *, ts: str, kind: str, subject: str, source: str, payload: dict,
                provenance: str = "REAL") -> str:
+        # Reading the head and inserting must be one write transaction, or two writers (the live engine and an
+        # analyst's click) can both chain from the same head and fork the chain. Inside a caller's write
+        # transaction the reserved lock is already held.
+        if not self.db.in_transaction:
+            self.db.execute("BEGIN IMMEDIATE")
         prev = self.head()
         body = _canon({"ts": ts, "kind": kind, "subject": subject, "source": source,
                        "provenance": provenance, "payload": payload})

@@ -262,3 +262,25 @@ def handover(conn: sqlite3.Connection) -> dict:
         lines.append(f"This shift: mean time to acknowledge {m['mtta_h']} h, to resolve {m['mttr_h'] or '-'} h, "
                      f"SLA met on {m['sla_pct'] if m['sla_pct'] is not None else '-'}% of closed cases.")
     return {"generated_at": _now(), "text": "\n".join(lines), "metrics": m}
+
+
+def open_case(conn: sqlite3.Connection, kind: str, title: str, org_id: str, severity: str, owner: str | None,
+              due_hours: float, alerts: list[str], product: str, assets: list[str], note: str) -> dict:
+    """A case opened while the system runs (live detection, drill), not at build time. Audited like every other
+    case action, so the SOC's metrics include it."""
+    ensure(conn)
+    n = conn.execute("SELECT COUNT(*) FROM soc_cases").fetchone()[0] + 1
+    while conn.execute("SELECT 1 FROM soc_cases WHERE id = ?", (f"CASE-{n:04d}",)).fetchone():
+        n += 1
+    cid, now = f"CASE-{n:04d}", dt.datetime.now(dt.timezone.utc)
+    playbook = [{"step": s, "done": False, "by": None, "at": None} for s in PLAYBOOKS[kind]]
+    conn.execute("INSERT INTO soc_cases (id, kind, title, org_id, severity, status, owner, created_at, due_at, alerts, "
+                 "playbook, notes, product, assets) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                 (cid, kind, title, org_id, severity, "new", owner, _iso(now), _iso(now + dt.timedelta(hours=due_hours)),
+                  json.dumps(alerts), json.dumps(playbook), json.dumps([{"ts": _iso(now), "by": "Odyssey", "text": note}]),
+                  product, json.dumps(assets)))
+    Ledger(conn=conn).append(ts=_iso(now), kind="auto.case_opened", subject=cid, source="ODYSSEY", provenance="AUTO",
+                             payload={"org_id": org_id, "title": title, "severity": severity, "owner": owner,
+                                      "due_hours": due_hours})
+    conn.commit()
+    return get(conn, cid)

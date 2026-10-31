@@ -60,7 +60,7 @@ export function HowItWorks() {
   const live = fc?.model.live
 
   const models: [string, string, string, string, string][] = [
-    ['Explain each warning, read advisories, answer analysts', 'MiST 8B (cybersecurity-tuned LLM)', 'LLM · Ollama', 'GPU',
+    ['Explain each warning and read advisories', 'MiST 8B (cybersecurity-tuned LLM)', 'LLM · Ollama', 'GPU',
       `${card ? `${card.briefs.validated}/${card.briefs.total} briefs pass the fact validator` : ''}${mist ? ` · vendor extraction ${mist.vendor_pct}%` : ''}`],
     ['Deep reasoning on critical alerts (batch)', 'Foundation-Sec-8B-Reasoning', 'security LLM', 'GPU', 'free-text analysis, never on the critical path'],
     ['Find products, versions, indicators in advisory text', 'SecureBERT 2.0 NER + IOC rules', 'security encoder', 'CPU', 'defanged IOCs, version vs IP disambiguation'],
@@ -70,6 +70,7 @@ export function HowItWorks() {
       live ? `catches ${live.odyssey.recall_pct}% of later-exploited CVEs flagging ${live.odyssey.flag_rate_pct}%` : ''],
     ['Is this asset compromised?', 'Bayesian decision model', 'probabilistic', 'CPU', 'every factor shown as a likelihood ratio'],
     ['Detect scanning surges and C2 beacons', 'robust z-score · periodicity/jitter', 'statistics', 'CPU', 'negative controls pass (test bench)'],
+    ['Spot unusual host traffic (lateral movement)', 'IsolationForest + robust-z gate', 'classic ML', 'CPU', '0 alerts in 240 quiet sensor-hours; drill caught (test bench)'],
     ['Block instructions hidden in advisories', 'DeBERTa-v3 injection classifier + rules', 'encoder', 'CPU', 'hostile 5/5 caught · benign 0/5 blocked'],
     ['Warnings in 22 Indian languages', 'IndicTrans2 (AI4Bharat) + validator', 'seq2seq', 'CPU', indic ? `${indic.validated}/${indic.total} sentences validated` : ''],
   ]

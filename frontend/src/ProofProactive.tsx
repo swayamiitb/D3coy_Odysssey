@@ -123,7 +123,7 @@ export function TestBench() {
     setBusy(true)
     fetch('/api/tests/run', { method: 'POST' }).then((r) => r.json()).then(setB).finally(() => setBusy(false))
   }
-  const layers = ['detection checks', 'integrity', 'engine tests']
+  const layers = ['attack drills', 'detection checks', 'integrity', 'engine tests']
   return (
     <section className="rounded-2xl border border-line bg-panel p-6">
       <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -135,8 +135,8 @@ export function TestBench() {
         </button>
       </div>
       <p className="mb-4 text-sm text-mute">
-        Detectors are tested on attack telemetry with negative controls (a detector that never says no proves nothing), the audit trail is
-        re-verified, and the full engine test suite runs on this laptop.
+        Attack drills run against a private copy of the data (scanning, an implant, a full intrusion), detectors are tested with negative
+        controls (a detector that never says no proves nothing), the audit trail is re-verified, and the full engine test suite runs on this laptop.
       </p>
       {!b?.ran_at && !busy && <div className="flex items-center gap-2 text-sm text-mute"><FlaskConical size={14} /> Not run in this session yet.</div>}
       {busy && <div className="flex items-center gap-2 text-sm text-mute"><Loader2 size={14} className="animate-spin" /> Running detectors, guard model and the engine test suite…</div>}

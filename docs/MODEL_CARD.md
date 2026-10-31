@@ -66,7 +66,7 @@ The two models are **statistically tied**. Most product misses are about naming 
 
 | Role | Model | Why |
 |---|---|---|
-| extract, classify, copilot, narrate | mist:8b | Best measured extraction and CWE among security models; fastest; Apache-2.0; Qwen3 template with tool support |
+| extract, classify, narrate | mist:8b | Best measured extraction and CWE among security models; fastest; Apache-2.0; Qwen3 template with tool support |
 | reason (Critical-alert deep analysis) | foundation-sec:8b-reasoning | Security reasoning traces; free-text only |
 | CWE / CVSS | TF-IDF classifiers; LLM adjudicates the top-3 CWE | Beat every LLM by a wide margin |
 | translate (22 scheduled Indian languages) | IndicTrans2 en-indic dist-200M (AI4Bharat, MIT), CPU | The only open model covering all 22; runs beside the GPU LLM |
@@ -119,9 +119,22 @@ Otherwise the English line is shown with a "translation withheld" badge.
 - **Low precision (5%):** exploitation is rare (base rate 0.16%), so forecasts become *proposals* for an analyst.
 - **Use:** it feeds the Bayesian decision model as its prior, P(attack) = p·P(attack | exploited) + (1−p)·P(attack | not exploited).
 
-## Analyst copilot (MiST 8B)
+## Live detectors (CPU, run every 5 s by the live engine)
 
-- **Tool choice:** the model only chooses one read-only tool from a closed enum (JSON-schema constrained).
-- **Entities:** CVE ids, organisations, sectors, tiers, products and "exploited" are resolved deterministically. In testing, an 8B model filled these arguments unreliably, e.g. "power-sector" became the BFSI sector.
-- **Answers:** must cite numbered facts and pass the same grounding validator as the briefs; there is one repair round, then the answer is withheld.
-- **Count facts:** every tool's facts start with an explicit count. Without it, the model once answered "none" while its facts listed 8 proposals, which a token validator cannot catch.
+The live engine (`backend/app/live.py`) reads the national decoy grid and enterprise firewall flows (both simulated
+and labelled SIM, accelerated so one 5-second tick is one sensor-hour) and runs three detectors on them.
+
+| Detector | Method | Fires when |
+|---|---|---|
+| Scanning surge | robust z-score (median / MAD over the last 72 ticks) on sessions **and** unique sources per product, plus breadth | z(sessions) ≥ 4, z(sources) ≥ 3, ≥ 3 sensors each above 3× their own median |
+| C2 beacon | RITA-style periodicity on (source, destination, port) flows | ≥ 30 connections with interval coefficient of variation ≤ 0.2 |
+| Flow anomaly | IsolationForest (200 trees) on per-host hourly features: connections, destinations, internal destinations, ports, bytes; trained on ten sensor-days of ordinary traffic | score below the training 0.1% quantile **and** fan-out, ports or bytes ≥ 6 robust z above baseline. IsolationForest scores saturate beyond the training range, so the z-gate both separates an internal sweep from a busy host and names the reason. |
+
+Measured on this laptop (test bench, attack-drill layer, private copy of the data):
+- **240 sensor-hours of ordinary traffic:** 0 detections. A separate 720-tick run also gave 0.
+- **Mass scanning drill:** surge caught within 1 tick.
+- **Implant drill:** beacon caught within 1 tick; an incident case opens and the regulator report is proposed.
+- **Full intrusion drill:** scan, implant and lateral movement caught in that order, within 6 ticks.
+
+Response follows the same graduated autonomy as the pipeline. Evidence of compromise acts at once: notice, CERT-In
+draft, hunt and SOC case. Sensor-only early warnings and regulator escalations are proposals for an analyst.

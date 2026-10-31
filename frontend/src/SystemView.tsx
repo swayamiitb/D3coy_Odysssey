@@ -66,7 +66,7 @@ export function SystemView() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Tile value={runs.toLocaleString('en-IN')} title="AI jobs, timed and checked" sub="briefs, copilot answers, translations, advisory analysis" onClick={() => setSheet('ai')} />
+        <Tile value={runs.toLocaleString('en-IN')} title="AI jobs, timed and checked" sub="briefs, translations, advisory analysis" onClick={() => setSheet('ai')} />
         <Tile value={apiP50 != null ? `${apiP50} ms` : '—'} title="Typical API response" sub={`median across ${t.api.length} routes since start`} onClick={() => setSheet('api')} />
         <Tile value={t.ledger.events.toLocaleString('en-IN')} title="Audit-trail events" sub={`${t.ledger.per_min} new per minute · hash-chained`} onClick={() => setSheet('ledger')} />
         <Tile value={stages.length ? `${Math.round(stages.reduce((s, x) => s + x.seconds, 0))} s` : '—'} title="Last full rebuild" sub={t.pipeline.built_at?.replace('T', ' ').slice(0, 16) ?? 'not yet timed'} onClick={() => setSheet('build')} />

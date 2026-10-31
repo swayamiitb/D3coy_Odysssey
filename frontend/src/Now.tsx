@@ -74,8 +74,32 @@ function title(c: Card) {
   return c.headline ?? `${c.cve_id} · ${c.title.split('.')[0]}`
 }
 
+/** One line in the hero that proves the system is running: sensors, feeds, the last detection. */
+function LiveStrip({ onOpen }: { onOpen: () => void }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [s, setS] = useState<any>()
+  useEffect(() => {
+    let alive = true
+    const pull = () => fetch('/api/live').then((r) => (r.ok ? r.json() : undefined)).then((d) => alive && setS(d)).catch(() => undefined)
+    pull()
+    const id = setInterval(pull, 5000)
+    return () => { alive = false; clearInterval(id) }
+  }, [])
+  if (!s) return null
+  const fresh = s.feeds.filter((f: { status: string }) => f.status === 'fresh').length
+  const last = s.detections[0]
+  return (
+    <button onClick={onOpen} className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 text-left text-band-mute hover:text-white">
+      <span className="flex items-center gap-2 font-semibold text-white"><span className="h-2 w-2 animate-pulse rounded-full bg-ok" /> Live</span>
+      <span>{s.sensors} decoy sensors reporting</span><span>·</span>
+      <span>{fresh}/{s.feeds.length} real feeds fresh</span><span>·</span>
+      <span>{last ? `last detection: ${last.title.slice(0, 60)}${last.title.length > 60 ? '…' : ''}` : 'no detections: quiet'}</span>
+    </button>
+  )
+}
+
 export function Now({ onOpen, onOrg, onGo, tick }: {
-  onOpen: (c: Card) => void; onOrg: (id: string) => void; onGo: (view: 'soc' | 'intel', tab: string) => void; tick: number
+  onOpen: (c: Card) => void; onOrg: (id: string) => void; onGo: (view: 'soc' | 'intel' | 'live', tab: string) => void; tick: number
 }) {
   const [feed, setFeed] = useState<Feed>()
   const [soc, setSoc] = useState<Soc>()
@@ -125,6 +149,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
                 Open cases
               </button>
             </div>
+            <LiveStrip onOpen={() => onGo('live', '')} />
           </div>
 
           {hero ? (

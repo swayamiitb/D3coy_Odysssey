@@ -6,7 +6,9 @@ Run: .venv/Scripts/python -m uvicorn backend.app.main:app --port 8000
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -16,7 +18,7 @@ from .engine.ledger import Ledger
 from .engine.scoring import config as scoring_config
 
 ROOT = Path(__file__).resolve().parents[2]
-DB_PATH = ROOT / "data" / "ews.db"
+DB_PATH = Path(os.environ.get("ODYSSEY_DB") or ROOT / "data" / "ews.db")  # override: run a copy (audits, drills)
 MODELS = json.loads((ROOT / "config" / "models.json").read_text(encoding="utf-8"))
 TIER_RANK = {"Compromise": 4, "Critical": 3, "High": 2, "Medium": 1, "Watch": 0}
 EXPOSED = 0.6
@@ -461,14 +463,16 @@ def campaigns(limit: int = 12) -> list[dict]:
 
 
 _SCORECARD_CACHE: dict = {}
+_SCORECARD_LOCK = threading.Lock()
 
 
 @app.get("/api/scorecard")
 def scorecard_view(refresh: bool = False) -> dict:
     """Measured proof: model evals, noise reduction, exposure precision, brief grounding, real KEV backtest."""
     from .engine.scorecard import scorecard
-    if refresh or "data" not in _SCORECARD_CACHE:
-        _SCORECARD_CACHE["data"] = scorecard(db())
+    with _SCORECARD_LOCK:  # computed once, even when the warm-up and a visitor ask at the same moment
+        if refresh or "data" not in _SCORECARD_CACHE:
+            _SCORECARD_CACHE["data"] = scorecard(db())
     return _SCORECARD_CACHE["data"]
 
 
@@ -571,7 +575,7 @@ def ledger_verify() -> dict:
 # ---------------------------------------------------------------- proactive layer: autopilot, human in the loop
 def _events(where: str, args: tuple, limit: int) -> list[dict]:
     rows = db().execute(f"""SELECT seq, ts, kind, subject, source, provenance, payload FROM ledger
-                            WHERE (kind LIKE 'auto.%' OR kind IN ('analyst.approve', 'analyst.reject')) {where}
+                            WHERE (kind LIKE 'auto.%' OR kind LIKE 'live.%' OR kind IN ('analyst.approve', 'analyst.reject')) {where}
                             ORDER BY ts DESC, seq DESC LIMIT ?""", (*args, limit)).fetchall()
     return [{**{k: r[k] for k in ("seq", "ts", "kind", "subject", "source", "provenance")},
              "payload": json.loads(r["payload"])} for r in rows]
@@ -674,16 +678,26 @@ def intel_advisories() -> list[dict]:
     return advisories_matched(db())
 
 
+_TECH_CACHE: dict = {}
+
+
 @app.get("/api/intel/technologies")
 def intel_technologies() -> list[dict]:
-    """Affected technologies across the constituency (dashboard: active threats by technology)."""
+    """Affected technologies across the constituency (dashboard: active threats by technology). About 2 s to compute,
+    so it is kept for two minutes."""
     import datetime as _dt
+    import time as _time
 
     from .engine.campaigns import build
     from .engine.intel import technologies
+    hit = _TECH_CACHE.get("data")
+    if hit and _time.time() - hit[0] < 120:
+        return hit[1]
     conn = db()
     snap = conn.execute("SELECT value FROM meta WHERE key='snapshot_date'").fetchone()[0]
-    return technologies(conn, build(conn, _dt.date.fromisoformat(snap)))
+    out = technologies(conn, build(conn, _dt.date.fromisoformat(snap)))
+    _TECH_CACHE["data"] = (_time.time(), out)
+    return out
 
 
 @app.get("/api/intel/attacks")
@@ -767,50 +781,6 @@ def tests_last() -> dict:
     if "last" not in _TESTS and saved.exists():
         _TESTS["last"] = json.loads(saved.read_text(encoding="utf-8"))
     return _TESTS.get("last") or {"ran_at": None, "results": []}
-
-
-COPILOT_VERSION = "copilot-v7"  # tool chosen by the model; entities resolved deterministically; loop-safe decoding
-
-
-@app.post("/api/copilot")
-def copilot(body: dict) -> dict:
-    """Analyst copilot: plain-language question -> one read-only tool -> numbered facts -> grounded, validated answer
-    (optionally delivered in an Indian language through the validated translation path)."""
-    import sys
-    from datetime import datetime, timezone
-
-    import httpx
-
-    from . import cache
-    from .ai.copilot import ask, protected_terms
-    question = (body.get("question") or "").strip()[:500]
-    lang = body.get("lang") or "en"
-    if len(question) < 4:
-        raise HTTPException(400, "ask a question")
-    conn = db()
-    built = conn.execute("SELECT value FROM meta WHERE key = 'built_at'").fetchone()[0]
-    key = cache.key_of("copilot", COPILOT_VERSION, built, question)
-    result = cache.get("copilot", key)
-    if result:
-        result = {**result, "cached": True}
-    else:
-        result = {**ask(conn, question, sys.modules[__name__]), "cached": False}
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        Ledger(conn=conn).append(ts=now, kind="model.output", subject="copilot", source=f"MODEL:{result['model']}",
-                                 provenance="AI", payload={"role": "copilot", "question": question,
-                                                           "tool": result["route"].get("tool"), "status": result["status"]})
-        cache.put("copilot", key, result, now, question[:80])
-    if lang != "en" and result.get("answer"):
-        a = result["answer"]
-        texts = [a["answer"]] + [p["text"] for p in a["points"]]
-        protect = protected_terms(result) + [r[0] for r in conn.execute("SELECT name FROM orgs").fetchall()]
-        try:
-            r = httpx.post(f"{MT_URL}/translate", json={"texts": texts, "lang": lang, "protect": protect}, timeout=300)
-            r.raise_for_status()
-            result["translation"] = {"lang": lang, **{k: r.json()[k] for k in ("model", "rtl", "results")}}
-        except httpx.HTTPError as exc:
-            result["translation"] = {"lang": lang, "error": str(exc)}
-    return result
 
 
 @app.get("/api/telemetry")
@@ -899,3 +869,69 @@ def soc_metrics() -> dict:
 def soc_handover() -> dict:
     from .engine import soc
     return soc.handover(db())
+
+
+# ---------------------------------------------------------------- live: the system running, drills, feed watch
+@app.on_event("startup")
+async def _start_live() -> None:
+    """Warm the slow read models in the background (the Proof scorecard takes ~20 s cold), then start the live engine
+    (sensors, detectors, autopilot, feed watch) unless ODYSSEY_LIVE=0 (tests, e2e copies)."""
+    import threading
+
+    from . import live
+    if not DB_PATH.exists():
+        return
+
+    def warm() -> None:
+        for fn in (scorecard_view, intel_technologies):
+            try:
+                fn()
+            except Exception as exc:  # noqa: BLE001 - a failed warm-up only means a slower first visit
+                print(f"warm-up {fn.__name__} failed: {exc!r}", flush=True)
+    threading.Thread(target=warm, daemon=True).start()
+    if os.environ.get("ODYSSEY_LIVE", "1") == "0":
+        return
+    live.ENGINE = live.Live(db)
+    live.ENGINE.start()
+
+
+def _engine():
+    from . import live
+    if live.ENGINE is None:
+        raise HTTPException(503, "live engine is off (ODYSSEY_LIVE=0)")
+    return live.ENGINE
+
+
+@app.get("/api/live")
+def live_status() -> dict:
+    """The running system: sensor streams with their z-scores, detections, real-feed freshness, drills, and what
+    each stage of the pipeline did in the last hour."""
+    import time as _time
+    from .engine import soc
+    st = _engine().status()
+    conn, hour = db(), _time.time() - 3600
+    soc.ensure(conn)
+    count = lambda q, *a: conn.execute(q, a).fetchone()[0]  # noqa: E731
+    st["pipeline"] = {
+        "detections_hour": count("SELECT COUNT(*) FROM ledger WHERE kind LIKE 'live.detect.%' AND ingested > ?", hour),
+        "auto_hour": count("SELECT COUNT(*) FROM ledger WHERE kind LIKE 'auto.%' AND kind NOT IN ('auto.proposed', "
+                           "'auto.withdrawn') AND ingested > ?", hour),
+        "proposed_hour": count("SELECT COUNT(*) FROM ledger WHERE kind = 'auto.proposed' AND ingested > ?", hour),
+        "human_hour": count("SELECT COUNT(*) FROM ledger WHERE provenance = 'HUMAN' AND ingested > ?", hour),
+        "pending": count("SELECT COUNT(*) FROM approvals WHERE status = 'pending'"),
+        "open_cases": count("SELECT COUNT(*) FROM soc_cases WHERE status NOT IN ('resolved', 'false_positive')"),
+        "live_cases": count("SELECT COUNT(*) FROM ledger WHERE kind = 'auto.case_opened'"),
+        "events_hour": count("SELECT COUNT(*) FROM ledger WHERE ingested > ?", hour),
+    }
+    return st
+
+
+@app.post("/api/live/drill/{scenario}")
+def live_drill(scenario: str) -> dict:
+    """Start an attack drill (DRILL-labelled simulated traffic) and watch detection and response happen."""
+    try:
+        return _engine().start_drill(scenario)
+    except KeyError as exc:
+        raise HTTPException(404, f"unknown drill {scenario}") from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc

@@ -1,6 +1,6 @@
 import {
-  BadgeCheck, ClipboardList, CircleCheck, CircleSlash, Crosshair, FileText, Hand, Loader2, Mail, Radar, Send,
-  ShieldAlert, Timer, TrendingUp, Undo2, UserCheck, UserX, type LucideIcon,
+  BadgeCheck, Briefcase, ClipboardList, CircleCheck, CircleSlash, Crosshair, FileText, FlaskConical, Hand, Loader2, Mail,
+  Radar, Send, ShieldAlert, Timer, TrendingUp, Undo2, UserCheck, UserX, Waypoints, type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, type Approval, type AutoEvent, type ForecastView, type Language } from './api'
@@ -23,6 +23,12 @@ export const KIND: Record<string, { label: string; icon: LucideIcon; tone: strin
   'auto.hunt': { label: 'Threat hunt', icon: Crosshair, tone: 'text-mute' },
   'auto.proposed': { label: 'Proposed', icon: Hand, tone: 'text-high' },
   'auto.withdrawn': { label: 'Withdrawn', icon: Undo2, tone: 'text-mute' },
+  'auto.case_opened': { label: 'Case opened', icon: Briefcase, tone: 'text-comp' },
+  'live.detect.surge': { label: 'Surge detected', icon: Radar, tone: 'text-high' },
+  'live.detect.beacon': { label: 'C2 beacon detected', icon: ShieldAlert, tone: 'text-crit' },
+  'live.detect.anomaly': { label: 'Flow anomaly detected', icon: Waypoints, tone: 'text-high' },
+  'live.drill.start': { label: 'Drill started', icon: FlaskConical, tone: 'text-mute' },
+  'live.drill.end': { label: 'Drill finished', icon: FlaskConical, tone: 'text-mute' },
   'analyst.approve': { label: 'Approved', icon: UserCheck, tone: 'text-ok' },
   'analyst.reject': { label: 'Rejected', icon: UserX, tone: 'text-mute' },
 }

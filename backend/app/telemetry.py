@@ -126,7 +126,7 @@ def _pct(values: list[float], q: float) -> float | None:
     return round(s[min(len(s) - 1, int(q * (len(s) - 1) + 0.5))], 1)
 
 
-_ROLE = {"narrate": "Analyst brief", "brief": "Analyst brief", "copilot": "Copilot answer", "extract": "Advisory mapping",
+_ROLE = {"narrate": "Analyst brief", "brief": "Analyst brief", "extract": "Advisory mapping",
          "advisory": "Advisory analysis", "translate": "Translation"}
 
 
@@ -142,7 +142,7 @@ def _on_record() -> list[dict]:
     """AI work measured when it was first generated; the content-addressed cache has served it since."""
     from . import cache
     groups: dict[tuple[str, str], list[tuple[float, float, float]]] = collections.defaultdict(list)
-    for kind, body in cache._conn().execute("SELECT kind, body FROM ai_cache").fetchall():
+    for kind, body in cache._conn().execute("SELECT kind, body FROM ai_cache WHERE kind IN ('brief', 'translate', 'advisory')").fetchall():
         b = json.loads(body)
         if kind == "advisory":
             groups[(kind, "SecureBERT 2.0 NER + DeBERTa guard")].append(
@@ -202,7 +202,8 @@ def heatmaps(conn: sqlite3.Connection, org_id: str | None = None) -> dict:
     labels = {"auto.notify": "Notices", "auto.digest": "Daily digests", "auto.forecast": "Pre-emptive advisories",
               "auto.warn": "Early warnings", "auto.baseline": "Baselines", "auto.escalate": "Regulator reports",
               "auto.escalate_sla": "SLA escalations", "auto.hunt": "Threat hunts", "auto.report": "Report drafts",
-              "auto.confirm": "Warnings confirmed", "auto.stand_down": "Stand-downs", "auto.advisory": "Advisory notices"}
+              "auto.confirm": "Warnings confirmed", "auto.stand_down": "Stand-downs", "auto.advisory": "Advisory notices",
+              "auto.case_opened": "Cases opened (live)"}
     where, args = ("AND json_extract(payload, '$.org_id') = ?", (org_id,)) if org_id else ("", ())
     rows = conn.execute(f"""SELECT kind, substr(ts, 1, 10), COUNT(*) FROM ledger
                             WHERE kind LIKE 'auto.%' AND kind NOT IN ('auto.proposed', 'auto.withdrawn') {where}

@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 from pathlib import Path
 
-PATH = Path(__file__).resolve().parents[2] / "data" / "cache.db"
+PATH = Path(os.environ.get("ODYSSEY_CACHE") or Path(__file__).resolve().parents[2] / "data" / "cache.db")
 _SCHEMA = """CREATE TABLE IF NOT EXISTS ai_cache (kind TEXT, key TEXT, created TEXT, body TEXT, PRIMARY KEY (kind, key));
 CREATE TABLE IF NOT EXISTS ai_index (kind TEXT, subject TEXT, key TEXT, PRIMARY KEY (kind, subject));"""
 

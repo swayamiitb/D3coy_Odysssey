@@ -18,7 +18,7 @@ export function Spark({ values, bands = [], color = 'var(--color-accent)', h = 3
   const y = (v: number) => h - 2 - (v / max) * (h - 4)
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="h-9 w-full" preserveAspectRatio="none" role="img">
-      {bands.map(([a, b], i) => <rect key={i} x={x(a)} y={0} width={Math.max(x(b) - x(a), 2)} height={h} fill="#d946ef" opacity={0.18} />)}
+      {bands.map(([a, b], i) => <rect key={i} x={x(a)} y={0} width={Math.max(x(b) - x(a), 2)} height={h} fill="var(--color-crit)" opacity={0.14} />)}
       <polyline points={values.map((v, i) => `${x(i)},${y(v)}`).join(' ')} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
     </svg>
   )

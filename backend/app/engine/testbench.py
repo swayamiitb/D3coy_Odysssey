@@ -126,9 +126,54 @@ def _detections(conn) -> list[dict]:
     ]
 
 
+def _drills(conn) -> list[dict]:
+    """Attack drills against a private copy of the database: the live engine must catch each attack in order and
+    respond as the policy says, and must stay quiet on ordinary traffic. The live database is never touched."""
+    import shutil
+    import sqlite3
+    import tempfile
+    from pathlib import Path
+
+    from .. import live
+    tmp = Path(tempfile.mkdtemp(prefix="odyssey-bench-"))
+    copy = sqlite3.connect(tmp / "ews.db")
+    conn.backup(copy)
+    copy.close()
+    eng = live.Live(lambda: sqlite3.connect(tmp / "ews.db", timeout=30, check_same_thread=False))
+    eng.next_feed = float("inf")  # real feeds are not part of a repeatable test
+
+    def quiet():
+        for _ in range(240):
+            eng.tick()
+        return not eng.detections, (f"{eng.ticks} sensor-hours of ordinary traffic (24 decoys, ~150 firewall flows an "
+                                    f"hour): {len(eng.detections)} detection(s)")
+
+    def drill(scenario: str):
+        def check():
+            eng.start_drill(scenario)
+            for _ in range(25):
+                eng.tick()
+                if eng.drill["status"] != "running":
+                    break
+            d = eng.drill
+            order = sorted(d["detected"], key=lambda k: d["detected"][k]["at"])
+            ok = d["status"] == "passed" and order == [k for k in d["expect"]] and (scenario == "scan" or d["case"])
+            return ok, (f"{' → '.join(order) or 'nothing'} detected within {eng.ticks - d['tick0']} tick(s)"
+                        + (f"; {d['case']} opened and the regulator report proposed" if d["case"] else
+                           "; early warning proposed for an analyst"))
+        return check
+
+    out = [_check("Ordinary traffic raises nothing (negative control)", quiet),
+           _check("Drill: mass scanning of FortiGate decoys is caught as a surge", drill("scan")),
+           _check("Drill: an implant beaconing to a real C2 is caught and an incident case opens", drill("beacon")),
+           _check("Drill: scan, implant, lateral movement are caught in that order", drill("chain"))]
+    shutil.rmtree(tmp, ignore_errors=True)
+    return [{**r, "layer": "attack drills"} for r in out]
+
+
 def run(conn) -> dict:
     started = time.perf_counter()
-    results = _detections(conn) + _pytest()
+    results = _detections(conn) + _drills(conn) + _pytest()
     return {"ran_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
             "seconds": round(time.perf_counter() - started, 1), "passed": sum(r["passed"] for r in results),
             "total": len(results), "results": results}

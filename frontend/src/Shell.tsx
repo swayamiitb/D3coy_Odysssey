@@ -1,4 +1,4 @@
-import { Search, ShieldCheck } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, type Health, type Soc, type Technology } from './api'
 import { Figures, WRAP } from './ui'
@@ -6,13 +6,13 @@ import { Figures, WRAP } from './ui'
 /* The Oreo frame around every page: black nav on top, black footer at the bottom, the page's own black hero band in
    between, and a white body. */
 
-export type View = 'now' | 'soc' | 'intel' | 'orgs' | 'proof'
+export type View = 'now' | 'live' | 'soc' | 'intel' | 'orgs' | 'proof'
 export type Go = (view: View, tab?: string) => void
 
-const NAV: [View, string][] = [['now', 'Now'], ['soc', 'SOC'], ['intel', 'Intel'], ['orgs', 'Organisations'], ['proof', 'Proof']]
+const NAV: [View, string][] = [['now', 'Now'], ['live', 'Live'], ['soc', 'SOC'], ['intel', 'Intel'], ['orgs', 'Organisations'], ['proof', 'Proof']]
 
-export function TopNav({ view, go, onAsk, pending, connected, status, health }: {
-  view: View; go: Go; onAsk: () => void; pending?: number; connected: boolean; status: string; health?: Health
+export function TopNav({ view, go, pending, connected, status, health }: {
+  view: View; go: Go; pending?: number; connected: boolean; status: string; health?: Health
 }) {
   const [menu, setMenu] = useState(false)
   return (
@@ -22,16 +22,13 @@ export function TopNav({ view, go, onAsk, pending, connected, status, health }: 
         <nav className="flex items-center gap-1">
           {NAV.map(([k, label]) => (
             <button key={k} onClick={() => go(k)}
-                    className={`rounded-full px-3.5 py-2 text-[15px] font-medium transition ${view === k ? 'bg-band-3 text-white' : 'text-white hover:bg-band-3'}`}>
+                    className={`flex items-center gap-2 rounded-full px-3.5 py-2 text-[15px] font-medium transition ${view === k ? 'bg-band-3 text-white' : 'text-white hover:bg-band-3'}`}>
+              {k === 'live' && <span className={`h-2 w-2 rounded-full ${connected ? 'animate-pulse bg-ok' : 'bg-watch'}`} />}
               {label}
             </button>
           ))}
         </nav>
-        <button onClick={onAsk}
-                className="ml-auto flex w-80 max-w-[26vw] items-center gap-2.5 rounded-full bg-band-3 px-4 py-2 text-left text-[15px] text-band-mute hover:bg-white/25">
-          <Search size={16} className="text-white" /> <span className="truncate">Ask Odyssey anything</span>
-        </button>
-        <button onClick={() => go('soc', 'overview')} className="rounded-full bg-white px-4 py-2 text-[15px] font-medium text-black hover:bg-panel-3">
+        <button onClick={() => go('soc', 'overview')} className="ml-auto rounded-full bg-white px-4 py-2 text-[15px] font-medium text-black hover:bg-panel-3">
           {pending != null ? `${pending} decisions` : 'Decisions'}
         </button>
         <div className="relative">
@@ -60,7 +57,7 @@ export function TopNav({ view, go, onAsk, pending, connected, status, health }: 
 }
 
 const FOOT: [string, [string, View, string?][]][] = [
-  ['Operate', [['Now', 'now'], ['SOC overview', 'soc', 'overview'], ['Cases', 'soc', 'cases'], ['All warnings', 'soc', 'warnings'], ['Autopilot log', 'soc', 'log']]],
+  ['Operate', [['Now', 'now'], ['Live and attack drills', 'live'], ['SOC overview', 'soc', 'overview'], ['Cases', 'soc', 'cases'], ['All warnings', 'soc', 'warnings'], ['Autopilot log', 'soc', 'log']]],
   ['Understand', [['Threat picture', 'intel', 'overview'], ['Threats & sources', 'intel', 'threats'], ['Risk plan', 'intel', 'risk'], ['Advisories', 'intel', 'advisories'], ['Organisations', 'orgs']]],
   ['Trust', [['Evidence', 'proof', 'evidence'], ['How it works', 'proof', 'how'], ['System telemetry', 'soc', 'system']]],
 ]

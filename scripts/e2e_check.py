@@ -7,7 +7,7 @@ writing), the API is pointed at the copies, and the script makes the same HTTP c
   - loads every view (Now, SOC, Intel, Organisations, Proof) and an alert's detail sheet;
   - approves one proposal and rejects another (human in the loop), and checks that the notices went out;
   - works the top warning through its lifecycle, and a SOC case from new to closed;
-  - asks the copilot and analyses a pasted advisory (security LLM and encoders; skipped with --no-ai);
+  - analyses a pasted advisory (guard model and encoders; skipped with --no-ai);
   - re-verifies the hash-chained audit trail.
 The live databases are never touched. Exit code 1 if any check fails.
 """
@@ -22,6 +22,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+import os  # noqa: E402
+
+os.environ.setdefault("ODYSSEY_LIVE", "0")  # the copy is driven by this script, not by a second live engine
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -167,14 +171,6 @@ def main_() -> int:
         check("SOC case: assign, work the playbook, note, close", case_flow)
 
         # ---------------------------------------------------------------- AI paths
-        def copilot():
-            if no_ai:
-                raise Skip("--no-ai")
-            out = post("/api/copilot", {"question": "Which organisations should patch first today?"})
-            assert out["status"] == "validated", f"{out['status']}: {out.get('problems')}"
-            return f"{out['route']['tool'] if isinstance(out.get('route'), dict) else out.get('route')} · {out['seconds']} s"
-        check("copilot answers from facts, every number checked", copilot)
-
         def advisory():
             if no_ai:
                 raise Skip("--no-ai")
@@ -190,6 +186,27 @@ def main_() -> int:
             assert "fortiupdate-check[.]com" in out["iocs"]["domains"], f"attacker domain missed: {out['iocs']['domains']}"
             return f"{len(exposed)} exposed matches · IOCs {ips + out['iocs']['domains']} · guard {out['guard']['verdict']}"
         check("advisory analysis: matched to the inventory", advisory)
+
+        def live_drills():
+            from backend.app import live
+            live.ENGINE = eng = live.Live(main.db)
+            eng.next_feed = float("inf")
+            pending, cases = len(get("/api/approvals")), get("/api/soc/metrics")["open"]
+            seen = []
+            for scenario in ("scan", "beacon", "chain"):
+                d = post(f"/api/live/drill/{scenario}")
+                for _ in range(25):
+                    eng.tick()
+                    st = get("/api/live")
+                    if st["drill"]["status"] != "running":
+                        break
+                assert st["drill"]["status"] == "passed", f"{d['id']} {st['drill']['status']}: {st['drill']['detected']}"
+                seen.append(f"{scenario}: {'+'.join(st['drill']['detected'])}")
+            grew = len(get("/api/approvals")) - pending
+            opened = get("/api/soc/metrics")["open"] - cases
+            assert grew >= 3 and opened == 2, f"{grew} new proposals, {opened} new cases"
+            return f"{' · '.join(seen)}; {grew} proposals wait for a person, {opened} incident cases opened"
+        check("live engine: three attack drills detected and answered", live_drills)
 
         def ledger():
             v = get("/api/ledger/verify")

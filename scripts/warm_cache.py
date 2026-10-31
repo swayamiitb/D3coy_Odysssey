@@ -3,7 +3,6 @@
 
   - AI briefs for the warnings on the "Now" feed, translated into each organisation's own language (plus --langs);
   - the advisory inbox (real CISA advisories + samples): analysis, and the approval-gated notification proposals;
-  - copilot answers to the suggested questions;
   - one run of the test bench, so the Proof page shows fresh results.
 
 Usage: .venv/Scripts/python scripts/warm_cache.py [--limit 10] [--langs hi]  (any of the 22 codes from /api/languages)
@@ -19,14 +18,6 @@ import httpx
 
 API = "http://127.0.0.1:8000"
 ROOT = Path(__file__).resolve().parents[1]
-QUESTIONS = [
-    "Which power-sector organisations face known-exploited issues?",
-    "What should Vidyut Grid West Corp fix first?",
-    "Which new CVEs are likely to be exploited soon?",
-    "What did Odyssey do on its own recently?",
-    "Tell me about CVE-2026-104935",
-    "What is waiting for my approval?",
-]
 
 
 def main() -> int:
@@ -54,11 +45,6 @@ def main() -> int:
     adv = httpx.get(f"{API}/api/advisories", timeout=900).json()
     print(f"advisories: {len(adv)} analysed ({time.time() - t:.0f}s); "
           f"{len(httpx.get(f'{API}/api/approvals', timeout=60).json())} proposals pending", flush=True)
-
-    for q in QUESTIONS:
-        t = time.time()
-        r = httpx.post(f"{API}/api/copilot", json={"question": q}, timeout=600).json()
-        print(f"copilot [{r['status']}] {q} ({time.time() - t:.0f}s)", flush=True)
 
     t = time.time()
     bench = httpx.post(f"{API}/api/tests/run", timeout=900).json()
