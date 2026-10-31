@@ -31,7 +31,8 @@ for (const s of sources) {
     const body = await (await fetch(url, { signal: AbortSignal.timeout(20_000) })).json()
     const loc = body.data?.located_resources?.[0]?.locations?.[0]
     if (!loc?.country) { console.log(`${s.ip}: no location`); continue }
-    const c = byCountry.get(loc.country) ?? { country: loc.country, ips: 0, records: 0, targets: 0 }
+    // Each country keeps the location of its most-reported IP (sources are sorted by reports), not the country centre.
+    const c = byCountry.get(loc.country) ?? { country: loc.country, ips: 0, records: 0, targets: 0, lat: loc.latitude, lon: loc.longitude, city: loc.city || null }
     c.ips++
     c.records += s.count ?? 0
     c.targets += s.attacks ?? 0

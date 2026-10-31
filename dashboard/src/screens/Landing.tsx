@@ -13,6 +13,7 @@ import { date, dateTime, duration, num, sla } from '../format'
 import attackers from '../geo/attackers.json'
 import feodo from '../geo/feodo.json'
 import { anglesFor, COUNTRY_CENTROID, MAP_CENTRE, refang, sideOf, slerp, spread, STATE_CENTROID, stateName, type LatLng } from '../geo/geo'
+import { FlatWorld, type FlatState } from '../geo/FlatWorld'
 import { Globe, hasWebGL, type GlobeFrame } from '../geo/Globe'
 import { describeState, IndiaMap, type Origin, type StateThreat } from '../geo/IndiaMap'
 import { takeScroll } from '../scroll'
@@ -73,6 +74,8 @@ const INDIA_SCALE = 1.85
 /** India's height on cobe's sphere as a share of its radius (lat 6.75–37.08 seen from the map's centre). */
 const INDIA_FRACTION = 0.523
 const INDIA_CAM = camAt(MAP_CENTRE, INDIA_SCALE)
+/** India facing us with the whole sphere in view: the pose the globe unrolls from in the last beat. */
+const INDIA_FULL = camAt(MAP_CENTRE, 1)
 
 // ---- scene -------------------------------------------------------------------------------------------------------
 
@@ -125,13 +128,13 @@ function buildScene(soc: Soc | null, beaconOrg: string | null, beaconIp: string 
 /** Scroll timeline (p = 0..1). The map takes over from the globe twice; the arc completes at 0.66 and holds. */
 const T = {
   toIndia: [0.12, 0.28], dive1: [0.27, 0.35], fade1: [0.29, 0.36], undive: [0.44, 0.49], arc: [0.5, 0.66],
-  arcFade: [0.74, 0.79], back: [0.75, 0.83], dive2: [0.81, 0.89], fade2: [0.83, 0.9],
+  arcFade: [0.74, 0.79], back: [0.75, 0.83], unroll: [0.83, 0.93],
 } as const
 const at = (k: keyof typeof T, p: number) => ease(T[k][0], T[k][1], p)
 /** How much of the India map shows over the globe. */
-const mapShare = (p: number) => at('fade1', p) * (1 - at('undive', p)) + at('fade2', p)
+const mapShare = (p: number) => at('fade1', p) * (1 - at('undive', p))
 /** How far the camera has dived towards the map's size. */
-const diveShare = (p: number) => Math.max(at('dive1', p) * (1 - at('undive', p)), at('dive2', p))
+const diveShare = (p: number) => at('dive1', p) * (1 - at('undive', p))
 const EDGES = [0.27, 0.48, 0.8] // beat boundaries
 const RAIL = [
   { title: 'Far from home', p: 0.06 }, { title: 'At home', p: 0.4 }, { title: 'The evidence', p: 0.7 }, { title: 'What to do now', p: 0.97 },
@@ -147,7 +150,7 @@ function frameFor(s: Scene, p: number, pose: Pose): Partial<COBEOptions> {
     // Stand side-on to the arc's great circle, so the arc reads as a curve with both ends in view; hold; come back.
     const n = sideOf(s.beacon.from, s.beacon.to)
     const side = mixCam(INDIA_CAM, camAt([Math.min(60, n[0] + 28), n[1]], 0.95), ease(0, 0.35, arcT))
-    cam = mixCam(side, INDIA_CAM, at('back', p))
+    cam = mixCam(side, INDIA_FULL, at('back', p))
   }
   cam = { ...cam, scale: cam.scale + (pose.diveScale - INDIA_SCALE) * diveShare(p) }
   const grow = ease(0.2, 0.38, p)
@@ -367,7 +370,7 @@ export function Landing() {
   // the countries hosting Feodo Tracker's botnet command servers when DShield names fewer.
   const origins = useMemo<Origin[]>(() => {
     const list: Origin[] = attackers.countries.flatMap((c) => {
-      const at = COUNTRY_CENTROID[c.country]
+      const at: LatLng | undefined = 'lat' in c && c.lat != null ? [c.lat as number, c.lon as number] : COUNTRY_CENTROID[c.country] // the top attacking IP's location
       return at ? [{ id: `a-${c.country}`, name: regionName(c.country), kind: 'attack' as const, at, note: `${num(c.records)} reports` }] : []
     })
     for (const g of scene.c2Countries) {
@@ -425,7 +428,6 @@ export function Landing() {
 
   const [beatIdx, setBeatIdx] = useState(0)
   const [mapIn, setMapIn] = useState(false)
-  const [attacksOn, setAttacksOn] = useState(false) // arrows draw once India has fully opened in the last beat
   const [hover, setHover] = useState<string | null>(null)
   const onIndia = beatIdx === 1 || beatIdx === 3
 
@@ -445,6 +447,10 @@ export function Landing() {
   const motion = useRef({ p: 0, last: 0, t0: 0, spin: 0, dir: 0, beat: 0, mapIn: false, atk: false, key: '', mk: '', ak: '', ms: null as Scene | null, as: null as Scene | null })
   const written = useRef<Record<string, string>>({})
   const sceneRef = useRef(scene)
+  const flat = useRef<FlatState>({ unroll: 0, active: false })
+  // The flat world's projectiles: from each origin (the top attacking IP's location, or a botnet server's country)
+  // to the states of the operators with the most Critical warnings.
+  const shotTargets = useMemo(() => threats.slice(0, 7).flatMap((t) => (STATE_CENTROID[t.name] ? [STATE_CENTROID[t.name]] : [])), [threats])
 
   useLayoutEffect(() => {
     if (still) return
@@ -487,7 +493,10 @@ export function Landing() {
       // The hand-off is an iris: the map opens in a widening circle from India's centre while the globe dives into it
       // (72% of the box diagonal covers the corners), and the globe fades only once the circle is wide.
       const crossing = share > 0 && share < 1
-      put('globe', globeEl.current, 'opacity', (1 - ease(0.45, 1, share)).toFixed(3))
+      // Last beat: the dotted globe on the flat-world canvas takes over at the same pose and unrolls into a map.
+      const unroll = at('unroll', p)
+      flat.current = { unroll, active: unroll >= 0.999 }
+      put('globe', globeEl.current, 'opacity', unroll > 0 ? '0' : (1 - ease(0.45, 1, share)).toFixed(3))
       put('map', mapEl.current, 'opacity', Math.min(1, share * 4).toFixed(3))
       put('mapClip', mapEl.current, 'clip-path', crossing ? `circle(${(share * 72).toFixed(2)}% at 50% 50%)` : 'none')
       put('mapScale', mapEl.current, 'scale', crossing ? mapScale.toFixed(4) : '1')
@@ -501,8 +510,6 @@ export function Landing() {
       while (bi > 0 && p < EDGES[bi - 1] - 0.008) bi--
       if (bi !== m.beat) { m.beat = bi; setBeatIdx(bi) }
       if (!m.mapIn && share >= 0.35) { m.mapIn = true; setMapIn(true) } // the map's wave plays once, where it's seen
-      const atk = p >= 0.895
-      if (atk !== m.atk) { m.atk = atk; setAttacksOn(atk) }
 
       // The world turns for a few seconds on arrival, then holds (WCAG 2.2.2); scrolling turns it further.
       const turn = at('toIndia', p)
@@ -511,7 +518,7 @@ export function Landing() {
       if (turn === 0) m.dir = 0
       else if (!m.dir) m.dir = Math.sign(shortWay(worldPhi, INDIA_CAM.phi)) || 1
 
-      if (share >= 0.999) { m.key = ''; return null } // the map covers the globe: let the GPU rest
+      if (share >= 0.999 || unroll > 0) { m.key = ''; return null } // something covers the globe: let the GPU rest
       const key = `${p.toFixed(5)}|${worldPhi.toFixed(4)}|${b.globeH}|${b.mapH}`
       if (key === m.key) return null // nothing moved
       m.key = key
@@ -670,7 +677,7 @@ export function Landing() {
             </div>
           )}
           {topAlerts.length > 0 && (
-            <div className="mt-6 lg:hidden">
+            <div className="mt-6">
               <p className="mb-2 text-[15px] text-mute">{sample ? 'Worst CVE in the top states (sample data)' : 'Worst real CVE in the top states'}</p>
               <ol className="space-y-1.5">
                 {threats.slice(0, 3).flatMap((t) => (t.top ? [{ t, a: t.top }] : [])).map(({ t, a }) => (
@@ -755,9 +762,12 @@ export function Landing() {
                 </Globe>
               </div>
               <div ref={mapEl} className="landing-map" inert={!onIndia} aria-hidden={!onIndia}>
-                <IndiaMap threats={threats} names={productNames} showCves={beatIdx === 3} entered={mapIn} interactive={onIndia} hover={hover} onHover={setHover} origins={origins} showAttacks={attacksOn} />
+                <IndiaMap threats={threats} names={productNames} showCves={false} entered={mapIn} interactive={onIndia} hover={hover} onHover={setHover} />
               </div>
             </div>
+            {/* Last beat: the globe unrolls into a flat world and attacks fly in from where they start. */}
+            <FlatWorld state={flat} globeBox={globeEl} still={reduce} targets={shotTargets}
+              shots={origins.map((o) => ({ name: o.name, kind: o.kind, at: o.at }))} />
 
             {/* Captions: under the figure on solid black on phones; a left column from md. */}
             <div className="absolute inset-x-0 top-[calc(56px+38svh)] bottom-0 overflow-hidden bg-ground px-5 pt-3 pb-6 sm:px-8 md:inset-y-0 md:top-14 md:right-auto md:flex md:w-[calc(var(--cap)_+_40px)] md:items-center md:bg-transparent md:p-0 md:pl-10">

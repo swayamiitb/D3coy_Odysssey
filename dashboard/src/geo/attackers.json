@@ -8,31 +8,46 @@
       "country": "US",
       "ips": 94,
       "records": 2607470,
-      "targets": 195962
+      "targets": 195962,
+      "lat": 37.751,
+      "lon": -97.822,
+      "city": null
     },
     {
       "country": "BG",
       "ips": 1,
       "records": 157503,
-      "targets": 8153
+      "targets": 8153,
+      "lat": 42.696,
+      "lon": 23.332,
+      "city": null
     },
     {
       "country": "NL",
       "ips": 3,
       "records": 132901,
-      "targets": 11566
+      "targets": 11566,
+      "lat": 52.3716,
+      "lon": 4.8883,
+      "city": "Amsterdam"
     },
     {
       "country": "RU",
       "ips": 1,
       "records": 92652,
-      "targets": 7310
+      "targets": 7310,
+      "lat": 55.7386,
+      "lon": 37.6068,
+      "city": null
     },
     {
       "country": "SE",
       "ips": 1,
       "records": 12038,
-      "targets": 1658
+      "targets": 1658,
+      "lat": 59.3287,
+      "lon": 18.0717,
+      "city": "Stockholm"
     }
   ]
 }
