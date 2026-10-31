@@ -48,6 +48,18 @@ whole interface in a real browser on another copy, so the product is checked end
 | Actionable intelligence and recommendations | Named fixed release, owner and deadline per ticket; block and hunt steps; STIX export; CERT-In report draft. |
 | **Human in the loop** | Graduated autonomy:<br>• **Run on their own:** evidence-based notices, digests and hunts.<br>• **Proposed for an analyst:** predictions, sensor-only warnings, regulator escalations and new-advisory notices.<br>• **Approve:** sends.<br>• **Reject:** records the reason for calibration.<br>• **History:** approvals before the live window come from a *simulated* duty officer, labelled SIM. |
 
+## Prior-art research: all sixteen decisions
+
+`reports/National cyber early warning case study.md` set sixteen decisions; all are built. The last five, closed in the
+completion pass:
+- **Evidence decay and age-off:** transient sensor evidence loses weight with age and stops counting after its window.
+- **India's reporting clocks on every warning:** CERT-In 6 h, RBI DAKSH, SEBI CSCRF, DPDP Board 72 h, NCIIPC, the sector CSIRT.
+- **Supplier fan-out:** a SIM supplier graph, the C-Edge lesson.
+- **A hostile advisory in the inbox:** the injection guard blocks it on stage.
+- **Live re-scoring:** a beacon detected now turns that host's warnings into suspected compromises at once, each with its own clock.
+
+See `docs/THREAD_CONTEXT.md` for the full table.
+
 ## Honest limitations
 
 - **Forecast precision is low (5%)**, because exploitation is rare (base rate 0.16%). That is why forecasts are proposals for a human, never automatic notices.

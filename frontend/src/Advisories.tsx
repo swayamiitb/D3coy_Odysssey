@@ -22,6 +22,8 @@ interface Analysis {
   sectors_targeted: string[]
   timings: Record<string, number>
   cached?: boolean
+  guard?: { verdict: string; p_injection?: number; rules?: string[]; model?: string }
+  supply_chain?: { id: string; name: string; service: string; dependents: { org_id: string; name: string; runs_it_too: boolean }[] }[]
 }
 interface Item { id: string; title: string; severity: string; published: string; provenance: string; note: string; text: string; analysis: Analysis }
 
@@ -37,12 +39,24 @@ function AnalysisView({ a, text }: { a: Analysis; text?: string }) {
   const [all, setAll] = useState(false)
   const [how, setHow] = useState(false)
   const iocs = (Object.keys(IOC_LABEL) as (keyof typeof IOC_LABEL)[]).flatMap((k) => a.iocs[k].map((v) => [k, v] as const))
+  const supply = a.supply_chain ?? []
   // one row per organisation: worst tier, earliest deadline, its hosts and versions
   const byOrg = Object.values(a.exposed.reduce<Record<string, Exposure[]>>((m, e) => { (m[e.org_id] ??= []).push(e); return m }, {}))
     .map((es) => es.sort((x, y) => TIER_RANK[x.tier] - TIER_RANK[y.tier]))
     .sort((x, y) => TIER_RANK[x[0].tier] - TIER_RANK[y[0].tier] || y.length - x.length)
+  const hostile = a.guard && a.guard.verdict !== 'clean'
   return (
     <div className="flex flex-col gap-10">
+      {hostile && (
+        <div className="rounded-3xl bg-band p-6 text-white">
+          <div className="flex items-center gap-3">
+            <span className="rounded-full bg-crit px-3 py-1 text-xs font-semibold">Prompt injection {a.guard!.verdict}</span>
+            <span className="text-sm text-band-mute">{a.guard!.model ?? 'guard'}{a.guard!.rules?.length ? ` · rules: ${a.guard!.rules.join(', ')}` : ''}</span>
+          </div>
+          <p className="mt-3 text-lg">This advisory carries instructions aimed at AI systems. The security model was never given its text:
+            the product, versions, exposure and indicators below come from the deterministic layer only, and nothing it asks for was done.</p>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <Stat value={<span className="text-2xl leading-tight">{a.product.label ?? 'Not in our estate'}</span>} label="product identified" sub={a.product.method} />
         <Stat value={`${a.exposed.length}`} label={`assets exposed at ${byOrg.length} organisation${byOrg.length === 1 ? '' : 's'}`} sub={`${a.cleared.length} cleared by version evidence`} />
@@ -65,6 +79,17 @@ function AnalysisView({ a, text }: { a: Analysis; text?: string }) {
                  title={es[0].org}
                  sub={`${es.length} asset${es.length === 1 ? '' : 's'}: ${es.slice(0, 3).map((e) => `${e.hostname.split('.')[0]} (${e.version})`).join(', ')}${es.length > 3 ? '…' : ''} · ${es[0].sector}`}
                  trail={<span><b>{es[0].tier}</b><span className="block text-xs text-mute">due {deadlineText(es[0].deadline_hours)}</span></span>} />
+          ))}
+        </Section>
+      )}
+
+      {supply.length > 0 && (
+        <Section title="Through suppliers" sub="Providers that run this product for other organisations. Their dependents are asked to confirm the supplier is patched, even if they do not run it themselves."
+                 action={<Prov p="SIM" label="SIM supplier graph" />}>
+          {supply.map((sp) => (
+            <Row key={sp.id} lead={<span className="text-[10px] font-bold">SUP</span>} title={`${sp.name} · ${sp.service}`}
+                 sub={sp.dependents.map((x) => x.name + (x.runs_it_too ? '' : ' (via supplier only)')).join(', ')}
+                 trail={<span><b>{sp.dependents.length}</b><span className="block text-xs text-mute">organisations</span></span>} />
           ))}
         </Section>
       )}
@@ -155,6 +180,7 @@ export function Advisories() {
               <div className="flex items-center gap-2"><Prov p={it.provenance} /><span className="font-mono text-xs text-faint">{it.id}</span></div>
               <div className="mt-1 font-semibold leading-snug">{it.title}</div>
               <div className="text-sm text-mute">
+                {it.analysis.guard && it.analysis.guard.verdict !== 'clean' && <span className="mr-2 font-semibold text-crit">injection blocked ·</span>}
                 {it.analysis.exposed.length ? `${it.analysis.exposed.length} assets exposed` : it.analysis.sectors_targeted.length ? `campaign · ${it.analysis.sectors_targeted.join(', ')}` : 'no exposure'}
               </div>
             </button>

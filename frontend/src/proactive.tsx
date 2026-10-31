@@ -27,6 +27,7 @@ export const KIND: Record<string, { label: string; icon: LucideIcon; tone: strin
   'live.detect.surge': { label: 'Surge detected', icon: Radar, tone: 'text-high' },
   'live.detect.beacon': { label: 'C2 beacon detected', icon: ShieldAlert, tone: 'text-crit' },
   'live.detect.anomaly': { label: 'Flow anomaly detected', icon: Waypoints, tone: 'text-high' },
+  'live.rescore': { label: 'Warnings re-scored live', icon: ShieldAlert, tone: 'text-comp' },
   'live.drill.start': { label: 'Drill started', icon: FlaskConical, tone: 'text-mute' },
   'live.drill.end': { label: 'Drill finished', icon: FlaskConical, tone: 'text-mute' },
   'analyst.approve': { label: 'Approved', icon: UserCheck, tone: 'text-ok' },

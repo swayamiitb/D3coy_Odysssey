@@ -162,7 +162,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
               <h3 className="text-xl font-bold leading-snug">{title(hero)}</h3>
               <p className="mt-1 text-sm text-mute">{hero.org_name} · {hero.sector} · {hero.assets} asset{hero.assets > 1 ? 's' : ''}</p>
               <div className="my-5">
-                <Countdown issuedAt={feed.issued_at} hours={hero.deadline_hours} big />
+                <Countdown issuedAt={(hero as Card & { issued_at?: string }).issued_at ?? feed.issued_at} hours={hero.deadline_hours} big />
                 <div className="text-sm text-mute">{hero.tier === 'Compromise' ? 'left to report to CERT-In' : 'left to remediate'}</div>
               </div>
               <Progress state={hero.workflow.state} />
@@ -208,7 +208,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
                 <Row key={c.id} onClick={() => onOpen(c)}
                      lead={<span className="h-3 w-3 rounded-full" style={{ background: TIER_FILL[c.tier] }} />}
                      title={title(c)} sub={`${c.org_name} · ${c.cve_id}`}
-                     trail={<Countdown issuedAt={feed.issued_at} hours={c.deadline_hours} />} />
+                     trail={<Countdown issuedAt={(c as Card & { issued_at?: string }).issued_at ?? feed.issued_at} hours={c.deadline_hours} />} />
               ))}
             </div>
           </div>

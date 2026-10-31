@@ -84,8 +84,28 @@ def assess(vuln: dict, asset: dict, org: dict, exposure, signals: dict | None = 
     asset: id, tier, zone, role, tier1_reachable. exposure: engine.exposure.Exposure.
     signals: optional live evidence, e.g. {"decoy_exploit": n_sensors, "decoy_surge": z, "ioc_sighting": {...}}."""
     cfg, cfg_hash = config()
-    signals = signals or {}
+    signals = dict(signals or {})
     rules: list[Rule] = []
+
+    # ---- evidence decay and age-off: transient sensor evidence fades, then stops counting (config evidence_decay)
+    decay, ages = cfg.get("evidence_decay", {}), signals.get("ages") or {}
+
+    def fresh(kind: str) -> float:
+        spec, age = decay.get(kind), ages.get(kind)
+        if not spec or age is None:
+            return 1.0
+        return 0.0 if age > spec["age_off_days"] else 0.5 ** (max(age, 0) / spec["half_life_days"])
+
+    def aged(kind: str) -> str:
+        return f" ({ages[kind]} d old, weight x{fresh(kind):.2f})" if kind in ages and kind in decay else ""
+
+    f_surge, f_exploit, f_sight = fresh("DECOY_SURGE"), fresh("DECOY_EXPLOIT"), fresh("IOC_SIGHTING")
+    if f_surge == 0.0:
+        signals.pop("decoy_surge", None)
+    if f_exploit == 0.0:
+        signals["decoy_exploit"] = 0
+    if f_sight == 0.0:
+        signals.pop("ioc_sighting", None)
     ssvc = vuln.get("ssvc") or {}
     vec = cvss.parse(vuln.get("cvss_vector"))
 
@@ -96,14 +116,15 @@ def assess(vuln: dict, asset: dict, org: dict, exposure, signals: dict | None = 
     if ssvc.get("Exploitation") == "active":
         rules.append(_rule("SSVC_ACTIVE", "Exploitation=active", "CISA_ADP"))
     if signals.get("decoy_exploit", 0) >= 2:
-        rules.append(_rule("DECOY_EXPLOIT", f"{signals['decoy_exploit']} sensors saw exploit payloads", "DECOY_GRID"))
+        rules.append(_rule("DECOY_EXPLOIT", f"{signals['decoy_exploit']} sensors saw exploit payloads{aged('DECOY_EXPLOIT')}",
+                           "DECOY_GRID"))
     itw = _ITW.search(vuln.get("description", ""))
     if itw:
         rules.append(_rule("ITW_CLAIM", f'"…{itw.group(0)}…"', "CNA"))
     if ssvc.get("Exploitation") == "poc":
         rules.append(_rule("SSVC_POC", "Exploitation=poc", "CISA_ADP"))
     if signals.get("decoy_surge"):
-        rules.append(_rule("DECOY_SURGE", f"robust z={signals['decoy_surge']:.1f}", "DECOY_GRID"))
+        rules.append(_rule("DECOY_SURGE", f"robust z={signals['decoy_surge']:.1f}{aged('DECOY_SURGE')}", "DECOY_GRID"))
     epss = vuln.get("epss")
     if epss is not None and epss >= 0.5:
         rules.append(_rule("EPSS_HIGH", f"EPSS={epss:.3f}", "EPSS"))
@@ -141,9 +162,12 @@ def assess(vuln: dict, asset: dict, org: dict, exposure, signals: dict | None = 
         sources.add("EPSS")
     if signals.get("ioc_sighting"):
         sources.add("SIM_LOGS")
+    ids = {r.id for r in rules}
+    faded = {"DECOY_GRID": max([f for f, rid in ((f_surge, "DECOY_SURGE"), (f_exploit, "DECOY_EXPLOIT")) if rid in ids] or [1.0]),
+             "SIM_LOGS": f_sight}
     for s in sources:
         o = origin.get(s, s)
-        weights[o] = max(weights.get(o, 0.0), cfg["admiralty_weight"][rel.get(s, "C")])
+        weights[o] = max(weights.get(o, 0.0), cfg["admiralty_weight"][rel.get(s, "C")] * faded.get(s, 1.0))
     V = 1.0
     for w in weights.values():
         V *= 1 - w
@@ -223,8 +247,8 @@ def assess(vuln: dict, asset: dict, org: dict, exposure, signals: dict | None = 
                       beacon=True if sighting else None, anomaly=signals.get("anomaly"), p_exploit=fc.get("p"))
     if sighting:
         rules.append(Rule("IOC_SIGHTING", 4, "Own telemetry: periodic beacon to a known C2 address",
-                          f"{sighting.get('connections')} connections every ~{sighting.get('mean_interval_s')}s",
-                          "SIM_LOGS"))
+                          f"{sighting.get('connections')} connections every ~{sighting.get('mean_interval_s')}s"
+                          f"{aged('IOC_SIGHTING')}", "SIM_LOGS"))
     if bayes["decision"] == "compromised":
         comp = cfg["compromise"]
         tier, decision, hours, basis = comp["tier"], "Act", comp["deadline_hours"], comp["basis"]

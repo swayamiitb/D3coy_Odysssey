@@ -176,9 +176,9 @@ were already known when monitoring began are reported apart and not counted as l
 
 | Check | How | Result |
 |---|---|---|
-| Engine tests | `.venv\Scripts\python -m pytest -q` | 87/87: 56 core plus 31 from the shield thread. Includes a regression test proving concurrent writers no longer fork the audit chain. |
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 91/91: 60 core plus 31 from the shield thread. Includes a regression test proving concurrent writers no longer fork the audit chain, and tests for decay, the clocks, supplier fan-out and the hostile advisory. |
 | Test bench | Proof → *Run them now* (`POST /api/tests/run`) | 66/66: 4 attack drills on a data copy, 5 detection checks with negative controls, the audit-trail chain, and the engine tests. |
-| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 14/14 on a private DB copy: every screen loads; approve and reject; a warning from issued to closed; a SOC case from new to closed; advisory analysis; three live drills; the audit trail. |
+| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 15/15 on a private DB copy: every screen loads; approve and reject; a warning from issued to closed; a SOC case from new to closed; advisory analysis; compliance clocks, supplier fan-out and the hostile advisory; three live drills with live re-scoring; the audit trail. |
 | Interface | `python scripts\ui_audit.py` (Playwright drives the installed Edge) | 17/17 click-through steps on a copy API at :8001, with 0 page or console errors and 0 HTTP 5xx. |
 | Production build | `cd frontend && npm run build` | OK (one large-chunk warning only). |
 
@@ -222,32 +222,32 @@ Headline measurements, also recomputed on the Proof page:
 
 ### Prior art: the 16 "class-apart" decisions
 
-Source: `reports/National cyber early warning case study.md`. 11 are done, 5 partial.
+Source: `reports/National cyber early warning case study.md`. All 16 are done; the last five were closed in the
+completion pass (marked ★).
 
 | # | Decision | Status |
 |---|---|---|
 | 1 | Three-source exposure reconciliation | Done |
 | 2 | Evidence floors; decoy exploit tags count | Done |
 | 3 | Severity, relevance, confidence, decision kept separate; multiplicative risk | Done |
-| 4 | Named-rule ledger, Admiralty, **decay and age-off** | **Partial:** named rules and Admiralty weighting are done; evidence decay and age-off are not built. |
-| 5 | SSVC → CERT-In deadlines + KEV due + 6 h / DAKSH / DPDP clocks | **Partial:** CERT-In deadlines, KEV due, the 6 h clock and RBI DAKSH (in the BFSI CERT-In report) are done. DPDP 72 h is only in config. SEBI CSCRF is not built. |
+| 4 | Named-rule ledger, Admiralty, decay and age-off | Done ★: transient sensor evidence (decoy surges, decoy exploit tags, C2 sightings) loses weight in V with a half-life (14 / 21 / 10 days) and stops counting after its age-off (45 / 60 / 30 days), as a rule and for the Bayesian model; catalogue facts never decay; each rule shows its age and weight (`config/scoring.json` evidence_decay). |
+| 5 | SSVC → CERT-In deadlines + KEV due + 6 h / DAKSH / DPDP clocks | Done ★: each warning carries the clocks that apply (`engine/obligations.py`): CERT-In 6 h, RBI DAKSH 6 h (banks), SEBI CSCRF 6 h (market entities), DPDP Board 72 h (systems holding personal data), NCIIPC for notified CII, the sector CSIRT, or the patch deadline; shown first in "Why this warning?". |
 | 6 | Chain-aware grouping, blast radius | Done |
 | 7 | Closed-set, span-grounded LLM with numeric validation | Done |
 | 8 | Security encoders for structured tasks | Done |
 | 9 | Pre-disclosure surge detector with a chance baseline | Done (with a negative control) |
 | 10 | Leakage-safe, calibrated, budget-judged predictor | Done |
-| 11 | Live prompt-injection red-team in the demo | **Partial:** the guard and hostile tests are on the bench, and you can paste a hostile advisory. There is no scripted injection demo. |
+| 11 | Live prompt-injection red-team in the demo | Done ★: a hostile SIM advisory in the inbox (CIVN-SIM-2026-0431) hides instructions for AI systems; the guard blocks it, a banner says the model never read it, and the deterministic layer still finds the product, exposure and indicators. |
 | 12 | Honest KPIs: time to alert, lead over KEV | Done (plus drill time to detect) |
-| 13 | Routing by NCIIPC sector, sector CSIRT, **supplier fan-out** | **Partial:** sector CSIRT and NCIIPC are done. Supplier fan-out (the C-Edge lesson) is not built. |
+| 13 | Routing by NCIIPC sector, sector CSIRT, supplier fan-out | Done ★: a SIM supplier graph (`config/suppliers.json`: shared core banking, OT integrator, managed security) fans every advisory and warning on a product a supplier runs out to its dependents, including those who do not run it; shown on advisories, warnings and each organisation, and added to advisory notification proposals. |
 | 14 | Indic languages with protected spans and script checks | Done (22 languages, beyond the planned 2) |
 | 15 | Standards-native, sovereign output | Done: STIX 2.1, TLP, Admiralty, offline |
-| 16 | Event-sourced live re-scoring with deterministic replay | **Partial:** replay and live detection are done. New live evidence does not re-score existing warnings; that needs a rebuild. |
+| 16 | Event-sourced live re-scoring with deterministic replay | Done ★: a live C2 beacon re-decides every warning on that host through the Bayesian model; those crossing 50% become suspected compromises at once, with their own 6-hour clock from detection, and the change is in the ledger (`live.rescore`). |
 
 Deliberate deviation: the research suggested no India map. We use a tile cartogram with no borders, which avoids contested boundaries.
 
 ## 11. Known gaps and limits
 
-- The partial prior-art items above: evidence decay and age-off, DPDP and SEBI routing surfaced in the UI, supplier fan-out, a scripted prompt-injection demo, and live re-scoring of existing warnings.
 - Live sensors and the organisations are simulated. Dark-web sources are not covered.
 - **Deadlines run in real time from the build.** The incident's 6 h CERT-In clock starts at build time, so run `scripts\demo_reset.ps1` shortly before every demo.
 - Each attack drill adds proposals and cases to the live database. So does each shield attack, which is why there were 52 pending decisions at 02:00. A demo reset clears them.

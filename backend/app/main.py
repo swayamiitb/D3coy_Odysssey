@@ -164,12 +164,21 @@ def alert_detail(org_id: str, cve_id: str) -> dict:
         raise HTTPException(404, "unknown organisation or CVE")
     kev = json.loads(v["kev"]) if v["kev"] and v["kev"] != "null" else None
     record = json.loads(v["record"])
-    rows = conn.execute("""SELECT a.detail, s.hostname, s.ip, s.zone, s.role, s.label, s.version, s.owner, s.tier
+    rows = conn.execute("""SELECT a.detail, s.hostname, s.ip, s.zone, s.role, s.label, s.version, s.owner, s.tier,
+                                  s.product_key
                            FROM assessments a JOIN assets s ON s.id = a.asset_id
                            WHERE a.org_id = ? AND a.cve_id = ? ORDER BY a.risk DESC""", (org_id, cve_id)).fetchall()
-    assets = [{**json.loads(r["detail"]), "hostname": r["hostname"], "ip": r["ip"], "zone": r["zone"],
-               "role": r["role"], "label": r["label"], "version": r["version"], "owner": r["owner"],
-               "asset_tier": r["tier"]} for r in rows]
+    from .engine.obligations import obligations
+    from .engine.suppliers import reach
+    cfg, org = scoring_config()[0], {**dict(o), "cii": bool(o["cii"])}
+    assets = []
+    for r in rows:
+        d = {**json.loads(r["detail"]), "hostname": r["hostname"], "ip": r["ip"], "zone": r["zone"], "role": r["role"],
+             "label": r["label"], "version": r["version"], "owner": r["owner"], "asset_tier": r["tier"],
+             "product_key": r["product_key"]}
+        d["obligations"] = obligations(cfg, org, d, d["tier"], d.get("deadline_hours"), d.get("deadline_basis", ""),
+                                       d.get("kev_due"))
+        assets.append(d)
     vuln = {"id": v["id"], "published": v["published"], "description": v["description"], "kev": kev,
             "epss": v["epss"], "ssvc": json.loads(v["ssvc"] or "{}"), "cvss_vector": v["cvss_vector"],
             "cvss_source": v["cvss_source"], "nvd_status": v["nvd_status"], "forecast": record.get("forecast")}
@@ -181,8 +190,13 @@ def alert_detail(org_id: str, cve_id: str) -> dict:
                        exploited=bool(kev) or vuln["ssvc"].get("Exploitation") == "active",
                        decoy_surge="DECOY_SURGE" in fired or "DECOY_EXPLOIT" in fired,
                        beacon="IOC_SIGHTING" in fired) if top else None
+    supply = []
+    if top.get("product_key"):
+        names = {r["id"]: dict(r) for r in conn.execute("SELECT id, name, sector FROM orgs").fetchall()}
+        runs = {r[0] for r in conn.execute("SELECT DISTINCT org_id FROM assets WHERE product_key = ?", (top["product_key"],))}
+        supply = reach(top["product_key"], names, runs)
     return {"org": dict(o), "vulnerability": vuln, "assets": assets, "actions": _actions(vuln, kev, record, [x["version"] for x in assets]),
-            "timeline": timeline, "attack": attack, "scoring_config_hash": scoring_config()[1]}
+            "timeline": timeline, "attack": attack, "supply_chain": supply, "scoring_config_hash": scoring_config()[1]}
 
 
 @app.get("/api/alerts/{org_id}/{cve_id}/brief")
@@ -344,7 +358,7 @@ def _analyse_advisory(adv: dict) -> dict:
     key = cache.key_of(ANALYSER_VERSION, resolve("extract"), adv["text"])
     if hit := cache.get("advisory", key):
         _propose_advisory(adv, hit)  # idempotent per advisory
-        return {**hit, "cached": True}
+        return {**hit, "supply_chain": _supply_chain(hit), "cached": True}
     conn = db()
     assets = [dict(r) for r in conn.execute("SELECT * FROM assets").fetchall()]
     orgs = {r["id"]: {**dict(r), "cii": bool(r["cii"])} for r in conn.execute("SELECT * FROM orgs").fetchall()}
@@ -356,7 +370,19 @@ def _analyse_advisory(adv: dict) -> dict:
                                       "cleared": len(result["cleared"]), "iocs": sum(map(len, result["iocs"].values()))})
     cache.put("advisory", key, result, now, adv["id"])
     _propose_advisory(adv, result)
-    return {**result, "cached": False}
+    return {**result, "supply_chain": _supply_chain(result), "cached": False}
+
+
+def _supply_chain(result: dict) -> list[dict]:
+    """Suppliers that run the advisory's product, and the organisations that depend on them (supplier fan-out)."""
+    from .engine.suppliers import reach
+    pid = (result.get("product") or {}).get("id")
+    if not pid:
+        return []
+    conn = db()
+    names = {r["id"]: dict(r) for r in conn.execute("SELECT id, name, sector FROM orgs").fetchall()}
+    runs = {r[0] for r in conn.execute("SELECT DISTINCT org_id FROM assets WHERE product_key = ?", (pid,))}
+    return reach(pid, names, runs)
 
 
 def _propose_advisory(adv: dict, result: dict) -> None:
@@ -397,8 +423,23 @@ def _propose_advisory(adv: dict, result: dict) -> None:
             "provenance": adv.get("provenance", "USER"),
             "title": f"Advisory '{adv['title']}': {len(rows)} of your assets ({hosts}) run {label}"
                      + (" (version not stated: verify)" if verify else f", {worst['tier']} risk") + f". Recommended: {steps}."}})
+    # supplier fan-out: organisations that depend on a provider running this product, even if they do not run it
+    via = {}
+    for sup in _supply_chain(result):
+        for dep in sup["dependents"]:
+            if dep["org_id"] not in by_org and dep["org_id"] in orgs:
+                via.setdefault(dep["org_id"], sup["name"])
+    for org_id, supplier in via.items():
+        actions.append({"ts": now, "kind": "auto.advisory", "subject": f"{org_id}:{adv['id']}", "payload": {
+            "org_id": org_id, "advisory": adv["id"], "alert": f"{org_id}:{adv['id']}", "tier": "supplier",
+            "lang": s["state_language"].get(orgs[org_id]["state"], "hi"), "recipients": [ciso.get(org_id, "")],
+            "channels": ["email"], "basis": "supplier fan-out", "provenance": "SIM", "supplier": supplier,
+            "title": f"Advisory '{adv['title']}': your supplier {supplier} runs {label}. Ask them to confirm they are "
+                     f"patched, and restrict their remote access to your systems until they do."}})
     title = (f"Notify {len(by_org)} organisation(s) about '{adv['title']}' ({label}, {len(hits)} "
-             f"{'possibly ' if verify else ''}exposed asset(s))")
+             f"{'possibly ' if verify else ''}exposed asset(s))"
+             + (f", and {len(via)} more through their supplier" if via else ""))
+    by_org.update({o: [] for o in via})
     payload = {"group": subject, "action": "auto.advisory", "orgs": sorted(by_org), "count": len(actions),
                "title": title, "basis": "advisory analysis", "provenance": adv.get("provenance", "USER"),
                "actions": actions}
@@ -513,11 +554,15 @@ def feed(limit: int = 6) -> dict:
     open_rows = [r for r in rows if states.get(r["id"], "new") != "closed"]
     open_rows.sort(key=lambda r: (-TIER_RANK[r["tier"]], r["deadline_hours"] or 9999, -r["risk"]))
     from . import cache
+    conn.execute("CREATE TABLE IF NOT EXISTS live_issued (alert_id TEXT PRIMARY KEY, issued_at TEXT NOT NULL)")
+    live_issued = {r[0]: r[1] for r in conn.execute("SELECT alert_id, issued_at FROM live_issued").fetchall()}
     cards = []
     for r in open_rows[:limit]:
         cached = cache.latest("brief", r["id"])
         headline = (cached.get("brief") or {}).get("headline") if cached else None
-        cards.append({**r, "headline": headline, "workflow": workflow.get(conn, r["id"], issued)})
+        # a warning re-scored by live evidence has its own clock, started at detection
+        cards.append({**r, "headline": headline, "issued_at": live_issued.get(r["id"], issued),
+                      "workflow": workflow.get(conn, r["id"], live_issued.get(r["id"], issued))})
     counts = {"needs_action": len(open_rows),
               "compromise": sum(r["tier"] == "Compromise" for r in open_rows),
               "closed": sum(1 for s in states.values() if s == "closed")}
@@ -728,9 +773,18 @@ def org_profile(org_id: str) -> dict:
     lang = s["state_language"].get(osint["org"]["state"], "hi")
     tiers = dict(conn.execute("""SELECT tier, COUNT(DISTINCT cve_id) FROM assessments WHERE org_id = ? AND R > 0
                                  GROUP BY tier""", (org_id,)).fetchall())
+    from .engine.suppliers import of_org
+    suppliers = []
+    for sup in of_org(org_id):  # what reaches this organisation through its providers (supplier fan-out)
+        hot = conn.execute(f"""SELECT COUNT(DISTINCT a.cve_id) FROM assessments a JOIN assets s ON s.id = a.asset_id
+                               WHERE a.R > 0 AND a.tier IN ('Compromise','Critical') AND s.product_key IN
+                               ({','.join('?' * len(sup['runs']))})""", sup["runs"]).fetchone()[0]
+        labels = sorted({r[0] for r in conn.execute(f"SELECT DISTINCT label FROM assets WHERE product_key IN "
+                                                    f"({','.join('?' * len(sup['runs']))})", sup["runs"])})
+        suppliers.append({**sup, "labels": labels, "critical_cves": hot})
     return {**osint, "language": lang, "csirt": s["sector_csirt"].get(osint["org"]["sector"]), "tiers": tiers,
             "alerts": _alerts(" AND a.org_id = ? AND a.tier IN ('Compromise','Critical','High')", (org_id,), limit=8),
-            "risk": plan(conn, org_id, 8),
+            "risk": plan(conn, org_id, 8), "suppliers": suppliers,
             "inbox": _events("AND json_extract(payload, '$.org_id') = ? AND kind != 'auto.proposed'", (org_id,), 40)}
 
 

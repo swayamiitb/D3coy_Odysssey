@@ -1,0 +1,14 @@
+{
+  "_comment": "SIM supplier graph, labelled SIM wherever shown. Shared service providers whose own systems serve many operators: the C-Edge lesson (2024), where one supplier's compromise reached about 300 co-operative banks that did not run the vulnerable software themselves. An advisory naming a product a supplier runs fans out to every dependent, who must confirm the supplier's patch status.",
+  "suppliers": [
+    {"id": "SUP-01", "name": "Sahyog Core Banking Services", "service": "shared core-banking and payment platform",
+     "runs": ["core_banking", "tomcat", "gitlab", "netscaler", "oracle_db"],
+     "dependents": ["BFS-02", "BFS-03", "GOV-02"]},
+    {"id": "SUP-02", "name": "GridSys OT Integrators", "service": "SCADA maintenance and remote support",
+     "runs": ["beyondtrust", "siemens_wincc", "schneider_scada"],
+     "dependents": ["PWR-01", "PWR-02", "PWR-03", "TRN-01", "TRN-02"]},
+    {"id": "SUP-03", "name": "Nimbus Managed Security", "service": "managed firewalls and remote access",
+     "runs": ["fortios", "ivanti_cs", "panos"],
+     "dependents": ["GOV-01", "GOV-02", "SPE-02", "TRN-03"]}
+  ]
+}

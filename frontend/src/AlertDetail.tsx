@@ -16,6 +16,8 @@ import { Badge, deadlineText, fmtDate, Panel, Prov, Stat, Tabs, TierPill } from 
 const CRIT_LABEL = ['', 'context', 'corroborating', 'strong', 'confirmed']
 const VERDICT_TONE: Record<string, 'crit' | 'ok' | 'mute'> = { affected: 'crit', not_affected: 'ok', unknown: 'mute' }
 type Tab = 'summary' | 'why' | 'history' | 'related'
+interface Clock { who: string; what: string; hours: number | null; route?: string }
+interface Supplier { id: string; name: string; service: string; only_via_supplier: number; dependents: { org_id: string; name: string; runs_it_too: boolean }[] }
 
 export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) {
   const [assetIdx, setAssetIdx] = useState(0)
@@ -28,6 +30,8 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
     { name: 'Evidence', value: a.contributions.evidence },
   ]
   const p = a.bayes ? a.bayes.p_compromise * 100 : null
+  const clocks: Clock[] = (a as unknown as { obligations?: Clock[] }).obligations ?? []
+  const supply: Supplier[] = (d as unknown as { supply_chain?: Supplier[] }).supply_chain ?? []
 
   return (
     <aside className="flex h-full w-[800px] max-w-[96vw] shrink-0 flex-col overflow-hidden rounded-3xl bg-panel text-text shadow-2xl">
@@ -63,6 +67,19 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
       <div className="min-h-0 flex-1 space-y-6 overflow-auto px-8 py-6">
         {tab === 'summary' && (
           <>
+            {clocks.length > 0 && (
+              <Panel title="Clocks that apply" right={<span className="text-xs text-mute">India's reporting and patch deadlines for this warning</span>}>
+                {clocks.map((c: Clock) => (
+                  <div key={c.who + c.what} className="flex items-start gap-4 border-b border-line py-3 last:border-0">
+                    <div className="w-20 shrink-0 text-xl font-bold tabular-nums">{c.hours != null ? deadlineText(c.hours) : '—'}</div>
+                    <div className="min-w-0">
+                      <div className="font-semibold">{c.who}</div>
+                      <div className="text-sm text-mute">{c.what}{c.route ? ` · ${c.route}` : ''}</div>
+                    </div>
+                  </div>
+                ))}
+              </Panel>
+            )}
             <BriefPanel orgId={d.org.id} cveId={v.id} />
             <Panel title="Recommended actions">
               <ul className="space-y-3">
@@ -176,6 +193,22 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
 
         {tab === 'related' && (
           <>
+            {supply.length > 0 && (
+              <Panel title="Through suppliers" right={<Prov p="SIM" label="SIM supplier graph" />}>
+                {supply.map((sp: Supplier) => (
+                  <div key={sp.id} className="border-b border-line py-3 last:border-0">
+                    <div className="font-semibold">{sp.name} <span className="font-normal text-mute">· {sp.service}</span></div>
+                    <div className="mt-1 text-sm text-mute">
+                      Runs {a.label} for {sp.dependents.length} organisation{sp.dependents.length === 1 ? '' : 's'}; {sp.only_via_supplier} of them
+                      do not run it themselves and are reached only through this supplier. Each is asked to confirm the supplier's patch status.
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {sp.dependents.map((x) => <Badge key={x.org_id}>{x.name}{x.runs_it_too ? '' : ' · via supplier only'}</Badge>)}
+                    </div>
+                  </div>
+                ))}
+              </Panel>
+            )}
             <AttackPanel attack={d.attack} />
             <RelatedPanel orgId={d.org.id} cveId={v.id} />
             <Panel title="The vulnerability, as published">

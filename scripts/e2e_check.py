@@ -187,11 +187,23 @@ def main_() -> int:
             return f"{len(exposed)} exposed matches · IOCs {ips + out['iocs']['domains']} · guard {out['guard']['verdict']}"
         check("advisory analysis: matched to the inventory", advisory)
 
+        def overlays():
+            d = get(f"/api/alerts/{org}/{cve}")
+            clocks = {c["who"] for c in d["assets"][0]["obligations"]}
+            assert "CERT-In" in clocks or d["assets"][0]["tier"] != "Compromise", f"clocks: {clocks}"
+            hostile = next(a for a in get("/api/advisories") if a["id"] == "CIVN-SIM-2026-0431")
+            assert hostile["analysis"]["guard"]["verdict"] == "blocked", hostile["analysis"]["guard"]
+            reached = sum(len(s["dependents"]) for s in d.get("supply_chain", []))
+            return (f"{org}:{cve} clocks {sorted(clocks)}; supplier fan-out reaches {reached} organisation(s); "
+                    f"hostile advisory blocked by the guard")
+        check("compliance clocks, supplier fan-out, prompt-injection advisory", overlays)
+
         def live_drills():
             from backend.app import live
             live.ENGINE = eng = live.Live(main.db)
             eng.next_feed = float("inf")
             pending, cases = len(get("/api/approvals")), get("/api/soc/metrics")["open"]
+            compromise_before = get("/api/feed")["counts"]["compromise"]
             seen = []
             for scenario in ("scan", "beacon", "chain"):
                 d = post(f"/api/live/drill/{scenario}")
@@ -205,7 +217,10 @@ def main_() -> int:
             grew = len(get("/api/approvals")) - pending
             opened = get("/api/soc/metrics")["open"] - cases
             assert grew >= 3 and opened == 2, f"{grew} new proposals, {opened} new cases"
-            return f"{' · '.join(seen)}; {grew} proposals wait for a person, {opened} incident cases opened"
+            comp = get("/api/feed")["counts"]["compromise"]
+            assert comp > compromise_before, "live evidence did not re-score any warning"
+            return (f"{' · '.join(seen)}; {grew} proposals wait for a person, {opened} incident cases opened, "
+                    f"suspected compromises {compromise_before} → {comp} (re-scored live)")
         check("live engine: three attack drills detected and answered", live_drills)
 
         def ledger():

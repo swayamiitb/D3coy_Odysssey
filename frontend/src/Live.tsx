@@ -65,6 +65,7 @@ function DrillCard({ d }: { d: any }) {
     { name: 'Attack traffic started', at: d.started_at, done: true, extra: d.scenario === 'scan' ? `${d.sensors.length} decoy sensors` : `from ${d.victim_host}` },
     ...d.expect.map((k: string) => ({ name: labels[k], done: !!d.detected[k], at: d.detected[k]?.at, extra: d.detected[k] ? `${d.detected[k].seconds} s after the start` : 'watching…' })),
     ...(d.expect.includes('beacon') ? [{ name: 'Notice, CERT-In draft, hunt; incident case opened', done: !!d.case, at: undefined, extra: d.case ?? 'on detection, no human needed' }] : []),
+    ...(d.expect.includes('beacon') ? [{ name: 'Warnings on the host re-scored live', done: d.rescored != null, at: undefined, extra: d.rescored != null ? `${d.rescored} now a suspected compromise, with a fresh 6-hour clock` : 'Bayesian model, beacon observed' }] : []),
     ...(d.expect.includes('surge') ? [{ name: 'Early warning proposed: waits for your decision', done: !!d.detected.surge, at: undefined, extra: 'Now → Needs your decision' }] : []),
   ]
   return (

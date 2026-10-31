@@ -340,14 +340,18 @@ class Live:
                        title=f"Escalated to {', '.join(to)}: suspected compromise of {asset['hostname']} (live C2 "
                              f"beacon to {c2}).")
             pilot.flush()
+            rescored = self._rescore(conn, asset, f, now, drill)
             from .engine import soc
             case = soc.open_case(conn, "incident", f"Suspected compromise of {asset['hostname']} ({asset['label']})",
-                                 org["id"], "Compromise", "m.khan", 6, [], asset["label"], [asset["hostname"]],
+                                 org["id"], "Compromise", "m.khan", 6, [f"{org['id']}:{x['cve']}" for x in rescored],
+                                 asset["label"], [asset["hostname"]],
                                  f"Opened automatically by the live C2 beacon detector{' during ' + drill['id'] if drill else ''}: "
-                                 f"{f['connections']} connections to {c2}, every {f['mean_interval_s']:.0f} s (cv {f['cv']}).")
+                                 f"{f['connections']} connections to {c2}, every {f['mean_interval_s']:.0f} s (cv {f['cv']}). "
+                                 f"{len(rescored)} warning(s) on this host re-scored to suspected compromise.")
             with self.lock:
                 if drill:
                     drill["case"] = case["id"]
+                    drill["rescored"] = len(rescored)
         elif f["kind"] == "anomaly":
             asset = next((a for a in self.assets.values() if a["ip"] == f["src"]), None)
             if not asset:
@@ -366,6 +370,50 @@ class Live:
                              f"Its peers were added to the sweep.")
             pilot.flush()
             conn.commit()
+
+    def _rescore(self, conn, asset: dict, f: dict, now: dt.datetime, drill: dict | None) -> list[dict]:
+        """Live re-scoring: a C2 beacon from a host is new evidence for every warning on it. Each is re-decided now,
+        through the same Bayesian model with the beacon observed, instead of waiting for the next build; the clock of
+        a new suspected compromise starts at detection."""
+        from .engine.bayes import posterior
+        from .engine.ledger import Ledger
+        from .engine.scoring import config
+        cfg = config()[0]
+        conn.execute("CREATE TABLE IF NOT EXISTS live_issued (alert_id TEXT PRIMARY KEY, issued_at TEXT NOT NULL)")
+        rows = conn.execute("SELECT cve_id, org_id, R, tier, detail FROM assessments WHERE asset_id = ? AND R > 0",
+                            (asset["id"],)).fetchall()
+        changed = []
+        for cve, org_id, R, tier, detail in rows:
+            d = json.loads(detail)
+            if tier == "Compromise":
+                continue
+            exploited = any(r.get("id") in ("KEV", "SSVC_ACTIVE", "DECOY_EXPLOIT", "ITW_CLAIM") for r in d.get("rules", []))
+            b = posterior(cfg, exposed=R >= 0.6, exploited=exploited, internet=asset["zone"] == "internet", beacon=True)
+            if b["decision"] != "compromised":
+                continue
+            comp = cfg["compromise"]
+            d.update(tier=comp["tier"], decision="Act", deadline_hours=comp["deadline_hours"],
+                     deadline_basis=comp["basis"], bayes=b, live=True)
+            d["rules"] = d.get("rules", []) + [{
+                "id": "IOC_SIGHTING", "crit": 4, "text": "Own telemetry: periodic beacon to a known C2 address",
+                "evidence": f"{f['connections']} connections every ~{f['mean_interval_s']:.0f}s, detected live"
+                            + (f" ({drill['id']})" if drill else ""), "source": "SIM_LOGS"}]
+            d["decision_path"] = d.get("decision_path", []) + [
+                f"Live re-score: Bayesian model with the beacon observed: P(compromise) = {b['p_compromise']:.1%} "
+                f">= {cfg['bayes']['threshold_compromise']:.0%} -> suspected compromise"]
+            conn.execute("UPDATE assessments SET tier = ?, decision = ?, deadline_hours = ?, detail = ? "
+                         "WHERE asset_id = ? AND cve_id = ?",
+                         (comp["tier"], "Act", comp["deadline_hours"], json.dumps(d), asset["id"], cve))
+            conn.execute("INSERT OR REPLACE INTO live_issued VALUES (?, ?)", (f"{org_id}:{cve}", _iso(now)))
+            changed.append({"cve": cve, "from": tier, "to": comp["tier"], "p": round(b["p_compromise"], 3)})
+        if changed:
+            Ledger(conn=conn).append(ts=_iso(now), kind="live.rescore", subject=asset["id"], source="ODYSSEY",
+                                     provenance="AUTO", payload={"org_id": asset["org_id"], "asset": asset["hostname"],
+                                                                 "changed": changed, "drill": drill["id"] if drill else None,
+                                                                 "title": f"{len(changed)} warning(s) on {asset['hostname']} "
+                                                                          f"re-scored to suspected compromise"})
+        conn.commit()
+        return changed
 
     # ------------------------------------------------------------------ drills
     def start_drill(self, scenario: str) -> dict:

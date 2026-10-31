@@ -149,7 +149,8 @@
   "reporting_clocks_hours": {
     "certin_incident": 6,
     "rbi_daksh": 6,
-    "dpdp_board": 72
+    "dpdp_board": 72,
+    "sebi_cscrf": 6
   },
   "push_policy": {
     "min_tier": "High",
@@ -226,6 +227,41 @@
       "forecast": "approve",
       "warn": "approve",
       "escalate": "approve"
+    }
+  },
+  "regulated_entities": {
+    "_comment": "SIM regulator map for the constituency (labelled SIM): which sector regulators each organisation answers to.",
+    "BFS-01": [
+      "RBI"
+    ],
+    "BFS-03": [
+      "RBI"
+    ],
+    "BFS-02": [
+      "SEBI"
+    ]
+  },
+  "personal_data_roles": [
+    "core-banking",
+    "payments",
+    "database",
+    "erp",
+    "web-portal",
+    "mail"
+  ],
+  "evidence_decay": {
+    "_comment": "Transient sensor evidence fades: its weight in the evidence (V) term is multiplied by 0.5^(age/half_life); older than age_off_days it no longer counts at all, as a rule or for the Bayesian model (fast-rise/slow-decay and age-off, as in ThreatConnect and Google Threat Intelligence). Catalogue facts (KEV, SSVC, vendor claims) do not decay.",
+    "DECOY_SURGE": {
+      "half_life_days": 14,
+      "age_off_days": 45
+    },
+    "DECOY_EXPLOIT": {
+      "half_life_days": 21,
+      "age_off_days": 60
+    },
+    "IOC_SIGHTING": {
+      "half_life_days": 10,
+      "age_off_days": 30
     }
   }
 }

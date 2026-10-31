@@ -8,6 +8,7 @@ import { Spark } from './Soc'
 import { Badge, deadlineText, Pill, Prov, Row, Section, Stat, Tabs, TIER_FILL, TierPill } from './ui'
 
 const WORST = ['—', 'Medium', 'High', 'Critical', 'Compromise'] as const
+interface SupplierRow { id: string; name: string; service: string; labels: string[]; critical_cves: number }
 
 export function RiskPlanView({ r, compact, limit }: { r: RiskPlan; compact?: boolean; limit?: number }) {
   return (
@@ -139,6 +140,16 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
                    title={`${p.indicators.own_ips_in_dshield_top.length + p.indicators.own_ips_on_feodo.length} of its IPs on attacker lists`}
                    sub={`DShield top ${p.indicators.dshield_sources} sources and Feodo Tracker`} />
             </Section>
+            {((p as unknown as { suppliers?: SupplierRow[] }).suppliers ?? []).length > 0 && (
+              <Section title="Its suppliers" sub="Providers whose systems it depends on. An advisory on what they run reaches it even where it does not run that software itself."
+                       action={<Prov p="SIM" label="SIM supplier graph" />}>
+                {((p as unknown as { suppliers?: SupplierRow[] }).suppliers ?? []).map((sp) => (
+                  <Row key={sp.id} lead={<span className="text-[10px] font-bold">SUP</span>} title={`${sp.name} · ${sp.service}`}
+                       sub={`runs ${sp.labels.join(', ')}`}
+                       trail={sp.critical_cves ? <span className="font-semibold text-crit">{sp.critical_cves} Critical CVEs</span> : <span className="text-mute">none Critical</span>} />
+                ))}
+              </Section>
+            )}
             <Section title="Attacks on these services worldwide" action={<Prov p="REAL" label="REAL · DShield" />}>
               <div className="grid grid-cols-2 gap-3">
                 {p.attack_activity.slice(0, 4).map((t) => (

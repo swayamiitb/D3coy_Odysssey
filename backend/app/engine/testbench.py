@@ -157,15 +157,16 @@ def _drills(conn) -> list[dict]:
                     break
             d = eng.drill
             order = sorted(d["detected"], key=lambda k: d["detected"][k]["at"])
-            ok = d["status"] == "passed" and order == [k for k in d["expect"]] and (scenario == "scan" or d["case"])
+            ok = (d["status"] == "passed" and order == [k for k in d["expect"]]
+                  and (scenario == "scan" or (d["case"] and d.get("rescored", 0) >= 1)))
             return ok, (f"{' → '.join(order) or 'nothing'} detected within {eng.ticks - d['tick0']} tick(s)"
-                        + (f"; {d['case']} opened and the regulator report proposed" if d["case"] else
-                           "; early warning proposed for an analyst"))
+                        + (f"; {d['case']} opened, {d.get('rescored', 0)} warning(s) on the host re-scored live, the "
+                           f"regulator report proposed" if d["case"] else "; early warning proposed for an analyst"))
         return check
 
     out = [_check("Ordinary traffic raises nothing (negative control)", quiet),
            _check("Drill: mass scanning of FortiGate decoys is caught as a surge", drill("scan")),
-           _check("Drill: an implant beaconing to a real C2 is caught and an incident case opens", drill("beacon")),
+           _check("Drill: an implant beaconing to a real C2 is caught, its warnings re-scored and a case opened", drill("beacon")),
            _check("Drill: scan, implant, lateral movement are caught in that order", drill("chain"))]
     shutil.rmtree(tmp, ignore_errors=True)
     return [{**r, "layer": "attack drills"} for r in out]

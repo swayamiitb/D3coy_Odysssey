@@ -170,17 +170,25 @@ def main() -> None:
     print(f"SIM: {sum(len(r) for r in surge_runs.values())} decoy surges, {len(exploits)} exploit tags, "
           f"{len(beacons)} beacon(s)")
 
+    def age(day: str) -> int:  # days before the snapshot; drives evidence decay and age-off in scoring
+        return (SNAPSHOT_DATE - dt.date.fromisoformat(day[:10])).days
+
     def signals_for(asset: dict, rec: dict) -> dict:
-        sig: dict = {}
+        sig: dict = {"ages": {}}
         published = (rec.get("published") or "")[:10]
         for r in surge_runs.get(asset.get("product_key", ""), []):
             # a surge counts as early evidence for this product's CVEs disclosed within 21 days after it
             if published and 0 <= (dt.date.fromisoformat(published) - dt.date.fromisoformat(r["first"])).days <= 21:
                 sig["decoy_surge"] = r["z_sessions"]
-        sig["decoy_exploit"] = next((e["sensors"] for e in exploits if e["cve"] == rec["id"]), 0)
+                sig["ages"]["DECOY_SURGE"] = age(r["last"])
+        hit = next((e for e in exploits if e["cve"] == rec["id"]), None)
+        sig["decoy_exploit"] = hit["sensors"] if hit else 0
+        if hit:
+            sig["ages"]["DECOY_EXPLOIT"] = age(hit["ts"])
         exploited = bool(rec.get("kev")) or (rec.get("ssvc") or {}).get("Exploitation") == "active"
         if asset["id"] in sightings and exploited:
             sig["ioc_sighting"] = sightings[asset["id"]]
+            sig["ages"]["IOC_SIGHTING"] = age(sightings[asset["id"]]["confirmed_at"])
         return sig
 
     stage("telemetry detectors (decoy, beacons)")

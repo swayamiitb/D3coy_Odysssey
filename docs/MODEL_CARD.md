@@ -136,6 +136,13 @@ Measured on this laptop (test bench, attack-drill layer, private copy of the dat
 - **Implant drill:** beacon caught within 1 tick; an incident case opens and the regulator report is proposed.
 - **Full intrusion drill:** scan, implant and lateral movement caught in that order, within 6 ticks.
 
+Live re-scoring: a confirmed beacon re-decides every warning on that host through the Bayesian model, with the
+beacon observed; those crossing 50% become suspected compromises immediately, each with a 6-hour clock from detection.
+
+Evidence decay and age-off (build and scoring): decoy surges, decoy exploit tags and C2 sightings lose weight in V as
+0.5^(age / half-life), with half-lives of 14, 21 and 10 days. They stop counting after 45, 60 and 30 days, both as rules
+and for the Bayesian model. Catalogue facts (KEV, SSVC, vendor claims) never decay.
+
 Response follows the same graduated autonomy as the pipeline. Evidence of compromise acts at once: notice, CERT-In
 draft, hunt and SOC case. Sensor-only early warnings and regulator escalations are proposals for an analyst.
 
