@@ -48,6 +48,7 @@ const [soc] = await Promise.all([
   save('/api/approvals?status=approved'),
   save('/api/approvals?status=rejected'),
   save('/api/autopilot?limit=300'),
+  save('/api/alerts?limit=400'), // landing map: worst real CVE per state
   // Intelligence screens: threat intel, risk plan, ahead of the threat.
   save('/api/intel/sources'),
   save('/api/intel/advisories'),

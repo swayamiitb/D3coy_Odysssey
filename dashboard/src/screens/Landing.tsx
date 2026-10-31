@@ -1,8 +1,8 @@
 // The landing story: a pinned globe that the scroll drives through four beats.
-//   1 world   – real botnet C2 servers (abuse.ch Feodo Tracker, bundled snapshot)
-//   2 India   – the constituency: one dot per operator, size = Critical warnings, red = suspected compromise
-//   3 evidence – an arc grows from the compromised operator to the C2 its gateway beaconed to; the camera follows it
-//   4 act     – back to India; what a person must do now
+//   1 world    – real botnet C2 servers (abuse.ch Feodo Tracker, bundled snapshot)
+//   2 India    – the globe dives into a flat state map: one dot per operator, Critical counts per state
+//   3 evidence – back on the globe, an arc grows from the compromised operator to the C2 its gateway beaconed to
+//   4 act      – the India map again, with each top state's worst real CVE; what a person must do now
 // Every layer says whether it is real or simulated (CLAUDE.md rule 17). Reduced motion gets a still, stacked version.
 import type { COBEOptions } from 'cobe'
 import { ArrowDown, ArrowRight } from 'lucide-react'
@@ -10,8 +10,9 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { api, useLoad } from '../data'
 import { num } from '../format'
 import feodo from '../geo/feodo.json'
-import { anglesFor, COUNTRY_CENTROID, INDIA, refang, slerp, spread, STATE_CENTROID, type LatLng } from '../geo/geo'
+import { anglesFor, COUNTRY_CENTROID, INDIA, refang, sideOf, slerp, spread, STATE_CENTROID, type LatLng } from '../geo/geo'
 import { Globe, type GlobeFrame } from '../geo/Globe'
+import { IndiaMap, type StateThreat } from '../geo/IndiaMap'
 import type { Card, Soc } from '../types'
 import { Countdown } from '../ui'
 
@@ -77,20 +78,34 @@ function buildScene(soc: Soc | null, beaconOrg: string | null, beaconIp: string 
   return { orgs, states, c2, c2Countries, beacon: from && target ? { from, to: target.at, c2Id: target.id } : null }
 }
 
+/** Scroll timeline (p = 0..1). The India map takes over from the globe twice: once for the constituency, once at the end. */
+const T = {
+  toIndia: [0.12, 0.28], dive1: [0.27, 0.34], undive: [0.44, 0.49], arc: [0.5, 0.74], arcFade: [0.74, 0.79],
+  back: [0.75, 0.83], dive2: [0.81, 0.88],
+} as const
+const at = (k: keyof typeof T, p: number) => ease(T[k][0], T[k][1], p)
+/** How much of the India map shows over the globe. */
+const mapShare = (p: number) => at('dive1', p) * (1 - at('undive', p)) + at('dive2', p)
+
 /** The globe's state for scroll progress p (0..1) and time ms. Pure: everything the picture shows comes from here. */
 function frameFor(s: Scene, p: number, ms: number, still: boolean): Partial<COBEOptions> {
-  const toIndia = still ? 1 : ease(0.12, 0.34, p)
-  const arcT = still ? 1 : ease(0.44, 0.7, p)
-  const settle = still ? 1 : ease(0.78, 0.95, p)
+  const toIndia = still ? 1 : at('toIndia', p)
+  const arcT = still ? 1 : at('arc', p)
+  const back = still ? 1 : at('back', p)
   const beat = (t: number) => (still ? 0 : 0.5 + 0.5 * Math.sin(ms / t))
 
   const world: Cam = { phi: still ? 0 : ms * 0.00012, theta: 0.28, scale: 1 }
   const india = camAt(INDIA, 1.85)
   let cam = mixCam(world, india, toIndia)
-  if (s.beacon && p >= 0.4 && !still) {
-    const follow = camAt(slerp(INDIA, s.beacon.to, 0.9 * arcT), lerp(1.85, 1.25, arcT) - 0.45 * Math.sin(Math.PI * arcT))
-    cam = mixCam(follow, camAt(INDIA, 1.55), settle)
-  } else if (still) cam = camAt(INDIA, 1.55)
+  if (s.beacon && p >= 0.49 && !still) {
+    // Pull back to a side-on view, perpendicular to the arc's great circle, so the arc reads as a curve over the top
+    // of the globe with both ends in view. Then hold while it grows, and return to India.
+    const n = sideOf(s.beacon.from, s.beacon.to)
+    const sideCam = mixCam(india, camAt([Math.min(60, n[0] + 28), n[1]], 0.95), ease(0, 0.35, arcT))
+    cam = mixCam(sideCam, india, back)
+  }
+  // Dive: zoom hard into India while the flat map fades in over it.
+  if (!still) cam.scale += 1.3 * Math.max(at('dive1', p) * (1 - at('undive', p)), at('dive2', p))
 
   const maxCrit = Math.max(1, ...s.orgs.map((o) => o.critical))
   const grow = still ? 1 : ease(0.2, 0.38, p)
@@ -104,17 +119,17 @@ function frameFor(s: Scene, p: number, ms: number, still: boolean): Partial<COBE
       id: `org-${slug(o.id)}`, location: o.at, color: o.compromise > 0 ? RED : ORANGE,
       size: grow * (o.compromise > 0 ? 0.024 + 0.012 * beat(200) : 0.007 + 0.013 * Math.sqrt(o.critical / maxCrit)),
     })),
-    // Zero-size anchors that the state labels hang from.
-    ...s.states.map((st) => ({ id: `st-${slug(st.name)}`, location: st.at, size: 0 })),
   ]
-  const arcs: COBEOptions['arcs'] = s.beacon && arcT > 0.001
-    ? [{ id: 'beacon', from: s.beacon.from, to: slerp(s.beacon.from, s.beacon.to, arcT), color: RED }]
+  // The beacon arc pulses while it travels, then fades out before the camera returns to India (no line across the map).
+  const fade = still ? 0 : at('arcFade', p)
+  const arcs: COBEOptions['arcs'] = s.beacon && arcT > 0.001 && fade < 0.999 && !still
+    ? [{ id: 'beacon', from: s.beacon.from, to: slerp(s.beacon.from, s.beacon.to, arcT), color: mixRGB(mixRGB(RED, [1, 0.62, 0.56], beat(220)), [0.1, 0.1, 0.12], fade) }]
     : []
-  const heat = still ? 0 : ease(0.42, 0.55, p) * (1 - 0.7 * settle)
+  const heat = still ? 0 : ease(0.5, 0.58, p) * (1 - ease(0.74, 0.82, p))
   return {
     ...cam, markers, arcs,
-    glowColor: mixRGB([0.13, 0.13, 0.15], [0.42, 0.09, 0.08], heat),
-    mapBrightness: lerp(5, 3.4, heat),
+    glowColor: mixRGB([0.36, 0.38, 0.46], [0.6, 0.13, 0.1], heat),
+    mapBrightness: lerp(7, 4.6, heat),
   }
 }
 
@@ -189,6 +204,25 @@ export function Landing() {
   const scene = useMemo(() => buildScene(soc.data, hot?.org_id ?? null, c2Ip), [soc.data, hot?.org_id, c2Ip])
   const still = useReducedMotion()
 
+  // Per-state threat for the India map: operators, Critical counts, and the worst real CVE (alerts come risk-sorted).
+  const alerts = useLoad(() => api.alerts(400), 'alerts:400')
+  const threats = useMemo<StateThreat[]>(() => {
+    const out = new Map<string, StateThreat>()
+    for (const o of soc.data?.orgs ?? []) {
+      const t = out.get(o.state) ?? { name: o.state, operators: [], critical: 0, compromise: 0, top: null }
+      t.operators.push({ id: o.id, name: o.name, critical: o.critical, compromise: o.compromise })
+      t.critical += o.critical
+      t.compromise += o.compromise
+      out.set(o.state, t)
+    }
+    const stateOf = new Map((soc.data?.orgs ?? []).map((o) => [o.id, o.state]))
+    for (const a of alerts.data ?? []) {
+      const t = out.get(stateOf.get(a.org_id) ?? '')
+      if (t && !t.top && (a.tier === 'Compromise' || a.tier === 'Critical')) t.top = a
+    }
+    return [...out.values()]
+  }, [soc.data, alerts.data])
+
   const story = useRef<HTMLElement>(null)
   const stage = useRef<HTMLDivElement>(null)
   const [beatIdx, setBeatIdx] = useState(0)
@@ -203,13 +237,12 @@ export function Landing() {
     const st = stage.current?.style
     if (st) {
       st.setProperty('--p', p.toFixed(4))
-      st.setProperty('--b0', (1 - ease(0.14, 0.24, p)).toFixed(3))                                   // world labels
-      st.setProperty('--b1', (ease(0.28, 0.36, p) * (1 - ease(0.44, 0.5, p)) + ease(0.86, 0.95, p)).toFixed(3)) // India labels
-      st.setProperty('--b2', (ease(0.52, 0.6, p) * (1 - ease(0.78, 0.84, p))).toFixed(3))           // evidence labels
-      st.setProperty('--b12', (ease(0.28, 0.36, p) * (1 - ease(0.84, 0.9, p))).toFixed(3))          // the compromised operator
-      st.setProperty('--heat', (ease(0.42, 0.55, p) * (1 - 0.7 * ease(0.78, 0.95, p))).toFixed(3))
+      st.setProperty('--b0', (1 - ease(0.14, 0.24, p)).toFixed(3))                       // world labels
+      st.setProperty('--b2', (ease(0.54, 0.6, p) * (1 - ease(0.72, 0.77, p))).toFixed(3)) // evidence labels
+      st.setProperty('--map', (still ? 1 : mapShare(p)).toFixed(3))                    // India map over the globe
+      st.setProperty('--heat', (ease(0.5, 0.58, p) * (1 - ease(0.74, 0.82, p))).toFixed(3))
     }
-    const b = p < 0.27 ? 0 : p < 0.46 ? 1 : p < 0.8 ? 2 : 3
+    const b = p < 0.27 ? 0 : p < 0.48 ? 1 : p < 0.8 ? 2 : 3
     if (b !== beatRef.current) { beatRef.current = b; setBeatIdx(b) }
     return frameFor(sceneRef.current, p, ms, still)
   }
@@ -264,10 +297,10 @@ export function Landing() {
           </h2>
           <p className="mt-5 max-w-[30rem] text-[16px] leading-relaxed text-mute">
             Each dot is a critical-infrastructure operator Odyssey protects. The bigger the dot, the more Critical
-            warnings it carries. Red means one of its assets is suspected compromised.
+            warnings it carries. Red means one of its assets is suspected compromised. Hover a state for its worst CVE.
           </p>
           <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2">
-            <Key color="var(--color-critical)">Critical warnings</Key>
+            <Key color="var(--color-critical)">Operator · size = Critical warnings</Key>
             <Key color="var(--color-compromise)" ring>Suspected compromise</Key>
           </div>
           <div className="mt-3 flex flex-wrap gap-2"><Tag>Simulated operators</Tag><Tag>Real CVEs, CISA KEV, EPSS</Tag></div>
@@ -299,7 +332,7 @@ export function Landing() {
       eyebrow: '04 · What a person does now',
       body: (
         <>
-          <h2 className="text-[clamp(30px,3.3vw,46px)] font-semibold leading-[1.04] tracking-[-0.03em]">
+          <h2 className="text-[clamp(28px,2.7vw,40px)] font-semibold leading-[1.06] tracking-[-0.03em]">
             <span className="text-compromise">{plural(compromisedOrgs, 'operator', 'operators')} suspected compromised.</span><br />
             {plural(s?.pending ?? null, 'decision', 'decisions')} waiting<br />for a person.
           </h2>
@@ -334,23 +367,11 @@ export function Landing() {
           </span>
         ))}
       </div>
-      {/* Only states with more than one operator get a name; single dots speak through the legend. */}
-      <div style={{ opacity: 'var(--b1, 0)' }}>
-        {scene.states.filter((st) => st.count > 1).map((st) => (
-          <span key={st.name} className="globe-label" style={vars({ '--anchor': `--cobe-st-${slug(st.name)}`, opacity: `var(--cobe-visible-st-${slug(st.name)}, 0)` })}>
-            {st.name} · {st.count}
-          </span>
-        ))}
-      </div>
-      {hot && scene.orgs.some((o) => o.id === hot.org_id) && (
-        <div style={{ opacity: 'var(--b12, 0)' }}>
-          <a href={`#/orgs/${hot.org_id}`} className="globe-label globe-label-right globe-label-strong globe-label-alert" style={vars({ '--anchor': `--cobe-org-${slug(hot.org_id)}`, opacity: `var(--cobe-visible-org-${slug(hot.org_id)}, 0)` })}>
+      {scene.beacon && hot && (
+        <div style={{ opacity: 'var(--b2, 0)' }}>
+          <a href={`#/orgs/${hot.org_id}`} className="globe-label globe-label-left globe-label-strong globe-label-alert" style={vars({ '--anchor': `--cobe-org-${slug(hot.org_id)}`, opacity: `var(--cobe-visible-org-${slug(hot.org_id)}, 0)` })}>
             {hot.org_name}
           </a>
-        </div>
-      )}
-      {scene.beacon && (
-        <div style={{ opacity: 'var(--b2, 0)' }}>
           <span className="globe-label globe-label-right globe-label-strong" style={vars({ '--anchor': `--cobe-${scene.beacon.c2Id}`, opacity: `var(--cobe-visible-${scene.beacon.c2Id}, 0)` })}>
             {sighting?.malware} C2 · <span className="num">{sighting?.c2}</span>
           </span>
@@ -360,13 +381,16 @@ export function Landing() {
   )
 
   const fallback = <div className="flex size-full items-center justify-center text-[13px] text-faint">This browser has no WebGL, so the globe is off.</div>
+  const onIndia = beatIdx === 1 || beatIdx === 3
 
   if (still) {
-    // Reduced motion: no pinning, no spin, no scrubbing. The final picture, then the four beats in order.
+    // Reduced motion: no pinning, no spin, no scrubbing. The four beats in order beside the finished India map.
     return (
       <section className="mb-10 grid items-start gap-8 pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-12">{beats.map((b) => <div key={b.eyebrow}><div className="mb-3 text-[13px] text-faint">{b.eyebrow}</div>{b.body}</div>)}</div>
-        <div ref={stage} className="aspect-square w-full lg:sticky lg:top-6"><Globe frame={frame} fallback={fallback}>{labels}</Globe></div>
+        <div ref={stage} className="flex h-[88vh] justify-center lg:sticky lg:top-6">
+          <IndiaMap threats={threats} showCves entered interactive />
+        </div>
       </section>
     )
   }
@@ -376,14 +400,18 @@ export function Landing() {
       <div ref={stage} className="landing-stage sticky top-0 h-screen overflow-hidden">
         <div className="landing-glow pointer-events-none absolute inset-0" aria-hidden />
 
-        <div className="absolute inset-x-0 top-[calc(56px+2vh)] mx-auto aspect-square w-[min(94vw,62vh)] lg:inset-x-auto lg:right-[-6%] lg:top-1/2 lg:w-[min(118vh,66vw)] lg:-translate-y-1/2">
+        <div className="landing-globe absolute inset-x-0 top-[calc(56px+2vh)] mx-auto aspect-square w-[min(94vw,62vh)] lg:inset-x-auto lg:right-[-6%] lg:top-1/2 lg:w-[min(118vh,66vw)] lg:-translate-y-1/2">
           <Globe frame={frame} fallback={fallback}>{labels}</Globe>
         </div>
+        {/* India, flat and big, slightly right: takes over from the globe on the India beats. */}
+        <div className={`landing-map absolute inset-x-0 top-[calc(56px+1vh)] flex h-[44vh] justify-center lg:inset-x-auto lg:top-[5vh] lg:right-[3%] lg:h-[90vh] ${onIndia ? '' : 'pointer-events-none'}`}>
+          <IndiaMap threats={threats} showCves={beatIdx === 3} entered={onIndia} interactive={onIndia} />
+        </div>
         {/* Keeps the captions readable when the zoomed globe slides under them. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-ground via-ground/90 to-transparent lg:inset-y-0 lg:right-auto lg:h-auto lg:w-[52%] lg:bg-gradient-to-r lg:via-ground/85" aria-hidden />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-ground via-ground/90 to-transparent lg:inset-y-0 lg:right-auto lg:h-auto lg:w-[46%] lg:bg-gradient-to-r lg:via-ground/80" aria-hidden />
 
         {/* Captions: the active beat is in, the rest are out. Bottom on phones, left column from lg. */}
-        <div className="absolute inset-x-0 bottom-0 px-5 pb-8 sm:px-8 lg:inset-y-0 lg:right-auto lg:flex lg:w-[min(560px,46%)] lg:items-center lg:pb-0 lg:pl-10">
+        <div className="absolute inset-x-0 bottom-0 px-5 pb-8 sm:px-8 lg:inset-y-0 lg:right-auto lg:flex lg:w-[min(520px,41%)] lg:items-center lg:pb-0 lg:pl-10">
           <div className="grid w-full">
             {beats.map((b, i) => (
               <div key={b.eyebrow} inert={i !== beatIdx}

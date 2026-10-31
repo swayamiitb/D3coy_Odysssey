@@ -49,6 +49,16 @@ export function slerp(a: LatLng, b: LatLng, t: number): LatLng {
   return [(Math.atan2(z, Math.hypot(x, y)) * 180) / Math.PI, (Math.atan2(y, x) * 180) / Math.PI]
 }
 
+/** Where to stand to see the great circle a→b side-on: the plane's normal, on whichever side is nearer lng 0. */
+export function sideOf(a: LatLng, b: LatLng): LatLng {
+  const v = ([lat, lng]: LatLng) => [Math.cos(rad(lat)) * Math.cos(rad(lng)), Math.cos(rad(lat)) * Math.sin(rad(lng)), Math.sin(rad(lat))]
+  const p = v(a), q = v(b)
+  const n = [p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0]]
+  const toLatLng = ([x, y, z]: number[]): LatLng => [(Math.atan2(z, Math.hypot(x, y)) * 180) / Math.PI, (Math.atan2(y, x) * 180) / Math.PI]
+  const one = toLatLng(n), other = toLatLng(n.map((c) => -c))
+  return Math.abs(one[1]) <= Math.abs(other[1]) ? one : other
+}
+
 /** Spread several organisations in one state around its centroid so each keeps its own dot. */
 export function spread(center: LatLng, i: number, n: number): LatLng {
   if (n <= 1) return center

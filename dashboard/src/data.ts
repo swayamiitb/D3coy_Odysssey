@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { SAMPLE } from './sample'
 import type {
-  AlertDetail, Approval, Attacks, AutoEvent, AutopilotSummary, Brief, Campaign, Feed, ForecastView, Health, IntelAdvisory, IntelSource,
+  AlertDetail, AlertRow, Approval, Attacks, AutoEvent, AutopilotSummary, Brief, Campaign, Feed, ForecastView, Health, IntelAdvisory, IntelSource,
   OrgProfile, Replay, RiskPlan, Soc, Technology, Workflow,
 } from './types'
 
@@ -87,6 +87,7 @@ export const api = {
   health: () => get<Health>('/api/health'),
   soc: () => get<Soc>('/api/soc'),
   feed: () => get<Feed>('/api/feed'),
+  alerts: (limit = 400) => get<AlertRow[]>(`/api/alerts?${qs({ limit })}`),
   approvals: (status = 'pending') => get<Approval[]>(`/api/approvals?${qs({ status })}`),
   alert: (org: string, cve: string) => get<AlertDetail>(`/api/alerts/${org}/${cve}`),
   replay: (org: string, cve: string) => get<Replay>(`/api/replay/${org}/${cve}`),

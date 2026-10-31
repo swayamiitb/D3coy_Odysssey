@@ -5,9 +5,10 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 export type GlobeFrame = (ms: number) => Partial<COBEOptions>
 
 const BASE: Omit<COBEOptions, 'width' | 'height' | 'devicePixelRatio'> = {
-  phi: 0, theta: 0.25, dark: 1, diffuse: 1.15, mapSamples: 20000, mapBrightness: 5, mapBaseBrightness: 0.02,
-  baseColor: [0.24, 0.24, 0.26], markerColor: [1, 0.62, 0.04], glowColor: [0.13, 0.13, 0.15],
-  markers: [], arcs: [], arcColor: [1, 0.27, 0.23], arcWidth: 0.9, arcHeight: 0.32, markerElevation: 0.015,
+  // Lifted from near-black so the sphere separates from the dark ground: lighter body, whiter land, soft cool rim.
+  phi: 0, theta: 0.25, dark: 1, diffuse: 1.6, mapSamples: 20000, mapBrightness: 7, mapBaseBrightness: 0.07,
+  baseColor: [0.5, 0.52, 0.58], markerColor: [1, 0.62, 0.04], glowColor: [0.36, 0.38, 0.46],
+  markers: [], arcs: [], arcColor: [1, 0.27, 0.23], arcWidth: 1.3, arcHeight: 0.45, markerElevation: 0.015,
 }
 
 function hasWebGL(): boolean {
