@@ -50,12 +50,15 @@ body {
 .landing {
   --color-ground: #000000; --color-raised: #1f1f1f; --color-line: #333333;
   --color-text: #ffffff; --color-mute: #afafaf; --color-faint: #8a8a8a;
-  --map-1: oklch(0.28 0.080 254); --map-1-lit: oklch(0.32 0.096 254);
-  --map-2: oklch(0.29 0.048 222); --map-2-lit: oklch(0.33 0.058 222);
-  --map-3: oklch(0.38 0.058 206); --map-3-lit: oklch(0.42 0.070 206);
-  --map-4: oklch(0.36 0.072 238); --map-4-lit: oklch(0.40 0.088 238);
-  --map-5: oklch(0.35 0.098 254); --map-5-lit: oklch(0.39 0.114 254);
-  --map-hot: oklch(0.32 0.090 28);
+  /* Jewel tones: sapphire, teal, emerald, amethyst, ocean. Saturated but mid-dark, so a big map glows without glare;
+     -lit (+0.06 L) marks states with watched operators; crimson marks a suspected compromise. */
+  --map-1: oklch(0.44 0.17 262); --map-1-lit: oklch(0.50 0.19 262);
+  --map-2: oklch(0.50 0.11 195); --map-2-lit: oklch(0.56 0.12 195);
+  --map-3: oklch(0.47 0.13 158); --map-3-lit: oklch(0.53 0.14 158);
+  --map-4: oklch(0.43 0.15 300); --map-4-lit: oklch(0.49 0.17 300);
+  --map-5: oklch(0.46 0.13 232); --map-5-lit: oklch(0.52 0.14 232);
+  --map-hot: oklch(0.47 0.19 25);
+  --color-attack: #ff5d8f; /* an attack source's arrow: an identity, not a tier */
   color-scheme: dark; min-height: 100svh; background: var(--color-ground); color: var(--color-text);
   font-optical-sizing: auto; -webkit-tap-highlight-color: transparent;
 }
@@ -114,6 +117,8 @@ body {
 }
 @media (prefers-reduced-motion: no-preference) { .globe-canvas { animation: globe-in 600ms var(--ease-out) both; } }
 @keyframes globe-in { from { opacity: 0; } }
+/* The sphere sits inside 80% of the box; when it zooms past the box, its edge fades on a circle, never a square. */
+.globe-canvas { mask-image: radial-gradient(closest-side circle, #000 84%, transparent 99%); }
 
 /* India map (geo/IndiaMap.tsx): the states arrive once, in a wave out from the compromised one. Boundaries are gaps in
    the ground, not lines. One live signal: the compromise ring plays twice when the map arrives, then rests. */
@@ -125,6 +130,26 @@ body {
 .india-map:not(.is-in) .india-state { opacity: 0; transform: scale(0.94); }
 .india-state.is-hover { fill: oklch(from var(--fill) calc(l + 0.08) c h); }
 .india-state:focus-visible { stroke: var(--color-text); stroke-width: 2; }
+.india-label { text-shadow: 0 0 3px #000, 0 0 6px #000, 0 1px 2px #000; } /* white labels hold on every vivid fill */
+
+/* Attack arrows (last beat): each draws in from its origin, then its head and a single ripple land on the operator. */
+.india-attack .line { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 900ms var(--ease-out) var(--d, 0ms); }
+.india-attack .glow { opacity: 0; transition: opacity 600ms ease calc(var(--d, 0ms) + 300ms); }
+.india-attack .head, .india-attack .origin { opacity: 0; transition: opacity 250ms ease calc(var(--d, 0ms) + 750ms); }
+.india-attack .origin { transition-delay: var(--d, 0ms); }
+.india-attack .ripple { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.india-attack.is-on .line { stroke-dashoffset: 0; }
+.india-attack.is-on .glow { opacity: 0.22; }
+.india-attack.is-on :is(.head, .origin) { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .india-attack.is-on .ripple { animation: india-ripple 900ms var(--ease-out) calc(var(--d, 0ms) + 850ms) 1 both; }
+}
+@keyframes india-ripple { from { transform: scale(1); opacity: 0.9; } to { transform: scale(3); opacity: 0; } }
+.india-origin-label { opacity: 0; transition: opacity 250ms ease var(--d, 0ms); }
+.india-origin-label.is-on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .india-attack .line, .india-attack .glow, .india-attack :is(.head, .origin), .india-origin-label { transition: none; }
+}
 .india-ring { fill: none; stroke: var(--color-compromise); stroke-width: 1.4; transform-box: fill-box; transform-origin: center; opacity: 0; }
 @media (prefers-reduced-motion: no-preference) {
   .india-map.is-in .india-ring { animation: india-ring 1600ms var(--ease-out) 300ms 2 both; }

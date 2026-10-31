@@ -1,0 +1,38 @@
+{
+  "source": "SANS ISC DShield top attacking IPs",
+  "located_by": "RIPEstat (MaxMind GeoLite)",
+  "taken_at": "2026-10-31T17:36:11.824Z",
+  "ips_located": 100,
+  "countries": [
+    {
+      "country": "US",
+      "ips": 94,
+      "records": 2607470,
+      "targets": 195962
+    },
+    {
+      "country": "BG",
+      "ips": 1,
+      "records": 157503,
+      "targets": 8153
+    },
+    {
+      "country": "NL",
+      "ips": 3,
+      "records": 132901,
+      "targets": 11566
+    },
+    {
+      "country": "RU",
+      "ips": 1,
+      "records": 92652,
+      "targets": 7310
+    },
+    {
+      "country": "SE",
+      "ips": 1,
+      "records": 12038,
+      "targets": 1658
+    }
+  ]
+}

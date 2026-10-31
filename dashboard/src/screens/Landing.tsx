@@ -10,10 +10,11 @@ import { ArrowRight } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { api, getMode, getSnapshotTakenAt, useLoad } from '../data'
 import { date, dateTime, duration, num, sla } from '../format'
+import attackers from '../geo/attackers.json'
 import feodo from '../geo/feodo.json'
 import { anglesFor, COUNTRY_CENTROID, MAP_CENTRE, refang, sideOf, slerp, spread, STATE_CENTROID, stateName, type LatLng } from '../geo/geo'
 import { Globe, hasWebGL, type GlobeFrame } from '../geo/Globe'
-import { describeState, IndiaMap, type StateThreat } from '../geo/IndiaMap'
+import { describeState, IndiaMap, type Origin, type StateThreat } from '../geo/IndiaMap'
 import { takeScroll } from '../scroll'
 import type { Card, Soc } from '../types'
 import { useNow } from '../ui'
@@ -123,8 +124,8 @@ function buildScene(soc: Soc | null, beaconOrg: string | null, beaconIp: string 
 
 /** Scroll timeline (p = 0..1). The map takes over from the globe twice; the arc completes at 0.66 and holds. */
 const T = {
-  toIndia: [0.12, 0.28], dive1: [0.27, 0.34], fade1: [0.3, 0.34], undive: [0.44, 0.49], arc: [0.5, 0.66],
-  arcFade: [0.74, 0.79], back: [0.75, 0.83], dive2: [0.81, 0.88], fade2: [0.85, 0.88],
+  toIndia: [0.12, 0.28], dive1: [0.27, 0.35], fade1: [0.29, 0.36], undive: [0.44, 0.49], arc: [0.5, 0.66],
+  arcFade: [0.74, 0.79], back: [0.75, 0.83], dive2: [0.81, 0.89], fade2: [0.83, 0.9],
 } as const
 const at = (k: keyof typeof T, p: number) => ease(T[k][0], T[k][1], p)
 /** How much of the India map shows over the globe. */
@@ -362,6 +363,22 @@ export function Landing() {
 
   const scene = useMemo(() => buildScene(soc.data, sighting && hot ? hot.org_id : null, c2Ip), [soc.data, sighting, hot, c2Ip])
 
+  // Where attacks come from (last beat): the countries behind the most DShield attack reports, topped up to seven with
+  // the countries hosting Feodo Tracker's botnet command servers when DShield names fewer.
+  const origins = useMemo<Origin[]>(() => {
+    const list: Origin[] = attackers.countries.flatMap((c) => {
+      const at = COUNTRY_CENTROID[c.country]
+      return at ? [{ id: `a-${c.country}`, name: regionName(c.country), kind: 'attack' as const, at, note: `${num(c.records)} reports` }] : []
+    })
+    for (const g of scene.c2Countries) {
+      const at = COUNTRY_CENTROID[g.country]
+      if (list.length < 7 && at && !list.some((o) => o.id.endsWith(`-${g.country}`))) {
+        list.push({ id: `c-${g.country}`, name: regionName(g.country), kind: 'c2', at, note: plural(g.count, 'botnet server', 'botnet servers') })
+      }
+    }
+    return list.slice(0, 7)
+  }, [scene])
+
   // Per-state threat: operators, Critical warnings (Critical only; the compromise tier is separate) and the worst CVE.
   const threats = useMemo<StateThreat[]>(() => {
     const out = new Map<string, StateThreat>()
@@ -408,6 +425,7 @@ export function Landing() {
 
   const [beatIdx, setBeatIdx] = useState(0)
   const [mapIn, setMapIn] = useState(false)
+  const [attacksOn, setAttacksOn] = useState(false) // arrows draw once India has fully opened in the last beat
   const [hover, setHover] = useState<string | null>(null)
   const onIndia = beatIdx === 1 || beatIdx === 3
 
@@ -424,7 +442,7 @@ export function Landing() {
   const b0El = useRef<HTMLDivElement>(null)
   const b2El = useRef<HTMLDivElement>(null)
   const box = useRef({ top: 0, range: 1, globeH: 1, mapH: 1 })
-  const motion = useRef({ p: 0, last: 0, t0: 0, spin: 0, dir: 0, beat: 0, mapIn: false, key: '', mk: '', ak: '', ms: null as Scene | null, as: null as Scene | null })
+  const motion = useRef({ p: 0, last: 0, t0: 0, spin: 0, dir: 0, beat: 0, mapIn: false, atk: false, key: '', mk: '', ak: '', ms: null as Scene | null, as: null as Scene | null })
   const written = useRef<Record<string, string>>({})
   const sceneRef = useRef(scene)
 
@@ -466,10 +484,14 @@ export function Landing() {
       const diveScale = b.mapH / (0.8 * (b.globeH / 2) * INDIA_FRACTION) // India on the globe = India on the map
       const camScale = INDIA_SCALE + (diveScale - INDIA_SCALE) * diveShare(p)
       const mapScale = clamp((0.8 * camScale * (b.globeH / 2) * INDIA_FRACTION) / b.mapH, 0.6, 1)
-      put('globe', globeEl.current, 'opacity', (1 - share).toFixed(3))
-      put('map', mapEl.current, 'opacity', share.toFixed(3))
-      put('mapScale', mapEl.current, 'scale', share > 0 && share < 1 ? mapScale.toFixed(4) : '1')
-      put('mapWill', mapEl.current, 'will-change', share > 0 && share < 1 ? 'opacity, scale' : 'auto')
+      // The hand-off is an iris: the map opens in a widening circle from India's centre while the globe dives into it
+      // (72% of the box diagonal covers the corners), and the globe fades only once the circle is wide.
+      const crossing = share > 0 && share < 1
+      put('globe', globeEl.current, 'opacity', (1 - ease(0.45, 1, share)).toFixed(3))
+      put('map', mapEl.current, 'opacity', Math.min(1, share * 4).toFixed(3))
+      put('mapClip', mapEl.current, 'clip-path', crossing ? `circle(${(share * 72).toFixed(2)}% at 50% 50%)` : 'none')
+      put('mapScale', mapEl.current, 'scale', crossing ? mapScale.toFixed(4) : '1')
+      put('mapWill', mapEl.current, 'will-change', crossing ? 'opacity, scale, clip-path' : 'auto')
       put('b0', b0El.current, 'opacity', (1 - ease(0.14, 0.24, p)).toFixed(3))
       put('b2', b2El.current, 'opacity', (ease(0.56, 0.62, p) * (1 - ease(0.72, 0.77, p))).toFixed(3))
 
@@ -479,6 +501,8 @@ export function Landing() {
       while (bi > 0 && p < EDGES[bi - 1] - 0.008) bi--
       if (bi !== m.beat) { m.beat = bi; setBeatIdx(bi) }
       if (!m.mapIn && share >= 0.35) { m.mapIn = true; setMapIn(true) } // the map's wave plays once, where it's seen
+      const atk = p >= 0.895
+      if (atk !== m.atk) { m.atk = atk; setAttacksOn(atk) }
 
       // The world turns for a few seconds on arrival, then holds (WCAG 2.2.2); scrolling turns it further.
       const turn = at('toIndia', p)
@@ -639,8 +663,14 @@ export function Landing() {
             {hot && <a href={`#/incident/${hot.org_id}/${hot.cve_id}`} className="pill pill-primary">Open the incident <ArrowRight size={16} aria-hidden /></a>}
             {pending ? <a href="#/decisions" className="text-[15px] text-accent hover:underline">Review {plural(pending, 'decision', 'decisions')}</a> : null}
           </div>
+          {origins.length > 0 && (
+            <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2">
+              <Key color="var(--color-attack)">Attack reports, SANS ISC DShield</Key>
+              {origins.some((o) => o.kind === 'c2') && <Key color="var(--color-c2)">Botnet command servers, Feodo Tracker</Key>}
+            </div>
+          )}
           {topAlerts.length > 0 && (
-            <div className="mt-6">
+            <div className="mt-6 lg:hidden">
               <p className="mb-2 text-[15px] text-mute">{sample ? 'Worst CVE in the top states (sample data)' : 'Worst real CVE in the top states'}</p>
               <ol className="space-y-1.5">
                 {threats.slice(0, 3).flatMap((t) => (t.top ? [{ t, a: t.top }] : [])).map(({ t, a }) => (
@@ -656,7 +686,9 @@ export function Landing() {
               </ol>
             </div>
           )}
-          <p className={`${LINE} mt-5`}>{real(`Simulated: the operator${compOrgs.length === 1 ? '' : 's'}, the incident${openComp.length === 1 ? '' : 's'} and the ${num(pending ?? 0)} proposals. Real: the CERT-In 6-hour rule and the CVEs on the map.`)}</p>
+          <p className={`${LINE} mt-3`}>
+            {real(`Real: the CVEs, the CERT-In 6-hour rule and where the arrows start (DShield's top attacking countries, located by RIPEstat on ${date(attackers.taken_at)}${origins.some((o) => o.kind === 'c2') ? ', and Feodo Tracker botnet servers' : ''}). Simulated: the operators, incidents and proposals, and where the arrows land (the operators with the most Critical warnings).`)}
+          </p>
         </>
       ),
     },
@@ -689,7 +721,7 @@ export function Landing() {
       return (
         // The stacked page's map is smaller than the stage's: its CVEs live in the beat-4 list beside it, not as chips.
         <div className="mx-auto aspect-[612/696] w-full max-w-[560px]">
-          <IndiaMap threats={threats} names={productNames} showCves={false} entered interactive hover={hover} onHover={setHover} />
+          <IndiaMap threats={threats} names={productNames} showCves={false} entered interactive hover={hover} onHover={setHover} origins={i === 3 ? origins : []} showAttacks={i === 3} />
         </div>
       )
     }
@@ -723,7 +755,7 @@ export function Landing() {
                 </Globe>
               </div>
               <div ref={mapEl} className="landing-map" inert={!onIndia} aria-hidden={!onIndia}>
-                <IndiaMap threats={threats} names={productNames} showCves={beatIdx === 3} entered={mapIn} interactive={onIndia} hover={hover} onHover={setHover} />
+                <IndiaMap threats={threats} names={productNames} showCves={beatIdx === 3} entered={mapIn} interactive={onIndia} hover={hover} onHover={setHover} origins={origins} showAttacks={attacksOn} />
               </div>
             </div>
 

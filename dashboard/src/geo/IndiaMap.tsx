@@ -51,9 +51,33 @@ export function describeState(t: StateThreat): string {
     + (t.compromise ? `, ${plural(t.compromise, 'compromise warning', 'compromise warnings')}` : '')
 }
 
-export function IndiaMap({ threats, names, showCves, entered, interactive, hover, onHover }: {
+/** A place attacks come from: a country with attack reports (DShield) or botnet command servers (Feodo Tracker). */
+export interface Origin { id: string; name: string; kind: 'attack' | 'c2'; at: [number, number]; note: string }
+
+const rad = (d: number) => (d * Math.PI) / 180
+/** Great-circle initial bearing from the map's centre (22.7N, 82.8E) to a place: 0 = north, clockwise, radians. */
+function bearing([lat, lng]: [number, number]): number {
+  const [p1, l1, p2, l2] = [rad(22.7), rad(82.8), rad(lat), rad(lng)]
+  return Math.atan2(Math.sin(l2 - l1) * Math.cos(p2), Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(l2 - l1))
+}
+/** Push bearings apart until neighbours are at least 20° apart, keeping their order around the compass. */
+function spreadBearings<T extends { b: number }>(xs: T[]): T[] {
+  const gap = rad(20)
+  const out = [...xs].sort((a, b) => a.b - b.b).map((x) => ({ ...x }))
+  for (let pass = 0; pass < 8; pass++) {
+    for (let i = 1; i < out.length; i++) {
+      const d = out[i].b - out[i - 1].b
+      if (d < gap) { const push = (gap - d) / 2; out[i - 1].b -= push; out[i].b += push }
+    }
+  }
+  return out
+}
+
+export function IndiaMap({ threats, names, showCves, entered, interactive, hover, onHover, origins = [], showAttacks = false }: {
   threats: StateThreat[]; names: Record<string, string | null>; showCves: boolean; entered: boolean; interactive: boolean
   hover: string | null; onHover: (name: string | null) => void
+  /** Attack origins, strongest first; drawn as arrows in the last beat. */
+  origins?: Origin[]; showAttacks?: boolean
 }) {
   const group = useRef<SVGGElement>(null)
   const [frame, setFrame] = useState<Box | null>(null)
@@ -93,6 +117,41 @@ export function IndiaMap({ threats, names, showCves, entered, interactive, hover
     return at ? [{ t, at }] : []
   })
   const pct = ([x, y]: [number, number]): CSSProperties => ({ left: `${(x / VW) * 100}%`, top: `${(y / VH) * 100}%` })
+
+  // One dot per operator; several in one state fan out on a small circle. Size = Critical warnings, for every operator.
+  const dots = placed.flatMap(({ t, at }) => t.operators.map((o, i) => {
+    const n = t.operators.length
+    const a = (2 * Math.PI * i) / n - Math.PI / 2
+    const [x, y] = n > 1 ? [at[0] + 9 * Math.cos(a), at[1] + 9 * Math.sin(a)] : at
+    const comp = o.compromise > 0
+    const r = 2.4 + 4.6 * Math.sqrt(o.critical / maxCrit)
+    return { id: o.id, x, y, r: comp ? Math.max(r, 5) : r, comp, critical: o.critical }
+  }))
+
+  // Attack arrows: each origin sits around India in its true compass direction (great-circle bearing from the map's
+  // centre), spread so no two crowd; each ends on one of the operators with the most Critical warnings.
+  const placedOrigins = spreadBearings(origins.map((o) => ({ o, b: bearing(o.at) })))
+  // Pair origins and targets in the same compass order, so the arrows fan in without crossing.
+  const targets = [...dots].sort((a, b) => b.critical - a.critical).slice(0, placedOrigins.length)
+    .sort((a, b) => Math.atan2(a.x - VW / 2, VH / 2 - a.y) - Math.atan2(b.x - VW / 2, VH / 2 - b.y))
+  const arrows = placedOrigins.slice(0, targets.length).map(({ o, b }, i) => {
+    const from: [number, number] = [VW / 2 + 335 * Math.sin(b), Math.max(64, VH / 2 - 375 * Math.cos(b))] // below the header
+    const tgt = targets[i]
+    const to: [number, number] = [tgt.x, tgt.y]
+    // Bend each curve a little to one side, then stop short of the dot so the head sits on its edge.
+    const [mx, my] = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2]
+    const [dx, dy] = [to[0] - from[0], to[1] - from[1]]
+    const len = Math.hypot(dx, dy) || 1
+    const c: [number, number] = [mx - (dy / len) * len * 0.18, my + (dx / len) * len * 0.18]
+    const [ex, ey] = [to[0] - c[0], to[1] - c[1]]
+    const el = Math.hypot(ex, ey) || 1
+    const end: [number, number] = [to[0] - (ex / el) * (tgt.r + 2), to[1] - (ey / el) * (tgt.r + 2)]
+    return {
+      o, from, to: end, angle: (Math.atan2(ey, ex) * 180) / Math.PI,
+      d: `M${from[0].toFixed(1)},${from[1].toFixed(1)} Q${c[0].toFixed(1)},${c[1].toFixed(1)} ${end[0].toFixed(1)},${end[1].toFixed(1)}`,
+      color: o.kind === 'c2' ? 'var(--color-c2)' : 'var(--color-attack)',
+    }
+  })
   const tip = hover ? byName.get(hover) : undefined
   const tipAt = hover ? (placed.find((p) => p.t.name === hover)?.at ?? centres[hover]) : undefined
   const operators = threats.reduce((n, t) => n + t.operators.length, 0)
@@ -120,28 +179,49 @@ export function IndiaMap({ threats, names, showCves, entered, interactive, hover
             )
           })}
         </g>
-        {placed.flatMap(({ t, at }) => t.operators.map((o, i) => {
-          const n = t.operators.length
-          const a = (2 * Math.PI * i) / n - Math.PI / 2
-          const [x, y] = n > 1 ? [at[0] + 9 * Math.cos(a), at[1] + 9 * Math.sin(a)] : at
-          const r = 2.4 + 4.6 * Math.sqrt(o.critical / maxCrit) // size = Critical warnings, for every operator
-          const comp = o.compromise > 0
-          return (
-            <g key={o.id} className="pointer-events-none">
-              {comp && <circle cx={x} cy={y} r={Math.max(r, 5)} className="india-ring" />}
-              <circle cx={x} cy={y} r={comp ? Math.max(r, 5) : r} stroke="var(--color-ground)" strokeWidth={1.5}
-                fill={comp ? 'var(--color-compromise)' : o.critical > 0 ? 'var(--color-critical)' : 'var(--color-watch)'} />
-            </g>
-          )
-        }))}
+        {arrows.map((a, i) => (
+          <g key={a.o.id} className={`india-attack pointer-events-none ${showAttacks ? 'is-on' : ''}`} style={{ '--d': `${150 + i * 140}ms` } as CSSProperties}>
+            <defs>
+              <linearGradient id={`atk-${a.o.id}`} gradientUnits="userSpaceOnUse" x1={a.from[0]} y1={a.from[1]} x2={a.to[0]} y2={a.to[1]}>
+                <stop offset="0" stopColor={a.color} stopOpacity="0.05" />
+                <stop offset="1" stopColor={a.color} stopOpacity="1" />
+              </linearGradient>
+            </defs>
+            <path className="glow" d={a.d} fill="none" stroke={a.color} strokeWidth={7} strokeLinecap="round" />
+            <path className="line" d={a.d} pathLength={1} fill="none" stroke={`url(#atk-${a.o.id})`} strokeWidth={2} strokeLinecap="round" />
+            <path className="head" d="M0,0 L-9,-4.5 L-9,4.5 Z" fill={a.color} transform={`translate(${a.to[0]} ${a.to[1]}) rotate(${a.angle})`} />
+            <circle className="origin" cx={a.from[0]} cy={a.from[1]} r={4.5} fill={a.color} stroke="var(--color-ground)" strokeWidth={1.5} />
+            <circle className="ripple" cx={a.to[0]} cy={a.to[1]} r={6} fill="none" stroke={a.color} strokeWidth={1.5} />
+          </g>
+        ))}
+        {dots.map((d) => (
+          <g key={d.id} className="pointer-events-none">
+            {d.comp && <circle cx={d.x} cy={d.y} r={d.r} className="india-ring" />}
+            <circle cx={d.x} cy={d.y} r={d.r} stroke="var(--color-ground)" strokeWidth={1.5}
+              fill={d.comp ? 'var(--color-compromise)' : d.critical > 0 ? 'var(--color-critical)' : 'var(--color-watch)'} />
+          </g>
+        ))}
       </svg>
+
+      {/* Where the attacks come from: one label per origin, on a solid plate, above its point. */}
+      {arrows.map((a, i) => {
+        // Two short lines, kept inside the frame: labels near an edge hang inward from their point.
+        const edge = a.from[0] > VW * 0.8 ? '-translate-x-[calc(100%-10px)] text-right' : a.from[0] < VW * 0.15 ? '-translate-x-[10px] text-left' : '-translate-x-1/2 text-center'
+        return (
+          <div key={a.o.id} className={`india-origin-label pointer-events-none absolute ${edge} -translate-y-[calc(100%+10px)] rounded-lg bg-ground px-2 py-1 text-[12px] leading-tight whitespace-nowrap ${showAttacks ? 'is-on' : ''}`}
+            style={{ ...pct(a.from), '--d': `${150 + i * 140}ms` } as CSSProperties}>
+            <div className="font-medium text-text">{a.o.name}</div>
+            <div className="fig text-mute">{a.o.note}</div>
+          </div>
+        )
+      })}
 
       {/* Direct labels: state and Critical count; in the last beat, the worst real CVE of each top state. */}
       {placed.map(({ t, at }) => {
         const [dx, dy] = NUDGE[t.name] ?? [0, 0]
         const rank = chipRank.get(t.name)
         return (
-          <div key={t.name} className="pointer-events-none absolute -translate-x-1/2 pt-3.5 text-center leading-tight max-lg:hidden" style={pct([at[0] + dx, at[1] + dy])}>
+          <div key={t.name} className="india-label pointer-events-none absolute -translate-x-1/2 pt-3.5 text-center leading-tight max-lg:hidden" style={pct([at[0] + dx, at[1] + dy])}>
             <div className="whitespace-nowrap text-[12px] font-medium tracking-[0.01em] text-text">{t.name}</div>
             <div className="num whitespace-nowrap text-[12px] text-text/85">{num(t.critical)} Critical</div>
             {t.top && rank != null && (
