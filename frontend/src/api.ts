@@ -146,6 +146,23 @@ export interface Translation {
   cached: boolean
 }
 
+export interface Campaign {
+  id: string
+  product_key: string
+  title: string
+  status: 'ACTIVE' | 'EMERGING' | 'DORMANT'
+  first_signal: string | null
+  last_exploit: string | null
+  early_warning_days: number
+  cves: { cve: string; date: string; name: string }[]
+  decoy_surges: { tag: string; first: string; last: string; z_sessions: number; sensors: number }[]
+  chains: { asset_id: string; cves: string[] }[]
+  orgs_exposed: string[]
+  sectors_exposed: string[]
+  assets_exposed: number
+  max_risk: number
+}
+
 export interface Health {
   status: string
   ledger_intact: boolean
@@ -170,6 +187,7 @@ export const api = {
   brief: (orgId: string, cveId: string) => get<Brief>(`/api/alerts/${orgId}/${cveId}/brief`),
   replay: (orgId: string, cveId: string) => get<Replay>(`/api/replay/${orgId}/${cveId}`),
   feed: () => get<Feed>('/api/feed'),
+  campaigns: () => get<Campaign[]>('/api/campaigns'),
   translate: (orgId: string, cveId: string, lang: 'hi' | 'mr') =>
     get<Translation>(`/api/alerts/${orgId}/${cveId}/brief/translate?lang=${lang}`),
   recent: () => get<LedgerEvent[]>('/api/events/recent?limit=25'),

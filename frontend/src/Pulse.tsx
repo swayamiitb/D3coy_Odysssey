@@ -1,6 +1,6 @@
 import { Activity } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { api, type LedgerEvent, type Summary } from './api'
+import { api, type Campaign, type LedgerEvent, type Summary } from './api'
 import { Badge, TIER_FILL } from './ui'
 
 const SECTORS = ['Power & Energy', 'BFSI', 'Telecom', 'Transport', 'Government', 'Strategic & Public Enterprises']
@@ -17,7 +17,11 @@ const TONE: Record<string, 'ok' | 'accent' | 'crit' | 'mute'> = { REAL: 'ok', SI
 
 export function Pulse({ summary, live }: { summary?: Summary; live: LedgerEvent[] }) {
   const [recent, setRecent] = useState<LedgerEvent[]>([])
-  useEffect(() => { api.recent().then(setRecent).catch(() => undefined) }, [])
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  useEffect(() => {
+    api.recent().then(setRecent).catch(() => undefined)
+    api.campaigns().then(setCampaigns).catch(() => undefined)
+  }, [])
   const events = [...live].reverse().concat(recent).filter((e, i, arr) => arr.findIndex((x) => x.seq === e.seq) === i).slice(0, 14)
 
   return (
@@ -42,6 +46,26 @@ export function Pulse({ summary, live }: { summary?: Summary; live: LedgerEvent[
             )
           })}
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-line bg-panel p-4">
+        <div className="mb-3 text-xs uppercase tracking-wider text-mute">Campaigns · related threats</div>
+        <ol className="space-y-2">
+          {campaigns.slice(0, 5).map((c) => (
+            <li key={c.id} className="rounded-xl bg-panel-2 p-2.5">
+              <div className="flex items-center gap-2">
+                <span className={`rounded px-1.5 text-[10px] font-semibold ${c.status === 'ACTIVE' ? 'bg-crit/20 text-crit' : 'bg-high/20 text-high'}`}>{c.status}</span>
+                <span className="truncate text-sm">{c.title.replace(/^(Exploitation|Reconnaissance) of /, '')}</span>
+              </div>
+              <div className="mt-1 text-xs text-mute">
+                {c.cves.length} exploited CVE{c.cves.length === 1 ? '' : 's'} · {c.orgs_exposed.length} orgs
+                {c.chains.length > 0 && ` · ${c.chains.length} chained assets`}
+                {c.early_warning_days > 0 && <span className="text-accent"> · first signal {c.early_warning_days}d before disclosure</span>}
+                {c.cves.length === 0 && c.decoy_surges.length > 0 && ' · decoy scanning only'}
+              </div>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-line bg-panel p-4">

@@ -345,6 +345,16 @@ def analyze_advisory(body: dict) -> dict:
     return _analyse_advisory(adv)
 
 
+@app.get("/api/campaigns")
+def campaigns(limit: int = 12) -> list[dict]:
+    """Related threats grouped into campaigns per targeted product (exploited CVEs, chains, decoy surges)."""
+    import datetime as _dt
+    from .engine.campaigns import build
+    conn = db()
+    snap = conn.execute("SELECT value FROM meta WHERE key='snapshot_date'").fetchone()[0]
+    return build(conn, _dt.date.fromisoformat(snap))[:limit]
+
+
 _SCORECARD_CACHE: dict = {}
 
 
