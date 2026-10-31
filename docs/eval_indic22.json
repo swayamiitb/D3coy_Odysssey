@@ -1,0 +1,161 @@
+{
+ "model": "naklitechie/indictrans2-en-indic-dist-200M",
+ "languages": {
+  "as": {
+   "name": "Assamese",
+   "script": "Beng",
+   "validated": 3,
+   "total": 3,
+   "seconds": 8.37
+  },
+  "bn": {
+   "name": "Bengali",
+   "script": "Beng",
+   "validated": 3,
+   "total": 3,
+   "seconds": 4.46
+  },
+  "brx": {
+   "name": "Bodo",
+   "script": "Deva",
+   "validated": 3,
+   "total": 3,
+   "seconds": 5.18
+  },
+  "doi": {
+   "name": "Dogri",
+   "script": "Deva",
+   "validated": 3,
+   "total": 3,
+   "seconds": 4.95
+  },
+  "gu": {
+   "name": "Gujarati",
+   "script": "Gujr",
+   "validated": 3,
+   "total": 3,
+   "seconds": 4.44
+  },
+  "hi": {
+   "name": "Hindi",
+   "script": "Deva",
+   "validated": 3,
+   "total": 3,
+   "seconds": 4.57
+  },
+  "kn": {
+   "name": "Kannada",
+   "script": "Knda",
+   "validated": 3,
+   "total": 3,
+   "seconds": 4.61
+  },
+  "ks": {
+   "name": "Kashmiri",
+   "script": "Arab",
+   "validated": 3,
+   "total": 3,
+   "seconds": 7.15
+  },
+  "kok": {
+   "name": "Konkani",
+   "script": "Deva",
+   "validated": 3,
+   "total": 3,
+   "seconds": 6.38
+  },
+  "mai": {
+   "name": "Maithili",
+   "script": "Deva",
+   "validated": 3,
+   "total": 3,
+   "seconds": 4.33
+  },
+  "ml": {
+   "name": "Malayalam",
+   "script": "Mlym",
+   "validated": 3,
+   "total": 3,
+   "seconds": 10.31
+  },
+  "mni": {
+   "name": "Manipuri",
+   "script": "Mtei",
+   "validated": 2,
+   "total": 3,
+   "seconds": 13.29
+  },
+  "mr": {
+   "name": "Marathi",
+   "script": "Deva",
+   "validated": 3,
+   "total": 3,
+   "seconds": 6.02
+  },
+  "ne": {
+   "name": "Nepali",
+   "script": "Deva",
+   "validated": 3,
+   "total": 3,
+   "seconds": 4.77
+  },
+  "or": {
+   "name": "Odia",
+   "script": "Orya",
+   "validated": 3,
+   "total": 3,
+   "seconds": 6.73
+  },
+  "pa": {
+   "name": "Punjabi",
+   "script": "Guru",
+   "validated": 3,
+   "total": 3,
+   "seconds": 14.15
+  },
+  "sa": {
+   "name": "Sanskrit",
+   "script": "Deva",
+   "validated": 3,
+   "total": 3,
+   "seconds": 9.52
+  },
+  "sat": {
+   "name": "Santali",
+   "script": "Olck",
+   "validated": 1,
+   "total": 3,
+   "seconds": 11.15
+  },
+  "sd": {
+   "name": "Sindhi",
+   "script": "Arab",
+   "validated": 3,
+   "total": 3,
+   "seconds": 6.01
+  },
+  "ta": {
+   "name": "Tamil",
+   "script": "Taml",
+   "validated": 3,
+   "total": 3,
+   "seconds": 8.62
+  },
+  "te": {
+   "name": "Telugu",
+   "script": "Telu",
+   "validated": 3,
+   "total": 3,
+   "seconds": 4.94
+  },
+  "ur": {
+   "name": "Urdu",
+   "script": "Arab",
+   "validated": 3,
+   "total": 3,
+   "seconds": 5.59
+  }
+ },
+ "validated": 63,
+ "total": 66
+}

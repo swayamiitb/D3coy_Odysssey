@@ -266,19 +266,33 @@ def stix(org_id: str, cve_id: str, tlp: str = "AMBER") -> dict:
 
 
 MT_URL = "http://127.0.0.1:8010"
+_LANGS_CACHE: list = []
+
+
+@app.get("/api/languages")
+def languages() -> list[dict]:
+    """The 22 scheduled Indian languages served by the local IndicTrans2 service (code, native name, script, RTL)."""
+    import httpx
+    if not _LANGS_CACHE:
+        try:
+            _LANGS_CACHE.extend(httpx.get(f"{MT_URL}/languages", timeout=10).json())
+        except httpx.HTTPError as exc:
+            raise HTTPException(503, f"translation service unavailable: {exc}") from exc
+    return _LANGS_CACHE
 
 
 @app.get("/api/alerts/{org_id}/{cve_id}/brief/translate")
 def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
-    """Hindi/Marathi version of the *validated* brief via the local IndicTrans2 service. Protected identifiers
-    are preserved and every sentence is validated; failures are withheld, never guessed."""
+    """The *validated* brief in any of the 22 scheduled Indian languages via the local IndicTrans2 service.
+    Protected identifiers are preserved and every sentence is validated; failures are withheld, never guessed."""
     import httpx
     from datetime import datetime, timezone
 
     from . import cache
 
-    if lang not in {"hi", "mr"}:
-        raise HTTPException(400, "lang must be hi or mr")
+    codes = {x["code"] for x in languages()}
+    if lang not in codes:
+        raise HTTPException(400, f"lang must be one of {sorted(codes)}")
     conn = db()
     brief = alert_brief(org_id, cve_id)
     if not brief.get("brief"):
@@ -298,7 +312,7 @@ def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
     out = r.json()
     res = out["results"]
     n_why = len(b["why_it_matters"])
-    body = {"lang": lang, "model": out["model"], "seconds": out["seconds"],
+    body = {"lang": lang, "model": out["model"], "seconds": out["seconds"], "rtl": out.get("rtl", False),
             "headline": res[0], "why_it_matters": res[1:1 + n_why], "what_to_do": res[1 + n_why:],
             "validated": sum(x["status"] == "validated" for x in res), "total": len(res)}
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")

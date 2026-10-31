@@ -136,8 +136,10 @@ export interface Feed { issued_at: string; counts: { needs_action: number; compr
 export interface LedgerEvent { seq: number; ts: string; kind: string; subject: string; source: string; provenance: string }
 
 export interface TranslatedLine { source: string; text: string | null; status: 'validated' | 'withheld'; problems: string[] }
+export interface Language { code: string; tag: string; name: string; native: string; script: string; rtl: boolean }
 export interface Translation {
-  lang: 'hi' | 'mr'
+  lang: string
+  rtl: boolean
   model: string
   seconds: number
   headline: TranslatedLine
@@ -190,7 +192,8 @@ export const api = {
   replay: (orgId: string, cveId: string) => get<Replay>(`/api/replay/${orgId}/${cveId}`),
   feed: () => get<Feed>('/api/feed'),
   campaigns: () => get<Campaign[]>('/api/campaigns'),
-  translate: (orgId: string, cveId: string, lang: 'hi' | 'mr') =>
+  languages: () => get<Language[]>('/api/languages'),
+  translate: (orgId: string, cveId: string, lang: string) =>
     get<Translation>(`/api/alerts/${orgId}/${cveId}/brief/translate?lang=${lang}`),
   recent: () => get<LedgerEvent[]>('/api/events/recent?limit=25'),
   act: async (orgId: string, cveId: string, action: string) => {

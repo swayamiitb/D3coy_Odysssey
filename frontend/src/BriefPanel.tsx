@@ -1,18 +1,23 @@
 import { Bot, Languages, Loader2, ShieldCheck, ShieldOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { api, type Brief, type TranslatedLine, type Translation } from './api'
+import { api, type Brief, type Language, type TranslatedLine, type Translation } from './api'
 import { Badge, Panel } from './ui'
 
-type Lang = 'en' | 'hi' | 'mr'
-const LANG_LABEL: Record<Lang, string> = { en: 'EN', hi: 'हिन्दी', mr: 'मराठी' }
+let LANGS: Promise<Language[]> | undefined  // fetched once per session from the local IndicTrans2 service
 
 export function BriefPanel({ orgId, cveId }: { orgId: string; cveId: string }) {
   const [brief, setBrief] = useState<Brief>()
   const [error, setError] = useState<string>()
   const [openFact, setOpenFact] = useState<string>()
-  const [lang, setLang] = useState<Lang>('en')
-  const [tr, setTr] = useState<Partial<Record<'hi' | 'mr', Translation>>>({})
+  const [lang, setLang] = useState('en')
+  const [langs, setLangs] = useState<Language[]>([])
+  const [tr, setTr] = useState<Record<string, Translation>>({})
   const [trBusy, setTrBusy] = useState(false)
+
+  useEffect(() => {
+    LANGS ??= api.languages().catch(() => [])
+    LANGS.then((l) => setLangs([...l].sort((a, b) => a.name.localeCompare(b.name))))
+  }, [])
 
   useEffect(() => {
     setBrief(undefined)
@@ -22,7 +27,7 @@ export function BriefPanel({ orgId, cveId }: { orgId: string; cveId: string }) {
     api.brief(orgId, cveId).then(setBrief).catch((e) => setError(String(e)))
   }, [orgId, cveId])
 
-  const pick = (l: Lang) => {
+  const pick = (l: string) => {
     setLang(l)
     if (l === 'en' || tr[l]) return
     setTrBusy(true)
@@ -33,14 +38,25 @@ export function BriefPanel({ orgId, cveId }: { orgId: string; cveId: string }) {
   const status = brief && (brief.status === 'validated'
     ? <Badge tone="ok"><ShieldCheck size={12} /> validated</Badge>
     : <Badge tone="crit"><ShieldOff size={12} /> withheld</Badge>)
+  const current = langs.find((x) => x.code === lang)
   const toggle = brief?.brief && (
-    <div className="flex rounded-full bg-panel-2 p-0.5">
-      {(Object.keys(LANG_LABEL) as Lang[]).map((l) => (
+    <div className="flex items-center gap-1 rounded-full bg-panel-2 p-0.5">
+      {['en', 'hi'].map((l) => (
         <button key={l} onClick={() => pick(l)}
                 className={`rounded-full px-2 py-0.5 text-xs ${lang === l ? 'bg-accent font-semibold text-ink' : 'text-mute hover:text-text'}`}>
-          {LANG_LABEL[l]}
+          {l === 'en' ? 'EN' : 'हिन्दी'}
         </button>
       ))}
+      {langs.length > 0 && (
+        <select value={lang === 'en' || lang === 'hi' ? '' : lang} onChange={(e) => e.target.value && pick(e.target.value)}
+                title={`${langs.length} scheduled Indian languages, translated on this laptop`}
+                className={`max-w-36 rounded-full bg-transparent px-1.5 py-0.5 text-xs outline-none ${lang !== 'en' && lang !== 'hi' ? 'bg-accent font-semibold text-ink' : 'text-mute'}`}>
+          <option value="">+{langs.length - 1} languages</option>
+          {langs.filter((x) => x.code !== 'hi').map((x) => (
+            <option key={x.code} value={x.code}>{x.native} · {x.name}</option>
+          ))}
+        </select>
+      )}
     </div>
   )
   const t = lang !== 'en' ? tr[lang] : undefined
@@ -48,21 +64,25 @@ export function BriefPanel({ orgId, cveId }: { orgId: string; cveId: string }) {
   if (lang !== 'en') {
     return (
       <Panel title="AI analyst brief" right={<div className="flex items-center gap-2">{toggle}{status}</div>}>
-        {(trBusy || !t) && (
+        {error && <div className="text-xs text-crit">{error}</div>}
+        {(trBusy || !t) && !error && (
           <div className="flex items-center gap-2 text-xs text-mute">
-            <Loader2 size={14} className="animate-spin" /> IndicTrans2 is translating the validated brief on this laptop…
+            <Loader2 size={14} className="animate-spin" /> IndicTrans2 is translating the validated brief into {current?.name ?? lang} on this laptop…
           </div>
         )}
         {t && (
           <div className="space-y-2 text-sm">
-            <Line l={t.headline} strong />
-            <div className="text-xs font-semibold uppercase tracking-wide text-mute">{lang === 'hi' ? 'यह क्यों मायने रखता है' : 'हे का महत्त्वाचे आहे'}</div>
-            {t.why_it_matters.map((x, i) => <Line key={i} l={x} />)}
-            <div className="text-xs font-semibold uppercase tracking-wide text-mute">{lang === 'hi' ? 'क्या करें' : 'काय करावे'}</div>
-            {t.what_to_do.map((x, i) => <Line key={i} l={x} />)}
+            <div dir={t.rtl ? 'rtl' : 'ltr'} lang={lang} className="space-y-2">
+              <Line l={t.headline} strong />
+              <div className="text-xs font-semibold uppercase tracking-wide text-mute" dir="ltr">Why it matters</div>
+              {t.why_it_matters.map((x, i) => <Line key={i} l={x} />)}
+              <div className="text-xs font-semibold uppercase tracking-wide text-mute" dir="ltr">What to do</div>
+              {t.what_to_do.map((x, i) => <Line key={i} l={x} />)}
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-1 text-xs text-mute">
-              <Languages size={12} /> Translated on-device by IndicTrans2 (AI4Bharat) · {t.validated}/{t.total} sentences validated
-              (identifiers preserved, script checked) · {t.cached ? 'cached' : `${t.seconds}s`}
+              <Languages size={12} /> {current ? `${current.name} (${current.script} script)` : lang} · translated on-device by
+              IndicTrans2 (AI4Bharat) · {t.validated}/{t.total} sentences validated (identifiers preserved, script checked;
+              failures shown in English, never guessed) · {t.cached ? 'cached' : `${t.seconds}s`}
             </div>
           </div>
         )}
@@ -112,7 +132,7 @@ export function BriefPanel({ orgId, cveId }: { orgId: string; cveId: string }) {
 function Line({ l, strong }: { l: TranslatedLine; strong?: boolean }) {
   if (l.status === 'validated') return <div className={strong ? 'font-medium' : 'text-xs leading-relaxed'}>{l.text}</div>
   return (
-    <div className="text-xs leading-relaxed text-mute">
+    <div className="text-xs leading-relaxed text-mute" dir="ltr" lang="en">
       {l.source} <Badge tone="crit">translation withheld</Badge>
     </div>
   )
