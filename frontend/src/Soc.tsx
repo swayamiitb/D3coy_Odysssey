@@ -1,7 +1,7 @@
 import { ExternalLink, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { api, type Attacks, type IntelAdvisory, type IntelSource, type PortTrend, type Soc as SocData } from './api'
+import { api, type Attacks, type Campaign, type IntelAdvisory, type IntelSource, type PortTrend, type Soc as SocData, type Technology } from './api'
 import { ApprovalQueue, AutopilotFeed, useLanguages } from './proactive'
 import { Badge, Panel, TIER_FILL } from './ui'
 
@@ -43,6 +43,64 @@ function PortCard({ t }: { t: PortTrend }) {
       <Spark values={t.series.map((s) => s.records)} color={t.elevated ? '#ef4444' : '#38bdf8'} />
       <div className="text-[10px] text-mute">:{t.port} · {fmt(t.last7_mean)}/day</div>
     </div>
+  )
+}
+
+function Technologies({ rows }: { rows: Technology[] }) {
+  return (
+    <table className="w-full text-xs">
+      <thead className="text-left text-mute">
+        <tr>
+          <th className="pb-1 font-normal">Technology</th><th className="pb-1 text-right font-normal">Orgs</th>
+          <th className="pb-1 text-right font-normal" title="internet- or DMZ-facing assets">Exposed</th>
+          <th className="pb-1 text-right font-normal">Critical</th><th className="pb-1 text-right font-normal">High</th>
+          <th className="pb-1 text-right font-normal" title="CVEs in CISA KEV affecting this technology here">Exploited CVEs</th>
+          <th className="pb-1 text-right font-normal" title="CVEs the day-0 forecast flags, not yet exploited">Likely next</th>
+          <th className="pb-1 pl-3 font-normal">Campaign</th>
+          <th className="pb-1 text-right font-normal" title="global attack records on its service port, last 7 days vs 28-day median (DShield)">Attacks</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.filter((r) => r.assets_at_risk > 0).slice(0, 14).map((r) => (
+          <tr key={r.label} className="border-t border-line/50">
+            <td className="py-1.5 pr-2">
+              <span className="font-medium">{r.label}</span>
+              {r.compromised_assets > 0 && <span className="ml-2 text-fuchsia-300">{r.compromised_assets} compromised</span>}
+            </td>
+            <td className="py-1.5 text-right font-mono">{r.orgs}</td>
+            <td className="py-1.5 text-right font-mono">{r.internet_facing}</td>
+            <td className="py-1.5 text-right font-mono text-crit">{r.critical || '—'}</td>
+            <td className="py-1.5 text-right font-mono text-high">{r.high || '—'}</td>
+            <td className="py-1.5 text-right font-mono">{r.kev_cves || '—'}</td>
+            <td className="py-1.5 text-right font-mono text-accent">{r.forecast_cves || '—'}</td>
+            <td className="py-1.5 pl-3">{r.campaign ? <span className={`rounded px-1.5 text-[10px] font-semibold ${r.campaign === 'ACTIVE' ? 'bg-crit/20 text-crit' : 'bg-high/20 text-high'}`}>{r.campaign}</span> : <span className="text-mute">—</span>}</td>
+            <td className="py-1.5 text-right font-mono text-mute">{r.attack_trend ? `${r.attack_trend.ratio >= 1 ? '+' : ''}${Math.round((r.attack_trend.ratio - 1) * 100)}% :${r.attack_trend.port}` : '—'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function Campaigns({ rows }: { rows: Campaign[] }) {
+  return (
+    <ol className="space-y-2">
+      {rows.slice(0, 7).map((c) => (
+        <li key={c.id} className="rounded-xl bg-panel-2 p-2.5">
+          <div className="flex items-center gap-2">
+            <span className={`rounded px-1.5 text-[10px] font-semibold ${c.status === 'ACTIVE' ? 'bg-crit/20 text-crit' : 'bg-high/20 text-high'}`}>{c.status}</span>
+            <span className="truncate text-sm">{c.title.replace(/^(Exploitation|Reconnaissance) of /, '')}</span>
+          </div>
+          <div className="mt-1 text-xs text-mute">
+            {c.cves.length} exploited CVE{c.cves.length === 1 ? '' : 's'} · {c.orgs_exposed.length} orgs · {c.sectors_exposed.length} sectors
+            {c.chains.length > 0 && ` · ${c.chains.length} chained assets`}
+            {c.early_warning_days > 0 && <span className="text-accent"> · first signal {c.early_warning_days} d before disclosure</span>}
+            {c.cves.length === 0 && c.decoy_surges.length > 0 && ' · decoy scanning only'}
+          </div>
+          {c.cves.length > 0 && <div className="mt-1 truncate font-mono text-[11px] text-mute">{c.cves.slice(0, 3).map((x) => x.cve).join(' · ')}</div>}
+        </li>
+      ))}
+    </ol>
   )
 }
 
@@ -99,6 +157,8 @@ export function Soc({ onOrg, tick }: { onOrg: (id: string) => void; tick: number
   const [sources, setSources] = useState<IntelSource[]>([])
   const [adv, setAdv] = useState<IntelAdvisory[]>([])
   const [atk, setAtk] = useState<Attacks>()
+  const [tech, setTech] = useState<Technology[]>([])
+  const [camps, setCamps] = useState<Campaign[]>([])
   const [stamp, setStamp] = useState(0)
   const langs = useLanguages()
   useEffect(() => { api.soc().then(setD).catch(() => undefined) }, [tick, stamp])
@@ -106,6 +166,8 @@ export function Soc({ onOrg, tick }: { onOrg: (id: string) => void; tick: number
     api.intelSources().then(setSources).catch(() => undefined)
     api.intelAdvisories().then(setAdv).catch(() => undefined)
     api.attacks().then(setAtk).catch(() => undefined)
+    api.technologies().then(setTech).catch(() => undefined)
+    api.campaigns().then(setCamps).catch(() => undefined)
   }, [])
   if (!d) return <div className="p-8 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Assembling the operations picture…</div>
 
@@ -155,6 +217,17 @@ export function Soc({ onOrg, tick }: { onOrg: (id: string) => void; tick: number
         </div>
         <Panel title={`Needs your decision · ${d.pending}`} right={<span className="text-xs text-mute">human in the loop</span>}>
           <div className="max-h-72 overflow-auto pr-1"><ApprovalQueue limit={3} onChanged={() => setStamp((s) => s + 1)} /></div>
+        </Panel>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <Panel title="Active threats by technology" right={<span className="text-xs text-mute">what is under attack, and where we run it</span>}>
+            <Technologies rows={tech} />
+          </Panel>
+        </div>
+        <Panel title="Campaigns · correlated threats" right={<span className="text-xs text-mute">CVEs, chains, decoy surges per product</span>}>
+          <Campaigns rows={camps} />
         </Panel>
       </div>
 

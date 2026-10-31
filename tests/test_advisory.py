@@ -43,3 +43,14 @@ def test_restated_deadline_must_keep_its_authority():
              "what_to_do": []}
     assert validate(ok, facts) == []
     assert any("authority" in p for p in validate(wrong, facts))
+
+
+def test_vers_ranges_from_cisa_csaf_advisories():
+    text = ("The following versions of Siemens WinCC are affected: SIMATIC WinCC V7.5 vers:all/* (CVE-2026-59241) "
+            "SIMATIC WinCC V8.0 vers:intdot/<8.0.0.11 (CVE-2026-59241) SIMATIC WinCC V8.1 vers:intdot/<8.1.7")
+    ranges = {(c["start"], c["version"]) for c in text_constraints(text)}
+    assert ranges == {("7.5", "7.6"), ("8.0", "8.0.0.11"), ("8.1", "8.1.7")}
+    asset = {"vendor": "siemens", "product": "simatic_wincc"}
+    assert text_vote({**asset, "version": "7.5_sp2"}, text).verdict == "affected"   # whole line affected, no fix
+    assert text_vote({**asset, "version": "8.0"}, text).verdict == "affected"
+    assert text_vote({**asset, "version": "8.1.7"}, text).verdict == "not_affected"  # the fixed release itself

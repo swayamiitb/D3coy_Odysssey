@@ -173,6 +173,39 @@ def sources(conn: sqlite3.Connection, cfg: dict) -> list[dict]:
     return out
 
 
+def technologies(conn: sqlite3.Connection, campaigns: list[dict]) -> list[dict]:
+    """Affected technologies: every product in the constituency with its exposure, open warnings, exploited and
+    forecast CVEs, campaign status and global attack activity on its service ports."""
+    rows = conn.execute("""
+        SELECT s.label, s.vendor, s.product, s.product_key, COUNT(DISTINCT s.id) AS assets,
+               COUNT(DISTINCT s.org_id) AS orgs,
+               COUNT(DISTINCT CASE WHEN s.zone IN ('internet','dmz') THEN s.id END) AS exposed
+        FROM assets s GROUP BY s.label ORDER BY s.label""").fetchall()
+    out = []
+    status = {c["product_key"]: c["status"] for c in campaigns}
+    for r in rows:
+        w = conn.execute("""
+            SELECT COUNT(DISTINCT CASE WHEN a.tier IN ('Compromise','Critical') THEN a.org_id || a.cve_id END),
+                   COUNT(DISTINCT CASE WHEN a.tier = 'High' THEN a.org_id || a.cve_id END),
+                   COUNT(DISTINCT CASE WHEN v.kev != 'null' THEN a.cve_id END),
+                   COUNT(DISTINCT CASE WHEN json_extract(v.record, '$.forecast.flag') = 1 AND v.kev = 'null'
+                                       THEN a.cve_id END),
+                   COUNT(DISTINCT CASE WHEN a.tier = 'Compromise' THEN a.asset_id END),
+                   COUNT(DISTINCT CASE WHEN a.tier IN ('Compromise','Critical','High') THEN a.asset_id END)
+            FROM assessments a JOIN assets s ON s.id = a.asset_id JOIN vulns v ON v.id = a.cve_id
+            WHERE a.R > 0 AND s.label = ?""", (r["label"],)).fetchone()
+        trend = max((t for p in PORTS.get(r["product_key"], []) if (t := port_trend(p))), key=lambda t: t["ratio"],
+                    default=None)
+        out.append({"label": r["label"], "vendor": r["vendor"], "product": r["product"],
+                    "product_key": r["product_key"], "assets": r["assets"], "orgs": r["orgs"],
+                    "internet_facing": r["exposed"], "critical": w[0], "high": w[1], "kev_cves": w[2],
+                    "forecast_cves": w[3], "compromised_assets": w[4], "assets_at_risk": w[5],
+                    "campaign": status.get(r["product_key"]),
+                    "attack_trend": {"port": trend["port"], "service": trend["service"], "ratio": trend["ratio"]}
+                    if trend else None})
+    return sorted(out, key=lambda x: (-x["compromised_assets"], -x["critical"], -x["kev_cves"]))
+
+
 _GENERIC = {"corporation", "limited", "services", "service", "finance", "insurance", "energy", "power", "networks",
             "airports", "telecom", "directorate", "centre", "center", "computing", "treasury", "state", "precision",
             "defence", "works", "space", "components", "thermal", "hydro", "digital", "fibre", "metro", "authority",

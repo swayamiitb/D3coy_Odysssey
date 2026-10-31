@@ -18,8 +18,8 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
   const a = d.assets[assetIdx]
   const v = d.vulnerability
   const waterfall = [
-    { name: 'Likelihood', value: a.contributions.likelihood },
-    { name: 'Severity', value: a.contributions.severity },
+    { name: 'Exploitability', value: a.contributions.likelihood },
+    { name: 'Impact', value: a.contributions.severity },
     { name: 'Evidence', value: a.contributions.evidence },
   ]
 
@@ -82,7 +82,7 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
             </ResponsiveContainer>
           </div>
           <div className="mt-2 grid grid-cols-5 gap-2 text-center text-xs">
-            {([['L', 'likelihood'], ['S', 'severity'], ['V', 'confidence'], ['R', 'relevance'], ['K', 'asset context']] as const)
+            {([['L', 'exploitability'], ['S', 'impact'], ['V', 'evidence'], ['R', 'exposure'], ['K', 'asset criticality']] as const)
               .map(([k, label]) => (
                 <div key={k} className="rounded bg-panel-2 p-1.5">
                   <div className="font-mono text-base">{a[k]}</div>

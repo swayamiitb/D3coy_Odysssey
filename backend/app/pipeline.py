@@ -259,6 +259,7 @@ def run_sentinel(db, ledger, recs, orgs, assets, surge_runs, product_cves, sight
     peers = {cid: sorted(o - {org_id for (org_id, c), a in top.items() if c == cid and a in sightings})
              for cid, o in exposed_orgs.items()}
     pilot.alerts(items, peers, (len(assets), len(orgs)))
+    pilot.kev_at = {cid: r["kev"]["dateAdded"] + "T00:00:00Z" for cid, r in recs.items() if r.get("kev")}
     pilot.flush()
     kev_ts = {r[0]: r[1] for r in db.execute("SELECT subject, ts FROM ledger WHERE kind = 'kev.added'").fetchall()}
     lead = sentinel.lead_times(pilot.actions, kev_ts, pilot.go_live, {cid for _, cid in top})

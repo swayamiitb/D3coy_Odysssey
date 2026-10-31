@@ -14,6 +14,7 @@ export const KIND: Record<string, { label: string; icon: LucideIcon; tone: strin
   'auto.confirm': { label: 'Warning confirmed', icon: CircleCheck, tone: 'text-ok' },
   'auto.stand_down': { label: 'Stand-down', icon: CircleSlash, tone: 'text-mute' },
   'auto.notify': { label: 'Notice sent', icon: Send, tone: 'text-high' },
+  'auto.advisory': { label: 'Advisory notice', icon: Send, tone: 'text-accent' },
   'auto.digest': { label: 'Daily digest', icon: Mail, tone: 'text-mute' },
   'auto.baseline': { label: 'Go-live baseline', icon: ClipboardList, tone: 'text-mute' },
   'auto.escalate': { label: 'Reported to regulator', icon: ShieldAlert, tone: 'text-fuchsia-300' },
@@ -64,6 +65,7 @@ const PROPOSAL: Record<string, string> = {
   'auto.warn': 'Early warning (sensor-only signal)',
   'auto.escalate': 'Report to regulator',
   'auto.escalate_sla': 'SLA escalation to sector CSIRT',
+  'auto.advisory': 'New advisory: notify exposed organisations',
 }
 const REJECT_REASONS = ['False positive', 'Not relevant to these organisations', 'Already handled']
 
@@ -151,7 +153,7 @@ export function ApprovalQueue({ onChanged, limit = 6 }: { onChanged?: () => void
 const FILTERS: Record<string, (k: string) => boolean> = {
   All: () => true,
   'Warnings & forecasts': (k) => ['auto.forecast', 'auto.warn', 'auto.confirm', 'auto.stand_down', 'auto.withdrawn'].includes(k),
-  Notices: (k) => ['auto.notify', 'auto.digest', 'auto.baseline'].includes(k),
+  Notices: (k) => ['auto.notify', 'auto.advisory', 'auto.digest', 'auto.baseline'].includes(k),
   'Escalations & hunts': (k) => ['auto.escalate', 'auto.escalate_sla', 'auto.report', 'auto.hunt'].includes(k),
   'Human decisions': (k) => k.startsWith('analyst.') || k === 'auto.proposed',
 }

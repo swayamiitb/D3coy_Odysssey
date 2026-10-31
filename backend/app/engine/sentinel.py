@@ -59,6 +59,7 @@ class Autopilot:
         self.now = now or dt.datetime.now(dt.timezone.utc)
         self.live_from = self.now - dt.timedelta(hours=self.s["live_window_hours"])
         self.actions: list[dict] = []
+        self.kev_at: dict[str, str] = {}  # CVE -> CISA KEV listing time (a prediction is moot once exploitation is confirmed)
 
     def lang(self, org_id: str) -> str:
         return self.s["state_language"].get(self.orgs[org_id]["state"], "hi")
@@ -88,12 +89,10 @@ class Autopilot:
                 entries.append((a["ts"], a["kind"], a["subject"], "AUTO", SOURCE, a["payload"]))
             else:
                 groups.setdefault(a["payload"].get("group") or f"{a['kind']}|{a['subject']}|{a['ts']}", []).append(a)
-        notified = {}  # alert -> first evidence-based notice (a forecast overtaken by evidence is withdrawn)
+        notified = {}  # alert -> first immediate notice (a prediction overtaken by evidence is withdrawn)
         for a in self.actions:
-            covered = [a["subject"]] if a["kind"] == "auto.notify" else [
-                f"{a['payload']['org_id']}:{i['cve']}" for i in a["payload"].get("items", [])]                 if a["kind"] == "auto.digest" else []
-            for alert in covered:
-                notified[alert] = min(notified.get(alert, a["ts"]), a["ts"])
+            if a["kind"] == "auto.notify":
+                notified[a["subject"]] = min(notified.get(a["subject"], a["ts"]), a["ts"])
         for g, acts in groups.items():
             at = min(_t(a["ts"]) for a in acts)
             kind, head = acts[0]["kind"], acts[0]["payload"]
@@ -107,12 +106,13 @@ class Autopilot:
                                                "payload": a["payload"]} for a in acts]}
             if at >= self.live_from:
                 overtaken = [notified[a["subject"]] for a in acts if a["subject"] in notified]
-                if kind == "auto.forecast" and len(overtaken) == len(acts):
-                    when = max(overtaken)
-                    entries.append((when, "auto.withdrawn", subject, "AUTO", SOURCE,
-                                    {**proposal, "reason": "superseded: evidence-based notices already sent"}))
-                    self._store(at, kind, subject, orgs, title, stored, "superseded", "Odyssey", when,
-                                "Exploitation evidence arrived first; the notices went out automatically.")
+                kev = self.kev_at.get(head.get("cve_id", ""))
+                if kind == "auto.forecast" and ((kev and _t(kev) <= self.now) or len(overtaken) == len(acts)):
+                    when = max([kev] if kev else overtaken)
+                    reason = (f"superseded: CISA confirmed exploitation ({kev[:10]}); evidence-based notices took over"
+                              if kev else "superseded: evidence-based notices already sent")
+                    entries.append((when, "auto.withdrawn", subject, "AUTO", SOURCE, {**proposal, "reason": reason}))
+                    self._store(at, kind, subject, orgs, title, stored, "superseded", "Odyssey", when, reason)
                 else:
                     self._store(at, kind, subject, orgs, title, stored, "pending", None, None, None)
                 continue
@@ -214,34 +214,50 @@ class Autopilot:
                                                               "tier": urgent["tier"],
                                                               "due": _iso(notified_at + dt.timedelta(
                                                                   hours=urgent["deadline_hours"]))})
-            if urgent and _t(urgent["ts"]) < self.go_live:
-                baseline.setdefault(org["id"], []).append({"cve": rec["id"], "tier": urgent["tier"],
-                                                           "asset": asset["hostname"]})
-            elif urgent:
+            # Exposures already High+ at go-live are reported once, in the organisation's baseline.
+            at_go = next((s for s in reversed(steps) if _t(s["ts"]) < self.go_live), None)
+            if at_go and at_go["tier"] in ("High", "Critical", "Compromise"):
+                baseline.setdefault(org["id"], []).append({"cve": rec["id"], "tier": at_go["tier"],
+                                                           "asset": asset["hostname"],
+                                                           "basis": f"go-live baseline ({at_go['event']})",
+                                                           "provenance": _provenance(at_go)})
+            live_urgent = urgent and _t(urgent["ts"]) >= self.go_live
+            if live_urgent:
                 self.emit(_t(urgent["ts"], 2), "notify", alert, **common, tier=urgent["tier"],
                           channels=["email", "sms"] + (["phone-bridge"] if urgent["tier"] == "Compromise" else []),
                           deadline_hours=urgent["deadline_hours"], trigger=urgent["event"],
                           basis=urgent["event"], provenance=_provenance(urgent),
                           title=f"{urgent['tier']}: {asset['label']} on {asset['hostname']} is exposed to {rec['id']}"
                                 f" ({urgent['event']}). Act within {urgent['deadline_hours']} h.")
-            elif first["High"] and _t(first["High"]["ts"]) >= self.go_live:
+            elif not urgent and first["High"] and _t(first["High"]["ts"]) >= self.go_live:
                 day = _t(first["High"]["ts"]).astimezone(IST).date().isoformat()
                 digest.setdefault((org["id"], day), []).append(
                     {"cve": rec["id"], "asset": asset["hostname"], "basis": first["High"]["event"],
                      "provenance": _provenance(first["High"]), "ts": first["High"]["ts"]})
+            # A CISA KEV listing is material news even when the tier does not change (an internal server that was
+            # already High, or an exposure reported in the baseline): it goes into that day's digest.
+            kev_step = next((s for s in steps if s["kind"] == "kev.added"), None)
+            if kev_step and _t(kev_step["ts"]) >= self.go_live and not live_urgent:
+                day = _t(kev_step["ts"]).astimezone(IST).date().isoformat()
+                digest.setdefault((org["id"], day), []).append(
+                    {"cve": rec["id"], "asset": asset["hostname"], "basis": "Added to CISA KEV (now confirmed exploited)",
+                     "provenance": "REAL", "ts": kev_step["ts"], "update": True})
             comp = first["Compromise"]
             if comp and _t(comp["ts"]) >= self.go_live:
                 self._compromise(_t(comp["ts"], 4), org, asset, rec, it.get("sighting"), peers.get(rec["id"], []),
                                  n_scanned, common)
         for org_id, rows in baseline.items():
+            crit = sum(r["tier"] in ("Critical", "Compromise") for r in rows)
             self.emit(self.go_live + dt.timedelta(hours=9), "baseline", f"org:{org_id}", org_id=org_id,
-                      channels=["email"], count=len(rows), top=rows[:5],
-                      title=f"Go-live baseline: {len(rows)} known-exploited exposures outstanding at "
-                            f"{self.orgs[org_id]['name']}; ranked remediation list attached.")
+                      channels=["email"], count=len(rows), items=rows,
+                      title=f"Go-live baseline: {len(rows)} exposures outstanding at {self.orgs[org_id]['name']} "
+                            f"({crit} Critical, {len(rows) - crit} High); ranked remediation plan attached.")
         for (org_id, day), rows in digest.items():
+            news = sum(1 for r in rows if r.get("update"))
             self.emit(dt.datetime.fromisoformat(f"{day}T18:00:00+05:30"), "digest", f"org:{org_id}", org_id=org_id,
-                      channels=["email"], count=len(rows), items=rows[:10], day=day,
-                      title=f"Daily digest {day}: {len(rows)} new High warning(s) for {self.orgs[org_id]['name']}.")
+                      channels=["email"], count=len(rows), items=rows, day=day,
+                      title=f"Daily digest {day} for {self.orgs[org_id]['name']}: {len(rows) - news} new High "
+                            f"warning(s)" + (f", {news} now confirmed exploited by CISA." if news else "."))
         for org_id, rows in sorted(overdue.items(), key=lambda kv: -len(kv[1])):
             org, to = self.orgs[org_id], self.csirt(self.orgs[org_id])
             self.emit(self.now, "escalate_sla", f"org:{org_id}", org_id=org_id, count=len(rows), items=rows[:10],
@@ -300,7 +316,7 @@ def lead_times(actions: list[dict], kev_ts: dict[str, str], go_live: dt.datetime
         p = a["payload"]
         if a["kind"] in {"auto.forecast", "auto.notify"} and p.get("cve_id") and p.get("tier") != "peer-warning":
             seen(p["cve_id"], _t(a["ts"]), p.get("basis", a["kind"]), p.get("provenance", "REAL"))
-        elif a["kind"] == "auto.digest":
+        elif a["kind"] in ("auto.digest", "auto.baseline"):
             for item in p.get("items", []):
                 seen(item["cve"], _t(a["ts"]), item.get("basis", "daily digest"), item.get("provenance", "REAL"))
         elif a["kind"] == "auto.confirm":  # the product-level warning counts for the CVE that confirmed it
@@ -314,13 +330,17 @@ def lead_times(actions: list[dict], kev_ts: dict[str, str], go_live: dt.datetime
         rows.append({"cve": cve, "kev": ts, "first_action": _iso(t) if t else None, "basis": basis,
                      "provenance": prov, "lead_days": round((k - t).total_seconds() / 86400, 1) if t else None})
 
-    # KEV publishes a date, not a time: only a lead of a day or more is unambiguously "before the listing".
+    # KEV publishes a date, not a time: only a lead of a day or more is unambiguously "before the listing". Leads that
+    # exist only because monitoring started on go-live (evidence older than Odyssey) are counted apart, not in the median.
     def stats(rs: list[dict]) -> dict:
-        ahead = sorted(r["lead_days"] for r in rs if r["lead_days"] is not None and r["lead_days"] >= 1)
+        ahead = sorted(r["lead_days"] for r in rs if r["lead_days"] is not None and r["lead_days"] >= 1
+                       and not (r["basis"] or "").startswith("go-live"))
         return {"acted_before_kev": len(ahead), "median_lead_days": ahead[len(ahead) // 2] if ahead else None,
                 "max_lead_days": ahead[-1] if ahead else None}
 
     return {"kev_after_go_live": len(rows), **stats(rows),
+            "known_at_go_live": sum(1 for r in rows if (r["basis"] or "").startswith("go-live")
+                                    and (r["lead_days"] or 0) >= 1),
             "acted_same_day": sum(1 for r in rows if r["lead_days"] is not None and r["lead_days"] < 1),
             "not_acted": sum(1 for r in rows if r["lead_days"] is None),
             "real_signals_only": stats([r for r in rows if r["provenance"] == "REAL"]),

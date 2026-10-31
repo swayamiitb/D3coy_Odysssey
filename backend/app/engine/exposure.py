@@ -120,6 +120,40 @@ _RANGE = re.compile(
     rf"(through|to|up to and including|until))\s+(?:version\s+)?{_V}", re.I)
 
 
+# Machine-readable VERS ranges, as CISA's CSAF-based ICS advisories print them, optionally scoped to a product line:
+# "SIMATIC WinCC V8.0 vers:intdot/<8.0.0.11", "V7.5 vers:all/*", "vers:semver/>=2.1|<2.4.3".
+_VERS = re.compile(r"(?:\bV?(?P<branch>\d+(?:\.\d+)+)\s+)?vers:(?P<scheme>[a-z]+)/(?P<cons>[^\s()]+)", re.I)
+
+
+def _next_branch(branch: str) -> str:
+    parts = branch.split(".")
+    return ".".join(parts[:-1] + [str(int(parts[-1]) + 1)])
+
+
+def _vers(sentence: str, polarity: str) -> tuple[list[dict], list[tuple[int, int]]]:
+    out, spans = [], []
+    for m in _VERS.finditer(sentence):
+        branch, cons = m.group("branch"), m.group("cons").rstrip(".,;")
+        lower, upper, inclusive = branch, None, False
+        if cons in ("*", "all"):
+            upper = _next_branch(branch) if branch else None
+        for part in cons.split("|"):
+            if part.startswith(">="):
+                lower = part[2:]
+            elif part.startswith("<="):
+                upper, inclusive = part[2:], True
+            elif part.startswith("<"):
+                upper = part[1:]
+        span = m.group(0)
+        if lower and upper:
+            out.append({"op": "range", "start": lower, "version": upper, "end_inclusive": inclusive,
+                        "polarity": polarity, "span": span})
+        elif upper:
+            out.append({"op": "le" if inclusive else "lt", "version": upper, "polarity": polarity, "span": span})
+        spans.append(m.span())
+    return out, spans
+
+
 def text_constraints(description: str) -> list[dict]:
     """Version bounds stated in prose, each with its sentence span and polarity. Bounded ranges are parsed first;
     a bare "before X" only counts where it is not the end of a range already captured."""
@@ -127,7 +161,8 @@ def text_constraints(description: str) -> list[dict]:
     for sentence in re.split(r"(?<=[.;])\s+(?=[A-Z])", description):
         negated = bool(_NEGATION.search(sentence))
         polarity = "unaffected" if negated else "affected"
-        taken: list[tuple[int, int]] = []
+        vers, taken = _vers(sentence, polarity)
+        out += vers
         for m in _RANGE.finditer(sentence):
             out.append({"op": "range", "start": m.group(1), "version": m.group(4),
                         "end_inclusive": m.group(3) is not None, "polarity": polarity, "span": sentence.strip()})

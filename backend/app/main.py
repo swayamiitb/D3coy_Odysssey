@@ -311,7 +311,7 @@ def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
 
 
 ADVISORIES = ROOT / "data" / "sim" / "advisories.json"
-ANALYSER_VERSION = "advisory-v2"
+ANALYSER_VERSION = "advisory-v3"  # v3: VERS ranges in CISA CSAF advisories
 
 
 def _analyse_advisory(adv: dict) -> dict:
@@ -323,6 +323,7 @@ def _analyse_advisory(adv: dict) -> dict:
 
     key = cache.key_of(ANALYSER_VERSION, resolve("extract"), adv["text"])
     if hit := cache.get("advisory", key):
+        _propose_advisory(adv, hit)  # idempotent per advisory
         return {**hit, "cached": True}
     conn = db()
     assets = [dict(r) for r in conn.execute("SELECT * FROM assets").fetchall()]
@@ -334,7 +335,60 @@ def _analyse_advisory(adv: dict) -> dict:
                              payload={"product": result["product"]["label"], "exposed": len(result["exposed"]),
                                       "cleared": len(result["cleared"]), "iocs": sum(map(len, result["iocs"].values()))})
     cache.put("advisory", key, result, now, adv["id"])
+    _propose_advisory(adv, result)
     return {**result, "cached": False}
+
+
+def _propose_advisory(adv: dict, result: dict) -> None:
+    """A new advisory that hits exposed assets becomes one proposal: notify each affected organisation, in its own
+    language, with the recommended steps. An analyst approves it (human in the loop); idempotent per advisory."""
+    from datetime import datetime, timezone
+
+    from .engine.sentinel import APPROVALS, SOURCE
+    conn = db()
+    conn.execute(APPROVALS)
+    subject = f"advisory:{adv['id']}"
+    if conn.execute("SELECT 1 FROM approvals WHERE subject = ?", (subject,)).fetchone():
+        return
+    hits = result["exposed"] or result["unknown"]
+    if not hits or not result["product"].get("label"):
+        return
+    s = scoring_config()[0]["sentinel"]
+    orgs = {r["id"]: dict(r) for r in conn.execute("SELECT * FROM orgs").fetchall()}
+    world = json.loads((ROOT / "data" / "sim" / "world.json").read_text(encoding="utf-8"))
+    ciso = {o["id"]: o["ciso"] for o in world["orgs"]}
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    label, verify = result["product"]["label"], not result["exposed"]
+    actions = []
+    by_org: dict[str, list[dict]] = {}
+    for e in hits:
+        by_org.setdefault(e["org_id"], []).append(e)
+    for org_id, rows in by_org.items():
+        hosts = ", ".join(sorted({r["hostname"] for r in rows})[:4])
+        worst = max(rows, key=lambda r: r["risk"])
+        steps = ("verify the installed version and apply the vendor fix if affected" if verify else
+                 "patch to the vendor's fixed release; restrict management interfaces until patched")
+        if any(result["iocs"].get(k) for k in ("ips", "domains", "urls", "sha256")):
+            steps += "; block the advisory's indicators at the perimeter and hunt for them in logs"
+        actions.append({"ts": now, "kind": "auto.advisory", "subject": f"{org_id}:{adv['id']}", "payload": {
+            "org_id": org_id, "advisory": adv["id"], "alert": f"{org_id}:{adv['id']}", "tier": worst["tier"],
+            "deadline_hours": worst["deadline_hours"], "lang": s["state_language"].get(orgs[org_id]["state"], "hi"),
+            "recipients": [ciso.get(org_id, "")], "channels": ["email"], "basis": "advisory analysis",
+            "provenance": adv.get("provenance", "USER"),
+            "title": f"Advisory '{adv['title']}': {len(rows)} of your assets ({hosts}) run {label}"
+                     + (" (version not stated: verify)" if verify else f", {worst['tier']} risk") + f". Recommended: {steps}."}})
+    title = (f"Notify {len(by_org)} organisation(s) about '{adv['title']}' ({label}, {len(hits)} "
+             f"{'possibly ' if verify else ''}exposed asset(s))")
+    payload = {"group": subject, "action": "auto.advisory", "orgs": sorted(by_org), "count": len(actions),
+               "title": title, "basis": "advisory analysis", "provenance": adv.get("provenance", "USER"),
+               "actions": actions}
+    conn.execute("INSERT INTO approvals (proposed_at, kind, subject, org_id, title, payload, status) "
+                 "VALUES (?,?,?,?,?,?, 'pending')", (now, "auto.advisory", subject,
+                                                      next(iter(by_org)) if len(by_org) == 1 else None, title,
+                                                      json.dumps(payload)))
+    Ledger(conn=conn).append(ts=now, kind="auto.proposed", subject=subject, source=SOURCE, provenance="AUTO",
+                             payload={k: v for k, v in payload.items() if k != "actions"})
+    conn.commit()
 
 
 @app.get("/api/advisories")
@@ -602,6 +656,18 @@ def intel_advisories() -> list[dict]:
     return advisories_matched(db())
 
 
+@app.get("/api/intel/technologies")
+def intel_technologies() -> list[dict]:
+    """Affected technologies across the constituency (dashboard: active threats by technology)."""
+    import datetime as _dt
+
+    from .engine.campaigns import build
+    from .engine.intel import technologies
+    conn = db()
+    snap = conn.execute("SELECT value FROM meta WHERE key='snapshot_date'").fetchone()[0]
+    return technologies(conn, build(conn, _dt.date.fromisoformat(snap)))
+
+
 @app.get("/api/intel/attacks")
 def intel_attacks() -> dict:
     """Real global attack telemetry (SANS ISC DShield) next to the national decoy grid (SIM)."""
@@ -663,3 +729,60 @@ def soc() -> dict:
             "pending": conn.execute("SELECT COUNT(*) FROM approvals WHERE status = 'pending'").fetchone()[0],
             "risk": {k: rp[k] for k in ("total_risk", "tickets", "for_50_pct", "for_80_pct", "assets_at_risk")},
             "orgs": [{**dict(r), "lang": lang.get(r["state"], "hi")} for r in orgs_rows]}
+
+
+_TESTS: dict = {}
+
+
+@app.post("/api/tests/run")
+def tests_run() -> dict:
+    """Run the test bench now: engine tests, detection checks with negative controls, audit-trail integrity."""
+    from .engine.testbench import run
+    _TESTS["last"] = run(db())
+    return _TESTS["last"]
+
+
+@app.get("/api/tests/last")
+def tests_last() -> dict:
+    return _TESTS.get("last") or {"ran_at": None, "results": []}
+
+
+@app.post("/api/copilot")
+def copilot(body: dict) -> dict:
+    """Analyst copilot: plain-language question -> one read-only tool -> numbered facts -> grounded, validated answer
+    (optionally delivered in an Indian language through the validated translation path)."""
+    import sys
+    from datetime import datetime, timezone
+
+    import httpx
+
+    from . import cache
+    from .ai.copilot import ask, protected_terms
+    question = (body.get("question") or "").strip()[:500]
+    lang = body.get("lang") or "en"
+    if len(question) < 4:
+        raise HTTPException(400, "ask a question")
+    conn = db()
+    built = conn.execute("SELECT value FROM meta WHERE key = 'built_at'").fetchone()[0]
+    key = cache.key_of("copilot", built, question)
+    result = cache.get("copilot", key)
+    if result:
+        result = {**result, "cached": True}
+    else:
+        result = {**ask(conn, question, sys.modules[__name__]), "cached": False}
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        Ledger(conn=conn).append(ts=now, kind="model.output", subject="copilot", source=f"MODEL:{result['model']}",
+                                 provenance="AI", payload={"role": "copilot", "question": question,
+                                                           "tool": result["route"].get("tool"), "status": result["status"]})
+        cache.put("copilot", key, result, now, question[:80])
+    if lang != "en" and result.get("answer"):
+        a = result["answer"]
+        texts = [a["answer"]] + [p["text"] for p in a["points"]]
+        protect = protected_terms(result) + [r[0] for r in conn.execute("SELECT name FROM orgs").fetchall()]
+        try:
+            r = httpx.post(f"{MT_URL}/translate", json={"texts": texts, "lang": lang, "protect": protect}, timeout=300)
+            r.raise_for_status()
+            result["translation"] = {"lang": lang, **{k: r.json()[k] for k in ("model", "rtl", "results")}}
+        except httpx.HTTPError as exc:
+            result["translation"] = {"lang": lang, "error": str(exc)}
+    return result

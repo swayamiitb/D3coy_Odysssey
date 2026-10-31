@@ -1,8 +1,10 @@
-import { Building2, Cpu, FileSearch, FlaskConical, LayoutDashboard, LayoutList, Radar, ShieldCheck, WifiOff, Zap } from 'lucide-react'
+import { BookOpen, Bot, Building2, Cpu, FileSearch, FlaskConical, LayoutDashboard, LayoutList, Radar, ShieldCheck, WifiOff, Zap } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
 import { AlertQueue } from './AlertQueue'
+import { Copilot } from './Copilot'
+import { HowItWorks } from './HowItWorks'
 import { api, type AlertDetail as Detail, type AlertRow, type Health, type LedgerEvent, type Summary, type Tier } from './api'
 import { Now } from './Now'
 import { Orgs } from './Orgs'
@@ -12,7 +14,7 @@ import { Pulse } from './Pulse'
 import { Soc } from './Soc'
 import { Badge } from './ui'
 
-type View = 'now' | 'soc' | 'orgs' | 'advisories' | 'explore' | 'proof'
+type View = 'now' | 'soc' | 'orgs' | 'advisories' | 'explore' | 'proof' | 'how'
 
 export default function App() {
   const [view, setView] = useState<View>(() => (new URLSearchParams(window.location.search).get('view') as View) || 'now')
@@ -28,6 +30,7 @@ export default function App() {
   const [live, setLive] = useState<LedgerEvent[]>([])
   const [tick, setTick] = useState(0)
   const [connected, setConnected] = useState(false)
+  const [copilot, setCopilot] = useState(false)
   const esRef = useRef<EventSource | null>(null)
 
   useEffect(() => {
@@ -75,7 +78,7 @@ export default function App() {
             <p className="text-xs text-mute">Know first. Act first. Every warning explained.</p>
           </div>
           <nav className="ml-6 flex rounded-full bg-panel p-1">
-            {([['now', 'Now', Zap], ['soc', 'SOC', LayoutDashboard], ['orgs', 'Organisations', Building2], ['advisories', 'Advisories', FileSearch], ['explore', 'All warnings', LayoutList], ['proof', 'Proof', FlaskConical]] as const).map(([k, label, Icon]) => (
+            {([['now', 'Now', Zap], ['soc', 'SOC', LayoutDashboard], ['orgs', 'Organisations', Building2], ['advisories', 'Advisories', FileSearch], ['explore', 'All warnings', LayoutList], ['proof', 'Proof', FlaskConical], ['how', 'How it works', BookOpen]] as const).map(([k, label, Icon]) => (
               <button key={k} onClick={() => setView(k)}
                       className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm ${view === k ? 'bg-accent text-ink font-semibold' : 'text-mute hover:text-text'}`}>
                 <Icon size={14} /> {label}
@@ -84,6 +87,10 @@ export default function App() {
           </nav>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setCopilot(true)}
+                  className="flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-sm text-accent ring-1 ring-accent/40 hover:bg-accent/25">
+            <Bot size={14} /> Ask Odyssey
+          </button>
           <Badge tone={connected ? 'ok' : 'crit'}>
             <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'animate-pulse bg-ok' : 'bg-crit'}`} /> {connected ? 'live' : new URLSearchParams(window.location.search).has('nolive') ? 'static' : 'offline'}
           </Badge>
@@ -102,6 +109,8 @@ export default function App() {
       <main className="flex min-h-0 flex-1 gap-5 p-5">
         {view === 'proof' ? (
           <Proof />
+        ) : view === 'how' ? (
+          <HowItWorks />
         ) : view === 'soc' ? (
           <Soc tick={tick} onOrg={(id) => { setOrg(id); setView('orgs') }} />
         ) : view === 'orgs' ? (
@@ -123,6 +132,12 @@ export default function App() {
           </>
         )}
       </main>
+
+      {copilot && (
+        <div className="fixed inset-0 z-30 flex justify-end bg-black/40" onClick={() => setCopilot(false)}>
+          <div className="h-full p-3" onClick={(e) => e.stopPropagation()}><Copilot onClose={() => setCopilot(false)} /></div>
+        </div>
+      )}
 
       {detail && selected && (
         <div className="fixed inset-0 z-20 flex justify-end bg-black/50 backdrop-blur-sm" onClick={() => setSelected(undefined)}>

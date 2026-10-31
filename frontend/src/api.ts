@@ -379,6 +379,24 @@ export interface OrgProfile {
   inbox: AutoEvent[]
 }
 
+export interface Technology {
+  label: string
+  vendor: string
+  product: string
+  product_key: string
+  assets: number
+  orgs: number
+  internet_facing: number
+  critical: number
+  high: number
+  kev_cves: number
+  forecast_cves: number
+  compromised_assets: number
+  assets_at_risk: number
+  campaign: 'ACTIVE' | 'EMERGING' | 'DORMANT' | null
+  attack_trend: { port: number; service: string; ratio: number } | null
+}
+
 export interface Soc {
   built_at: string
   tiers: Partial<Record<Tier, number>>
@@ -428,6 +446,7 @@ export const api = {
   intelSources: () => get<IntelSource[]>('/api/intel/sources'),
   intelAdvisories: () => get<IntelAdvisory[]>('/api/intel/advisories'),
   attacks: () => get<Attacks>('/api/intel/attacks'),
+  technologies: () => get<Technology[]>('/api/intel/technologies'),
   orgProfile: (orgId: string) => get<OrgProfile>(`/api/orgs/${orgId}/profile`),
   act: async (orgId: string, cveId: string, action: string) => {
     const res = await fetch(`/api/alerts/${orgId}/${cveId}/workflow/${action}`, { method: 'POST' })

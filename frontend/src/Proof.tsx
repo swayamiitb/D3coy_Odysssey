@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ForecastProof, LeadProof, TestBench } from './ProofProactive'
 import { Badge } from './ui'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -125,6 +126,10 @@ export function Proof() {
               sub={`${d.briefs.first_attempt} on the first attempt · failures are withheld, never shown`} />
         <Tile value="0" label="cloud calls" sub="all AI runs on-device: security LLM on the GPU, ML on the CPU" />
       </div>
+
+      <TestBench />
+      <ForecastProof />
+      <LeadProof />
 
       <section className="rounded-2xl border border-line bg-panel p-6">
         <div className="mb-1 flex items-center gap-2">
