@@ -1,15 +1,20 @@
-import { Gavel, LayoutGrid, ListChecks, Menu, ScrollText, X } from 'lucide-react'
+import { Building2, Gavel, LayoutGrid, ListChecks, Menu, Radar, ScrollText, Telescope, TrendingDown, X } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { api, getAnalyst, getMode, getSnapshotTakenAt, setAnalyst, useLoad } from './data'
 import { clock, dateTime } from './format'
 import { AuditLog } from './screens/AuditLog'
 import { Decisions } from './screens/Decisions'
+import { Forecast } from './screens/Forecast'
 import { Incident } from './screens/Incident'
+import { Intel } from './screens/Intel'
+import { Organisation, OrgList } from './screens/Orgs'
 import { Overview } from './screens/Overview'
 import { Queue } from './screens/Queue'
+import { RiskPlanScreen } from './screens/RiskPlan'
 import { useNow } from './ui'
 
-/** Hash routes: #/ · #/queue · #/decisions · #/log · #/incident/<org>/<cve> */
+/** Hash routes: #/ · #/queue · #/decisions · #/log · #/incident/<org>/<cve>
+ *  · #/intel · #/orgs · #/orgs/<id> · #/risk · #/risk/<org> · #/ahead */
 export function useRoute(): string[] {
   const read = () => window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
   const [parts, setParts] = useState(read)
@@ -72,6 +77,11 @@ export default function App() {
       <NavItem href="#/queue" icon={<ListChecks size={16} />} label="Triage queue" count={needsAction} active={screen === 'queue' || screen === 'incident'} />
       <NavItem href="#/decisions" icon={<Gavel size={16} />} label="Decisions" count={pending} active={screen === 'decisions'} />
       <NavItem href="#/log" icon={<ScrollText size={16} />} label="Audit log" active={screen === 'log'} />
+      <div className="px-2.5 pt-5 pb-1.5 text-[12px] text-faint">Intelligence</div>
+      <NavItem href="#/intel" icon={<Radar size={16} />} label="Threat intel" active={screen === 'intel'} />
+      <NavItem href="#/orgs" icon={<Building2 size={16} />} label="Organisations" active={screen === 'orgs'} />
+      <NavItem href="#/risk" icon={<TrendingDown size={16} />} label="Risk plan" active={screen === 'risk'} />
+      <NavItem href="#/ahead" icon={<Telescope size={16} />} label="Ahead of the threat" active={screen === 'ahead'} />
     </nav>
   )
   const brand = (
@@ -89,6 +99,10 @@ export default function App() {
   else if (screen === 'decisions') body = <Decisions />
   else if (screen === 'log') body = <AuditLog />
   else if (screen === 'incident' && route[1] && route[2]) body = <Incident org={route[1]} cve={route[2]} />
+  else if (screen === 'intel') body = <Intel />
+  else if (screen === 'orgs') body = route[1] ? <Organisation key={route[1]} id={route[1]} /> : <OrgList />
+  else if (screen === 'risk') body = <RiskPlanScreen org={route[1]} />
+  else if (screen === 'ahead') body = <Forecast />
   else body = <Overview />
 
   return (

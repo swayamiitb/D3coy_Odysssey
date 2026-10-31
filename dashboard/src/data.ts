@@ -4,7 +4,10 @@
 //   sample   – bundled layout fixtures (src/sample.ts), shown with a banner; never presented as real
 import { useCallback, useEffect, useState } from 'react'
 import { SAMPLE } from './sample'
-import type { AlertDetail, Approval, AutoEvent, AutopilotSummary, Brief, Feed, Health, Replay, Soc, Workflow } from './types'
+import type {
+  AlertDetail, Approval, Attacks, AutoEvent, AutopilotSummary, Brief, Campaign, Feed, ForecastView, Health, IntelAdvisory, IntelSource,
+  OrgProfile, Replay, RiskPlan, Soc, Technology, Workflow,
+} from './types'
 
 export type Mode = 'live' | 'snapshot' | 'sample'
 
@@ -57,7 +60,8 @@ export class ReadOnlyError extends Error {}
 
 async function get<T>(path: string): Promise<T> {
   if (mode === 'sample') {
-    const hit = SAMPLE[path.split('?')[0]]
+    // Exact path first (e.g. a per-organisation risk plan), then the path without its query.
+    const hit = SAMPLE[path] ?? SAMPLE[path.split('?')[0]]
     if (hit === undefined) throw new Error('Not in the sample data')
     return structuredClone(hit) as T
   }
@@ -93,6 +97,14 @@ export const api = {
     post<Workflow>(`/api/alerts/${org}/${cve}/workflow/${action}?${qs({ actor, note })}`),
   decide: (id: number, decision: 'approve' | 'reject', actor: string, note?: string) =>
     post<{ id: number; status: string; executed: number }>(`/api/approvals/${id}/${decision}?${qs({ actor, note })}`),
+  intelSources: () => get<IntelSource[]>('/api/intel/sources'),
+  intelAdvisories: () => get<IntelAdvisory[]>('/api/intel/advisories'),
+  technologies: () => get<Technology[]>('/api/intel/technologies'),
+  attacks: () => get<Attacks>('/api/intel/attacks'),
+  campaigns: () => get<Campaign[]>('/api/campaigns'),
+  riskplan: (orgId?: string) => get<RiskPlan>(orgId ? `/api/riskplan?${qs({ org_id: orgId })}` : '/api/riskplan'),
+  orgProfile: (id: string) => get<OrgProfile>(`/api/orgs/${id}/profile`),
+  forecast: () => get<ForecastView>('/api/forecast'),
   certinUrl: (org: string, cve: string) => `/api/alerts/${org}/${cve}/certin-report`,
   stixUrl: (org: string, cve: string) => `/api/alerts/${org}/${cve}/stix`,
 }

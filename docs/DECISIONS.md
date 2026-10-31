@@ -30,3 +30,6 @@ Format: `ID | When | What | Why | Who`
 
 | ID | When | What | Why | Who |
 |---|---|---|---|---|
+| UI-001 | Sat 31 Oct 22:15 | Built the SOC console as a separate app in `dashboard/` (Vite + React 19 + Tailwind 4 + recharts, same pinned versions as the lead's frontend) that reads the lead's Odyssey API; three data modes (live / saved snapshot / labelled sample) | User chose "separate app in our repo"; the lead's laptop auto-pushes `main` every turn, so editing his frontend would clash. The snapshot mode keeps the demo offline (rule 14) | Claude (user said go) |
+| UI-002 | Sat 31 Oct 22:15 | Screens follow the mentor-feedback list in the lead's `docs/PS_COVERAGE.md`: proactive (autonomy, lead over KEV, forecast), human in the loop (Decisions), SOC (overview, queue, incident, audit log), TI aggregation and real attacks, org-based OSINT, risk management | User: "SOC is the main thing, prioritise the mentor feedback" | Claude |
+| UI-003 | Sat 31 Oct 22:15 | Taste-skill app-screen rules: neutral dark ground, colour only on data and status, one font (Inter, bundled for offline), tabular figures, flat loading bars, errors inside their block | User asked for taste-skill premium UI/UX; bundled font keeps the demo network-free | Claude |

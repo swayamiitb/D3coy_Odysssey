@@ -169,7 +169,7 @@ export function Overview() {
               <tbody className="divide-y divide-line/70">
                 {(allOrgs ? s.orgs : s.orgs.slice(0, 6)).map((o) => (
                   <tr key={o.id}>
-                    <td className="px-5 py-2.5 font-medium">{o.name}</td>
+                    <td className="px-5 py-2.5 font-medium"><a href={`#/orgs/${o.id}`} className="hover:underline">{o.name}</a></td>
                     <td className="py-2.5 text-mute">{o.sector}</td>
                     <td className="py-2.5 text-mute">{o.state}</td>
                     <td className="num py-2.5 text-right" style={o.compromise > 0 ? { color: 'var(--color-compromise)' } : undefined}>{num(o.compromise)}</td>

@@ -58,3 +58,23 @@ export const humanKind = (k: string) => {
   const s = k.split('.').slice(-1)[0].replace(/_/g, ' ')
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
+
+export const pct = (n: number | null | undefined, digits = 1) => (n == null ? '—' : `${num(n, digits)}%`)
+
+/** A deadline length in words: 6 -> "6 h", 120 -> "5 d". */
+export const hours = (h: number | null | undefined) =>
+  h == null ? '—' : h < 48 ? `${num(h)} h` : `${num(h / 24, h % 24 ? 1 : 0)} d`
+
+/** Ratio against a baseline as a signed change: 1.12 -> "+12%", 0.9 -> "−10%". */
+export function change(ratio: number): string {
+  const p = Math.round((ratio - 1) * 100)
+  return p === 0 ? '0%' : `${p > 0 ? '+' : '−'}${Math.abs(p)}%`
+}
+
+/** Plain names for what Odyssey sent an organisation (falls back to humanKind). */
+const EVENT_LABEL: Record<string, string> = {
+  'auto.forecast': 'Pre-emptive advisory', 'auto.warn': 'Early warning', 'auto.confirm': 'Warning confirmed', 'auto.stand_down': 'Stand-down',
+  'auto.notify': 'Notice', 'auto.advisory': 'Advisory notice', 'auto.digest': 'Daily digest', 'auto.baseline': 'Go-live baseline',
+  'auto.escalate': 'Reported to regulator', 'auto.escalate_sla': 'SLA escalation', 'auto.report': 'Report drafted', 'auto.hunt': 'Threat hunt',
+}
+export const eventLabel = (k: string) => EVENT_LABEL[k] ?? humanKind(k)

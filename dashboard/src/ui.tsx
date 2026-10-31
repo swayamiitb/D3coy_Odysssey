@@ -124,3 +124,36 @@ export function Provenance({ p }: { p: string | null | undefined }) {
   const label: Record<string, string> = { REAL: 'Real', SIM: 'Simulated', AI: 'AI', AUTO: 'Odyssey', HUMAN: 'Analyst' }
   return <span className="whitespace-nowrap text-[12px] text-faint">{label[p] ?? p}</span>
 }
+
+/** A status square in one colour, always with its word (campaign status, elevated, confirmed…). */
+export function Mark({ color, children }: { color: string; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+      <span className="size-2 shrink-0 rounded-[2px]" style={{ background: color }} aria-hidden />
+      <span>{children}</span>
+    </span>
+  )
+}
+
+/** "Show all N" for lists capped at a few rows; renders nothing when the list is short. */
+export function ShowAll({ total, cap, open, onToggle }: { total: number; cap: number; open: boolean; onToggle: () => void }) {
+  if (total <= cap) return null
+  return <button className="text-[13px] text-mute hover:text-text" onClick={onToggle}>{open ? 'Show fewer' : `Show all ${total}`}</button>
+}
+
+/** Single-series sparkline from zero: one hue, no fill. Optional shaded windows (index ranges), e.g. a detected surge. */
+export function Spark({ values, bands = [], color = 'var(--color-mute)', h = 36, label }: {
+  values: number[]; bands?: [number, number][]; color?: string; h?: number; label?: string
+}) {
+  if (values.length < 2) return null
+  const w = 160
+  const max = Math.max(...values) || 1
+  const x = (i: number) => (i / (values.length - 1)) * w
+  const y = (v: number) => h - 2 - (v / max) * (h - 4)
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="block w-full" style={{ height: h }} role="img" aria-label={label}>
+      {bands.map(([a, b], i) => <rect key={i} x={x(a)} y={0} width={Math.max(x(b) - x(a), 2)} height={h} fill="var(--color-text)" opacity={0.1} />)}
+      <polyline points={values.map((v, i) => `${x(i)},${y(v)}`).join(' ')} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+    </svg>
+  )
+}

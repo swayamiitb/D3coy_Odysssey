@@ -42,13 +42,30 @@ if (!health) {
   process.exit(1)
 }
 
-await Promise.all([
+const [soc] = await Promise.all([
   save('/api/soc'),
   save('/api/approvals?status=pending'),
   save('/api/approvals?status=approved'),
   save('/api/approvals?status=rejected'),
   save('/api/autopilot?limit=300'),
+  // Intelligence screens: threat intel, risk plan, ahead of the threat.
+  save('/api/intel/sources'),
+  save('/api/intel/advisories'),
+  save('/api/intel/technologies'),
+  save('/api/intel/attacks'),
+  save('/api/campaigns'),
+  save('/api/riskplan'),
+  save('/api/forecast'),
 ])
+
+// Every organisation gets its profile and its own risk plan (org ids from /api/soc).
+const orgs = soc?.orgs ?? []
+for (const o of orgs) {
+  await Promise.all([save(`/api/orgs/${o.id}/profile`), save(`/api/riskplan?org_id=${encodeURIComponent(o.id)}`)])
+  process.stdout.write(`\r${orgs.indexOf(o) + 1}/${orgs.length} organisations saved`)
+}
+if (orgs.length) process.stdout.write('\n')
+
 const feed = await save('/api/feed')
 
 // Every warning in the feed gets its incident page: detail, replay, brief, workflow and both report drafts.
