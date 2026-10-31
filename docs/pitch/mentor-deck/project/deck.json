@@ -3,13 +3,13 @@
   "createdOnFiles": {"v": 1, "at": "2026-10-31T12:56:31Z"},
   "lists": "css",
   "title": "PS-01 Mentor Deck",
-  "order": ["cover", "volume", "india", "questions", "how", "score", "ai", "now", "runs", "proof", "new", "results", "status", "close", "glossary"],
+  "order": ["cover", "volume", "india", "questions", "how", "score", "models", "ai", "now", "runs", "proof", "new", "results", "status", "close", "glossary-data", "glossary-india"],
   "sections": {
     "problem": {"description": "The problem: too many flaws, too few labels, attackers move first, and India pays.", "start": "cover"},
     "solution": {"description": "Our solution: collect, check, score and act, with AI that explains but never scores.", "start": "questions"},
     "feasibility": {"description": "It already runs offline on one laptop, and it was tested on real attacks.", "start": "runs"},
     "status": {"description": "Where we are now and what comes next.", "start": "results"},
-    "appendix": {"description": "Glossary: the full form of every acronym in the deck.", "start": "glossary"}
+    "appendix": {"description": "Glossary: the full form of every acronym in the deck.", "start": "glossary-data"}
   },
   "cover": "cover",
   "faces": {

@@ -3,26 +3,22 @@
 <div style="display:flex;flex-direction:row;gap:96px;align-items:start">
 <div style="flex:1;display:flex;flex-direction:column;gap:28px">
 <div style="display:flex;flex-direction:column;gap:8px">
-<h3 style="font-family:'Inter Tight', Arial, sans-serif;font-size:40px;font-weight:700;line-height:1.2;color:#FFFFFF">MiST-8B</h3>
-<p style="font-size:28px;line-height:1.4;color:#A6A6A6">A language model trained for cybersecurity work, with 8 billion parameters. Free and open source (Apache-2.0), running locally.</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:8px">
-<h3 style="font-family:'Inter Tight', Arial, sans-serif;font-size:40px;font-weight:700;line-height:1.2;color:#FFFFFF">Foundation-Sec-8B-Reasoning</h3>
-<p style="font-size:28px;line-height:1.4;color:#A6A6A6">Cisco’s security reasoning model, used for Critical alerts.</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:8px">
-<h3 style="font-family:'Inter Tight', Arial, sans-serif;font-size:40px;font-weight:700;line-height:1.2;color:#FFFFFF">Classic machine learning</h3>
-<p style="font-size:28px;line-height:1.4;color:#A6A6A6">Sorts the data and spots unusual activity.</p>
-</div>
-</div>
-<div style="flex:1;display:flex;flex-direction:column;gap:28px">
-<div style="display:flex;flex-direction:column;gap:8px">
 <h3 style="font-family:'Inter Tight', Arial, sans-serif;font-size:40px;font-weight:700;line-height:1.2;color:#FFFFFF">Rules set the score</h3>
 <p style="font-size:28px;line-height:1.4;color:#A6A6A6">Fixed rules score every threat. The AI explains the result in plain language.</p>
 </div>
 <div style="display:flex;flex-direction:column;gap:8px">
 <h3 style="font-family:'Inter Tight', Arial, sans-serif;font-size:40px;font-weight:700;line-height:1.2;color:#FFFFFF">Fact-checked</h3>
-<p style="font-size:28px;line-height:1.4;color:#A6A6A6">If a summary invents a number or a computer name, it is rejected.</p>
+<p style="font-size:28px;line-height:1.4;color:#A6A6A6">Every number, version, deadline and authority is checked against the facts. One wrong detail and the summary is rejected.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<h3 style="font-family:'Inter Tight', Arial, sans-serif;font-size:40px;font-weight:700;line-height:1.2;color:#FFFFFF">Injection guard</h3>
+<p style="font-size:28px;line-height:1.4;color:#A6A6A6">A DeBERTa classifier plus fixed rules screen every untrusted text before it reaches the AI. Blocked text still gets a rule-based assessment.</p>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:28px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<h3 style="font-family:'Inter Tight', Arial, sans-serif;font-size:40px;font-weight:700;line-height:1.2;color:#FFFFFF">Humans decide</h3>
+<p style="font-size:28px;line-height:1.4;color:#A6A6A6">Analysts acknowledge, mitigate, verify and close each warning, and can mark a false positive.</p>
 </div>
 <div style="display:flex;flex-direction:column;gap:8px">
 <h3 style="font-family:'Inter Tight', Arial, sans-serif;font-size:40px;font-weight:700;line-height:1.2;color:#FFFFFF">Fully offline</h3>
@@ -30,11 +26,11 @@
 </div>
 <div style="display:flex;flex-direction:column;gap:8px">
 <h3 style="font-family:'Inter Tight', Arial, sans-serif;font-size:40px;font-weight:700;line-height:1.2;color:#FFFFFF">Swappable</h3>
-<p style="font-size:28px;line-height:1.4;color:#A6A6A6">Models are set in config files, so they change without new code.</p>
+<p style="font-size:28px;line-height:1.4;color:#A6A6A6">Each job’s model is set in a config file, so it changes without new code.</p>
 </div>
 </div>
 </div>
-<p style="position:absolute;left:128px;bottom:48px;width:1480px;font-size:24px;line-height:1.35;color:#A6A6A6"><b>AI</b> Artificial Intelligence · <b>MiST</b> Mid-trained Security Transformer · <b>8B</b> 8 billion parameters, the model’s size · <b>Foundation-Sec</b> security models from Cisco’s Foundation AI team · <b>GPU</b> Graphics Processing Unit · <b>GB</b> gigabytes · <b>Apache-2.0</b> a free, open-source licence</p>
-<p style="position:absolute;right:128px;bottom:48px;width:120px;text-align:right;font-size:24px;line-height:1.35;color:#A6A6A6">7</p>
-<aside>Left, the models. MiST-8B is a cybersecurity-trained language model, open source under Apache-2.0, running on the laptop. Critical alerts also go through Cisco’s Foundation-Sec-8B-Reasoning. Classic machine learning handles sorting and anomaly spotting. Right, the guardrails. The AI never sets a score; it explains one. Every summary is fact-checked: an invented number or hostname gets it rejected. Nothing leaves the laptop. And the models are swappable through config.</aside>
+<p style="position:absolute;left:128px;bottom:48px;width:1480px;font-size:24px;line-height:1.35;color:#A6A6A6"><b>AI</b> Artificial Intelligence · <b>DeBERTa</b> Decoding-enhanced BERT with disentangled attention, a text classifier · <b>Prompt injection</b> hidden instructions in a document that try to hijack an AI · <b>GPU</b> Graphics Processing Unit · <b>GB</b> gigabytes</p>
+<p style="position:absolute;right:128px;bottom:48px;width:120px;text-align:right;font-size:24px;line-height:1.35;color:#A6A6A6">8</p>
+<aside>Six guardrails. Fixed rules set every score; the AI only explains. Every number, version, deadline and authority in a summary is checked against the facts, and one wrong detail gets it rejected. Every untrusted text, such as an advisory, is screened for prompt injection by a DeBERTa classifier plus fixed rules before any AI sees it. Analysts make the decisions: acknowledge, mitigate, verify, close, or mark a false positive. Nothing leaves the laptop. And each job’s model is a config setting.</aside>
 </section>
