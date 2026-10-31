@@ -33,7 +33,9 @@ Everything runs locally on an RTX 4070 Laptop (8 GB VRAM), with **0 cloud calls*
 powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1   # Ollama, API :8000, translation :8010, dashboard :5173
 ```
 
-Open http://127.0.0.1:5173. To rebuild the database from the offline feed snapshot, run `scripts\rebuild.ps1` (about 4 minutes). Then pre-compute the AI outputs a demo touches with `.venv\Scripts\python scripts\warm_cache.py`.
+Open http://127.0.0.1:5173.
+
+**Before a demo, run `scripts\demo_reset.ps1` (about 5 minutes).** It rebuilds the database from the offline feed snapshot, restarts the API and pre-computes what the demo touches. The CERT-In 6-hour clock on the incident starts at build time, so a build from the night before shows that deadline as overdue.
 
 ## Check it
 

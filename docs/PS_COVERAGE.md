@@ -57,6 +57,7 @@ whole interface in a real browser on another copy, so the product is checked end
   The Proof page attributes each lead to one of them. Leads that exist only because monitoring started on 1 Aug are reported apart.
 - **Translation:** 127/132 sentences validated across 22 languages. Santali (3/6) is weakest; withheld lines fall back to English.
 - **DShield trends:** they show no elevated attack activity on our service ports this week. We report that as measured.
+- **Deadlines run in real time from the build:** the incident's CERT-In 6-hour clock starts when the database is built, so `scripts\demo_reset.ps1` is run shortly before each demo.
 - **Live sensors are simulated:** the decoy grid and firewall flows in the Live view are SIM (labelled, accelerated: one 5-second tick is one sensor-hour); the three real feeds it re-checks (CISA KEV, Feodo, OpenPhish) are live and public.
 
 ## Five-minute walk-through
