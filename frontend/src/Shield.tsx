@@ -169,9 +169,9 @@ export function ShieldSection({ onGo }: { onGo: (view: 'soc' | 'now', tab?: stri
             <AppCard app={app} onChange={refresh} />
             <div className="flex flex-col gap-3">
               {[
-                { icon: Activity, v: s.stats.events, k: 'requests inspected', sub: `${s.stats.sources} distinct sources` },
-                { icon: ShieldAlert, v: s.stats.attacks, k: 'attacks detected', sub: `${s.ledger.detections_hour} in the last hour` },
-                { icon: Ban, v: s.stats.blocked, k: 'requests blocked inline', sub: `${s.stats.blocklist} sources on the block list` },
+                { icon: Activity, v: s.stats.events, k: 'requests inspected', sub: `${s.stats.sources} distinct source${s.stats.sources === 1 ? '' : 's'}` },
+                { icon: ShieldAlert, v: s.stats.attacks, k: 'attacks detected', sub: s.stats.attackers ? `across ${s.stats.attackers} source${s.stats.attackers === 1 ? '' : 's'}` : 'none yet' },
+                { icon: Ban, v: s.stats.blocked, k: 'requests blocked inline', sub: `${s.stats.blocklist} source${s.stats.blocklist === 1 ? '' : 's'} on the block list` },
                 { icon: Crosshair, v: s.stats.attackers, k: 'attackers seen', sub: s.families.length ? s.families.join(', ') : 'none yet' },
               ].map((x) => (
                 <div key={x.k} className="flex items-center gap-4 rounded-2xl bg-panel-2 p-4">

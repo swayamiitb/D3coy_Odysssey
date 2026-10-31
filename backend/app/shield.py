@@ -79,6 +79,7 @@ class Shield:
         self.findings: collections.deque = collections.deque(maxlen=120)  # recent detections
         self.blocklist: dict[str, dict] = {}
         self.cooldown: dict[str, float] = {}
+        self.autopilot_seen: set = set()   # (app_id, src_ip) already driven to the autopilot: propose a block once
         self.n_events = 0
         self.n_attacks = 0
         self.n_blocked = 0            # block events (sources added to the list)
@@ -233,6 +234,10 @@ class Shield:
             if time.time() - last < DETECT_COOLDOWN_S:
                 return
             self.cooldown[key] = time.time()
+            # The autopilot proposes one block per attacker source, not one per attack type; later families from the
+            # same source are still written to the ledger below but do not re-propose.
+            first_from_source = (app["id"], src_ip) not in self.autopilot_seen
+            self.autopilot_seen.add((app["id"], src_ip))
 
         prov = "SIM" if redteam else "REAL"
         from .engine.ledger import Ledger
@@ -250,25 +255,26 @@ class Shield:
                                 "evidence": det["findings"][0]["evidence"], "redteam": redteam})
             conn.commit()
 
-            pilot = Autopilot(conn, Ledger(conn=conn, autocommit=False), config()[0], self.orgs, self.assets, now=now)
             org_id = app.get("org_id")
             app_name = app["name"]
             tag = {"redteam": redteam} if redteam else {}
             subject = f"{app['id']}:{src_ip}"
-            if det["decision"] == "block":
-                pilot.emit(now, "notify", subject, org_id=org_id, alert=subject, app=app_name, tier="Critical",
-                           channels=["soc"], basis=f"HTTP shield {det['cwe']}", provenance=prov, **tag,
-                           title=f"Blocked {det['category']} against {app_name} from {src_ip} "
-                                 f"(path {det['path']}, {det['cwe']}). The source is now on the block list.")
-            else:
-                pilot.emit(now, "warn", subject, org_id=org_id, alert=subject, app=app_name, channels=["soc"],
-                           basis=f"HTTP shield {det['cwe']}", provenance=prov, **tag,
-                           group=f"shield-block:{app['id']}:{src_ip}",
-                           proposal=f"Block {src_ip} at {app_name}: {det['category']} ({det['cwe']})",
-                           title=f"{det['category']} against {app_name} from {src_ip} (path {det['path']}, "
-                                 f"{det['cwe']}). Propose blocking the source; monitor mode took no action.")
-            pilot.flush()
-            conn.commit()
+            if first_from_source:
+                pilot = Autopilot(conn, Ledger(conn=conn, autocommit=False), config()[0], self.orgs, self.assets, now=now)
+                if det["decision"] == "block":
+                    pilot.emit(now, "notify", subject, org_id=org_id, alert=subject, app=app_name, tier="Critical",
+                               channels=["soc"], basis=f"HTTP shield {det['cwe']}", provenance=prov, **tag,
+                               title=f"Blocked an attack on {app_name} from {src_ip} ({det['category']}, {det['cwe']}, "
+                                     f"path {det['path']}). The source is now on the block list and its traffic is dropped inline.")
+                else:
+                    pilot.emit(now, "warn", subject, org_id=org_id, alert=subject, app=app_name, channels=["soc"],
+                               basis=f"HTTP shield {det['cwe']}", provenance=prov, **tag,
+                               group=f"shield-block:{app['id']}:{src_ip}",
+                               proposal=f"Block {src_ip} at {app_name} (attacking the app)",
+                               title=f"{src_ip} is attacking {app_name} ({det['category']}, {det['cwe']}, path "
+                                     f"{det['path']}). Propose blocking the source; monitor mode took no action.")
+                pilot.flush()
+                conn.commit()
 
             if success or _rank(det["severity"]) >= _rank("Critical"):
                 self._open_case(conn, det, app, src_ip, redteam)

@@ -13,6 +13,7 @@ Everything runs locally on an RTX 4070 Laptop (8 GB VRAM), with **0 cloud calls*
 |---|---|
 | Aggregate threat intelligence | 13 sources: NVD, CISA KEV, SSVC, EPSS, CISA advisories, SANS ISC DShield, Feodo Tracker, OpenPhish and MITRE ATT&CK (real), plus a national decoy grid, firewall logs and CERT-In-style advisories (simulated, labelled SIM). |
 | AI-based threat analysis | A security-tuned LLM (MiST 8B) writes a fact-checked brief for every warning. It reads advisories with SecureBERT 2.0 and a prompt-injection guard, forecasts exploitation on day 0, and runs a Bayesian compromise model and three live detectors (surge, C2 beacon, IsolationForest flow anomaly). |
+| Protect & red-team a real app | An **HTTP shield** (inline WAF/IDS) protects a *real* connected web application through a drop-in agent (ASGI/WSGI/Express, or an access-log tailer). It detects SQLi, XSS, path traversal, command injection, SSTI/SSRF/Log4Shell, scanning and brute force, blocks them inline in block mode, and can be proved by a built-in **red-team** that fires real attacks at the app over the wire (loopback/private only) and measures detection rate, block rate, precision and time-to-detect. |
 | Early warnings | Pre-disclosure surge warnings, day-0 forecasts, and immediate notices in 22 Indian languages. The autopilot acts every 5 seconds. |
 | Risk prioritisation | `Risk = 100·R·K·(0.55·L + 0.30·S + 0.15·V)`, with version-verified exposure. An SSVC decision sets the tier and the CERT-In deadline. |
 | Actionable recommendations | A named fixed release, owner and deadline per change ticket, and a national and per-organisation risk plan (the fewest changes that remove the most risk). Also: indicators to block, STIX export, and a pre-filled CERT-In report. |
@@ -21,7 +22,7 @@ Everything runs locally on an RTX 4070 Laptop (8 GB VRAM), with **0 cloud calls*
 ## The interface
 
 - **Now:** what needs you right now. The incident card with its CERT-In clock, the map of India, what's next, and the decisions waiting for you.
-- **Live:** the system running. The pipeline stage by stage, sensor streams with z-scores, detections and real-feed freshness. **Attack drills** let anyone inject a scan, an implant or a full intrusion and watch Odyssey catch it, with the time to detect.
+- **Live:** the system running. **A real app, protected** — a live web application behind the HTTP shield, with a Monitor/Block toggle and a one-click **Red-team the shield** that fires real web attacks and shows what was caught and blocked. Then the pipeline stage by stage, sensor streams with z-scores, detections and real-feed freshness, and **attack drills** that inject a scan, an implant or a full intrusion so anyone can watch Odyssey catch it, with the time to detect.
 - **SOC:** cases with owners, SLAs and playbooks; every warning; everything the autopilot did; and the laptop's live vital signs.
 - **Intel:** what is under attack, where the exposure is (heatmaps), what will be exploited next, the risk plan, and advisories.
 - **Organisations:** each operator's exposure, fixes, what outsiders see (OSINT), and its inbox in its own language.
@@ -33,7 +34,7 @@ Everything runs locally on an RTX 4070 Laptop (8 GB VRAM), with **0 cloud calls*
 powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1   # Ollama, API :8000, translation :8010, dashboard :5173
 ```
 
-Open http://127.0.0.1:5173.
+Open http://127.0.0.1:5173. `start_all.ps1` also launches the protected demo app (CityPower portal, :8080) behind the HTTP shield; set `ODYSSEY_TARGET=0` to skip it. To protect your own app instead, drop in an agent from `agent/` (see `agent/README.md`).
 
 **Before a demo, run `scripts\demo_reset.ps1` (about 5 minutes).** It rebuilds the database from the offline feed snapshot, restarts the API and pre-computes what the demo touches. The CERT-In 6-hour clock on the incident starts at build time, so a build from the night before shows that deadline as overdue.
 
@@ -41,7 +42,8 @@ Open http://127.0.0.1:5173.
 
 | Check | Command | What it proves |
 |---|---|---|
-| Engine tests | `.venv\Scripts\python -m pytest -q` | 56 tests: exposure, scoring, the proactive layer, SOC, advisories, and the audit trail under concurrent writers. |
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 87 tests: exposure, scoring, the proactive layer, SOC, advisories, the audit trail under concurrent writers, and the HTTP shield (signature engine on encoded/evaded payloads, block list, red-team safety). |
+| HTTP shield red-team | Live → *Red-team the shield* → *Run all attacks* (or `POST /api/redteam/run`) | Fires real SQLi/XSS/traversal/cmdi/SSTI/SSRF/Log4Shell/scanning/brute-force requests at the protected app over the wire and measures detection rate, block rate, precision and time-to-detect. Loopback/private targets only. |
 | Test bench | Proof → *Run them now* | 66 checks: 4 attack drills on a copy of the data, detectors with negative controls, the audit-trail chain, and the engine tests. |
 | Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 14 flows through the API on a private copy: approve and reject, a warning from issued to closed, a SOC case from new to closed, advisory analysis, three live drills, and the audit trail. |
 | Interface | `python scripts\ui_audit.py` | A real browser clicks through every screen, sheet and button on another copy, and reports any page error, console error or failed request. |
@@ -51,6 +53,7 @@ Open http://127.0.0.1:5173.
 - **Labels:** every fact is labelled REAL (public data) or SIM (simulated sensors, organisations and logs).
 - **Live sensors:** the live decoy grid and firewall flows are SIM, accelerated so one 5-second tick is one sensor-hour.
 - **Live feeds:** CISA KEV, Feodo Tracker and OpenPhish are re-read every 15 minutes when the network is up.
+- **HTTP shield:** it inspects real HTTP requests from the connected app; the bundled target and the red-team are a local lab (the runner only ever attacks loopback/private addresses), and every red-team request is labelled as an exercise in the audit trail.
 - **Audit trail:** every action is in a hash-chained trail; editing any past entry breaks the chain.
 
 More detail:

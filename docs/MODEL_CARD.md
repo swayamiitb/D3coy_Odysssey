@@ -138,3 +138,36 @@ Measured on this laptop (test bench, attack-drill layer, private copy of the dat
 
 Response follows the same graduated autonomy as the pipeline. Evidence of compromise acts at once: notice, CERT-In
 draft, hunt and SOC case. Sensor-only early warnings and regulator escalations are proposals for an analyst.
+
+## HTTP shield: web-attack detection on a real app (CPU, inline)
+
+The shield (`backend/app/engine/webattack.py`, `backend/app/shield.py`) is Odyssey's application-layer WAF/IDS. A
+drop-in agent forwards every request from a *real* connected web app to `POST /api/sensor/http`; the shield inspects it
+and, in block mode, returns a decision the agent enforces inline (HTTP 403). Inline inspection must be sub-millisecond
+and offline, so — like ModSecurity CRS and libinjection, and unlike one-LLM-call-per-request — detection is a
+decoder + signature engine, with the security-tuned LLM reserved for on-demand analyst explanation.
+
+- **Decode before matching.** Each input surface (path, every query and body parameter, and the abused headers) is
+  normalised through URL-, double-URL-, HTML-entity- and base64-decoding and SQL-comment stripping before the
+  signatures run, so `' OR 1=1--`, `%27%20OR%201%3D1--` and `'/**/OR/**/1=1` all match one rule.
+- **Families, each with a CWE and an ATT&CK technique:** SQL injection (CWE-89), XSS (CWE-79), path traversal /
+  LFI (CWE-22/98), OS command injection (CWE-78), template injection (CWE-94), SSRF (CWE-918), Log4Shell/JNDI
+  (CWE-917), deserialization (CWE-502), CRLF (CWE-113), secret/admin probing (CWE-200) and scanner-tool
+  fingerprints. Two **stateful** detectors in the shield add credential brute force (CWE-307) and scanning sweeps
+  (CWE-1595) from a per-source sliding window.
+- **Evidence is defanged** (control characters stripped, truncated) before it is stored or shown.
+
+Measured on this laptop (`POST /api/redteam/run`, real attacks fired over HTTP at the bundled CityPower portal):
+
+| Mode | Attacks | Detected | Blocked inline | Precision (benign controls) | Mean time-to-detect |
+|---|---|---|---|---|---|
+| Monitor | 45 | 45 (100%) | 0 (by design) | 100% (0 FP on 5 controls) | ~15 ms |
+| Block | 45 | 45 (100%) | 45 (100%) | 100% | ~15 ms |
+
+In block mode the attacker's source is block-listed and its traffic is dropped inline, while a separate legitimate
+customer (a different source) keeps getting HTTP 200 throughout. A likely-successful attack opens a SOC incident
+case, and the autopilot proposes one block per attacker source (auto in block mode, analyst-approved in monitor
+mode). The red-team runner only ever targets loopback or private (RFC-1918) addresses, and every request is labelled
+as an exercise in the hash-chained audit trail. Unit tests: `tests/test_shield.py` (signature engine on
+encoded/evaded payloads and benign controls, the shield's detection/ledger/block-list wiring, and the red-team
+target guard).

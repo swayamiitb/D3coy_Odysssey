@@ -25,6 +25,7 @@
     "exploit_forecast": "TF-IDF + CVSS/CWE/vendor + leak-free KEV history -> logistic regression (data/models/exploit_forecast.joblib, frozen 2026-07-31)",
     "decision_model": "Bayesian P(compromise | exposure, exploitation, reachability, telemetry); the day-0 forecast is its prior",
     "prompt_injection_guard": "protectai/deberta-v3-base-prompt-injection-v2 (0.90) + rules",
-    "risk_plan": "greedy change-ticket ordering: urgency class, then risk removed per unit of effort (backend/app/engine/riskplan.py)"
+    "risk_plan": "greedy change-ticket ordering: urgency class, then risk removed per unit of effort (backend/app/engine/riskplan.py)",
+    "web_attack_detection": "HTTP shield inline WAF/IDS: multi-decoder (URL/double-URL/HTML-entity/base64/comment-strip) signature engine over every input surface for SQLi/XSS/traversal/cmdi/SSTI/SSRF/Log4Shell/scanning, plus per-source behavioural detectors for brute force and scanning sweeps (backend/app/engine/webattack.py, backend/app/shield.py). Transparent CWE + ATT&CK per rule; the security LLM gives on-demand analyst explanation, not per-request verdicts (inline inspection must be sub-millisecond and offline)."
   }
 }
