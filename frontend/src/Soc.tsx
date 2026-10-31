@@ -1,9 +1,9 @@
 import { ExternalLink, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Area, AreaChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, type Attacks, type Campaign, type IntelAdvisory, type IntelSource, type PortTrend, type Soc as SocData, type Technology } from './api'
 import { ApprovalQueue, AutopilotFeed, useLanguages } from './proactive'
-import { Badge, Panel, TIER_FILL } from './ui'
+import { Rewind } from './Rewind'
+import { Badge, Panel } from './ui'
 
 const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString('en-IN'))
 
@@ -198,21 +198,7 @@ export function Soc({ onOrg, tick }: { onOrg: (id: string) => void; tick: number
       <div className="grid gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <Panel title="Open warnings by tier, day by day" right={<span className="text-xs text-mute">replayed from the evidence ledger</span>}>
-            <div className="h-64">
-              <ResponsiveContainer>
-                <AreaChart data={d.pressure} margin={{ top: 4, right: 8, bottom: 0, left: -8 }}>
-                  <CartesianGrid stroke="#243041" strokeDasharray="2 4" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fill: '#8b98a9', fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} minTickGap={24} />
-                  <YAxis tick={{ fill: '#8b98a9', fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: '#0b0f14', border: '1px solid #243041', fontSize: 12 }} labelStyle={{ color: '#e6edf3' }} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <ReferenceLine x={d.autopilot.go_live} stroke="#8b98a9" strokeDasharray="3 3" label={{ value: 'go-live', fill: '#8b98a9', fontSize: 11, position: 'insideTopLeft' }} />
-                  {(['High', 'Critical', 'Compromise'] as const).map((t) => (
-                    <Area key={t} type="stepAfter" dataKey={t} stackId="1" stroke={TIER_FILL[t]} fill={TIER_FILL[t]} fillOpacity={0.35} strokeWidth={2} />
-                  ))}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            <Rewind d={d} />
           </Panel>
         </div>
         <Panel title={`Needs your decision · ${d.pending}`} right={<span className="text-xs text-mute">human in the loop</span>}>

@@ -183,6 +183,7 @@ class Autopilot:
         baseline: dict[str, list[dict]] = {}
         digest: dict[tuple[str, str], list[dict]] = {}
         overdue: dict[str, list[dict]] = {}
+        incidents: dict[str, dict] = {}  # compromised asset -> one incident, however many CVEs led there
         for it in items:
             org, asset, rec, steps = it["org"], it["asset"], it["rec"], it["steps"]
             alert = f"{org['id']}:{rec['id']}"
@@ -244,8 +245,14 @@ class Autopilot:
                      "provenance": "REAL", "ts": kev_step["ts"], "update": True})
             comp = first["Compromise"]
             if comp and _t(comp["ts"]) >= self.go_live:
-                self._compromise(_t(comp["ts"], 4), org, asset, rec, it.get("sighting"), peers.get(rec["id"], []),
-                                 n_scanned, common)
+                inc = incidents.setdefault(asset["id"], {"at": _t(comp["ts"], 4), "org": org, "asset": asset,
+                                                         "recs": [], "sighting": it.get("sighting"), "common": common})
+                inc["at"] = min(inc["at"], _t(comp["ts"], 4))
+                inc["recs"].append(rec)
+                inc["peers"] = {**inc.get("peers", {}), rec["id"]: peers.get(rec["id"], [])}
+        for inc in incidents.values():
+            self._compromise(inc["at"], inc["org"], inc["asset"], inc["recs"], inc["sighting"], inc["peers"],
+                             n_scanned, inc["common"])
         for org_id, rows in baseline.items():
             crit = sum(r["tier"] in ("Critical", "Compromise") for r in rows)
             self.emit(self.go_live + dt.timedelta(hours=9), "baseline", f"org:{org_id}", org_id=org_id,
@@ -266,29 +273,36 @@ class Autopilot:
                       title=f"SLA watch: {len(rows)} Critical warning(s) at {org['name']} are past their deadline "
                             f"with no confirmed remediation.")
 
-    def _compromise(self, at, org, asset, rec, sighting, peers, n_scanned, common) -> None:
+    def _compromise(self, at, org, asset, recs, sighting, peers, n_scanned, common) -> None:
+        """One incident per compromised asset: one report to the regulators, one report draft, one hunt; peers are
+        warned per CVE they share."""
         to = ["CERT-In incident response desk"] + self.csirt(org)
+        cves = sorted(r["id"] for r in recs)
+        via = " and ".join(cves)
+        common = {**common, "cve_id": cves[0], "cves": cves}
         self.emit(at, "escalate", common["alert"], **common, tier="Compromise", recipients=to, channels=["secure-email"],
                   basis="Bayesian decision: suspected compromise", provenance="SIM",
-                  proposal=f"Report the suspected compromise of {asset['hostname']} ({rec['id']}) to {', '.join(to)}",
-                  title=f"Escalated to {', '.join(to)}: suspected compromise of {asset['hostname']} via {rec['id']}. "
+                  proposal=f"Report the suspected compromise of {asset['hostname']} ({via}) to {', '.join(to)}",
+                  title=f"Escalated to {', '.join(to)}: suspected compromise of {asset['hostname']} via {via}. "
                         f"CERT-In 6-hour reporting clock started.")
         self.emit(at + dt.timedelta(minutes=1), "report", common["alert"], **common, channels=[],
-                  title="CERT-In incident report drafted from the evidence (fields pre-filled, awaiting analyst "
-                        "sign-off).", link=f"/api/alerts/{org['id']}/{rec['id']}/certin-report")
+                  title=f"CERT-In incident report drafted for {asset['hostname']} from the evidence (fields pre-filled, "
+                        f"awaiting analyst sign-off).", link=f"/api/alerts/{org['id']}/{cves[0]}/certin-report")
         c2 = defang(sighting["dst"]) if sighting else None
+        warned = sorted({p for ps in peers.values() for p in ps})
         self.emit(at + dt.timedelta(minutes=3), "hunt", common["alert"], **common, channels=[],
                   assets_scanned=n_scanned[0], orgs_scanned=n_scanned[1], c2=c2, hits=1 if sighting else 0,
-                  peers_warned=len(peers),
+                  peers_warned=len(warned),
                   title=(f"Hunt: swept {n_scanned[0]} assets in {n_scanned[1]} organisations for C2 {c2}: 1 hit "
                          f"(this asset). " if c2 else "")
-                        + f"Warned {len(peers)} peer organisation(s) exposed to {rec['id']}.")
-        for peer in peers:
-            self.emit(at + dt.timedelta(minutes=5), "notify", f"{peer}:{rec['id']}", org_id=peer, cve_id=rec["id"],
-                      alert=f"{peer}:{rec['id']}", tier="peer-warning", channels=["email", "sms"],
-                      basis="peer compromise in the same sector", provenance="SIM",
-                      title=f"Peer warning: an organisation in the {org['sector']} sector shows signs of compromise via "
-                            f"{rec['id']}. You are exposed to the same CVE; patch and hunt now.")
+                        + f"Warned {len(warned)} peer organisation(s) exposed to {via}.")
+        for cve, peer_list in peers.items():
+            for peer in peer_list:
+                self.emit(at + dt.timedelta(minutes=5), "notify", f"{peer}:{cve}", org_id=peer, cve_id=cve,
+                          alert=f"{peer}:{cve}", tier="peer-warning", channels=["email", "sms"],
+                          basis="peer compromise in the same sector", provenance="SIM",
+                          title=f"Peer warning: an organisation in the {org['sector']} sector shows signs of compromise "
+                                f"via {cve}. You are exposed to the same CVE; patch and hunt now.")
 
 
 def _provenance(step: dict) -> str:

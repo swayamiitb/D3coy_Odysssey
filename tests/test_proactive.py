@@ -157,3 +157,19 @@ def test_lookalike_domains():
     v = lookalikes("navnidhibank.example")
     assert {"navnidhibank-kyc", "navnidhbank", "navnidhiibank", "anvnidhibank"} <= v
     assert "navnidhibank" not in v
+
+
+def test_one_incident_per_compromised_asset_however_many_cves():
+    now = dt.datetime(2026, 10, 31, 12, tzinfo=dt.timezone.utc)
+    conn, p = _pilot(now)
+    asset = {"id": "O1-A1", "hostname": "vpn1.o1.example", "label": "Gate", "zone": "internet"}
+    step = {"ts": "2026-10-16T09:30:00Z", "kind": "ioc.sighting", "provenance": "SIM", "event": "beacon",
+            "tier": "Compromise", "deadline_hours": 6, "rules": ["IOC_SIGHTING"]}
+    items = [{"org": p.orgs["O1"], "asset": asset, "rec": {"id": cve, "published": "2026-10-13T00:00:00Z"},
+              "steps": [step], "sighting": {"dst": "50.16.16.211"}} for cve in ("CVE-1", "CVE-2")]
+    p.alerts(items, {"CVE-1": ["O2"], "CVE-2": ["O2"]}, (10, 2))
+    kinds = [a["kind"] for a in p.actions]
+    assert kinds.count("auto.escalate") == 1 and kinds.count("auto.report") == 1 and kinds.count("auto.hunt") == 1
+    esc = next(a for a in p.actions if a["kind"] == "auto.escalate")
+    assert esc["payload"]["cves"] == ["CVE-1", "CVE-2"] and "CVE-1 and CVE-2" in esc["payload"]["title"]
+    assert sum(a["payload"].get("tier") == "peer-warning" for a in p.actions) == 2  # one per shared CVE
