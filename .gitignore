@@ -43,3 +43,17 @@ Thumbs.db
 
 # Claude Code per-user settings
 .claude/settings.local.json
+
+# Odyssey (lead's repo, merged): backend data, model files and frontend build
+*.pyc
+frontend/dist/
+data/models/*.bin
+data/ews.db*
+data/*.log
+data/models/
+frontend/node_modules/
+*.tsbuildinfo
+.venv-mt/
+data/cache.db*
+data/testbench_last.json
+data/build.log

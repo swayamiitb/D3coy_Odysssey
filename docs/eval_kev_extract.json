@@ -1,0 +1,1220 @@
+[
+  {
+    "model": "mist:8b",
+    "n": 194,
+    "json_valid_pct": 99.5,
+    "vendor_pct": 79.9,
+    "vendor_ci95": [
+      73.7,
+      84.9
+    ],
+    "product_pct": 37.6,
+    "product_ci95": [
+      31.1,
+      44.6
+    ],
+    "both_pct": 28.4,
+    "median_s": 1.86,
+    "misses": [
+      {
+        "id": "CVE-2026-0300",
+        "truth": "Palo Alto Networks / PAN-OS",
+        "pred": "Palo Alto Networks / User-ID Authentication Portal"
+      },
+      {
+        "id": "CVE-2026-104935",
+        "truth": "Ivanti / Connect Secure",
+        "pred": "ICS / ICS"
+      },
+      {
+        "id": "CVE-2026-106931",
+        "truth": "EG Secure Solutions / SiteGuard Server Edition",
+        "pred": "SiteGuard / SiteGuard"
+      },
+      {
+        "id": "CVE-2026-110447",
+        "truth": "Collabora / Collabora Online \u2013 Built-in CODE Server",
+        "pred": "Collabora / Collabora Online"
+      },
+      {
+        "id": "CVE-2026-110936",
+        "truth": "Siemens / Software Center",
+        "pred": "Siemens / Siemens Software Center"
+      },
+      {
+        "id": "CVE-2026-114625",
+        "truth": "Arista / VeloCloud Orchestrator",
+        "pred": "VeloCloud / VCO"
+      },
+      {
+        "id": "CVE-2026-11645",
+        "truth": "Google / Chromium V8",
+        "pred": "Google / Chrome"
+      },
+      {
+        "id": "CVE-2026-12569",
+        "truth": "PTC / Windchill and FlexPLM",
+        "pred": "PTC / Windchill PDMlink and FlexPLM"
+      },
+      {
+        "id": "CVE-2026-1281",
+        "truth": "Ivanti / Endpoint Manager Mobile (EPMM)",
+        "pred": "Ivanti / Ivanti Endpoint Manager Mobile"
+      },
+      {
+        "id": "CVE-2026-1340",
+        "truth": "Ivanti / Endpoint Manager Mobile (EPMM)",
+        "pred": "Ivanti / Ivanti Endpoint Manager Mobile"
+      },
+      {
+        "id": "CVE-2026-15409",
+        "truth": "SonicWall / SMA1000 Appliances",
+        "pred": "Cisco / SMA1000 Appliance Work Place"
+      },
+      {
+        "id": "CVE-2026-15410",
+        "truth": "SonicWall / SMA1000 Appliances",
+        "pred": "SMA1000 / SMA1000 Appliance Management Console"
+      },
+      {
+        "id": "CVE-2026-1603",
+        "truth": "Ivanti /  Endpoint Manager (EPM)",
+        "pred": "Ivanti / Ivanti Endpoint Manager"
+      },
+      {
+        "id": "CVE-2026-1731",
+        "truth": "BeyondTrust / Remote Support (RS) and Privileged Remote Access (PRA)",
+        "pred": "BeyondTrust / BeyondTrust PRA and RS"
+      },
+      {
+        "id": "CVE-2026-19490",
+        "truth": "Citrix / NetScaler",
+        "pred": "Citrix / NetScaler ADC and NetScaler Gateway"
+      },
+      {
+        "id": "CVE-2026-20079",
+        "truth": "Cisco / Secure Firewall Management Center (FMC) and Security Cloud Control (SCC) Firewall Management",
+        "pred": "Cisco / FMC"
+      },
+      {
+        "id": "CVE-2026-20127",
+        "truth": "Cisco / Catalyst SD-WAN Controller and Manager",
+        "pred": "Cisco / Catalyst SD-WAN Controller"
+      },
+      {
+        "id": "CVE-2026-20128",
+        "truth": "Cisco / Catalyst SD-WAN Manager",
+        "pred": "Cisco / Cisco Catalyst SD-WAN Manager"
+      },
+      {
+        "id": "CVE-2026-20131",
+        "truth": "Cisco / Secure Firewall Management Center (FMC)",
+        "pred": "Cisco / FMC"
+      },
+      {
+        "id": "CVE-2026-20133",
+        "truth": "Cisco / Catalyst SD-WAN Manager",
+        "pred": "Cisco / Catalyst SD-WAN"
+      },
+      {
+        "id": "CVE-2026-20182",
+        "truth": "Cisco / Catalyst SD-WAN",
+        "pred": "Cisco / Catalyst SD-WAN Controller"
+      },
+      {
+        "id": "CVE-2026-20230",
+        "truth": "Cisco / Unified Communications Manager",
+        "pred": "Cisco / Unified CM"
+      },
+      {
+        "id": "CVE-2026-20245",
+        "truth": "Cisco / Catalyst SD-WAN Manager",
+        "pred": "Cisco / Catalyst SD-WAN Controller"
+      },
+      {
+        "id": "CVE-2026-20253",
+        "truth": "Splunk / Enterprise",
+        "pred": "Splunk / Splunk Enterprise"
+      },
+      {
+        "id": "CVE-2026-20262",
+        "truth": "Cisco / Catalyst SD-WAN Manager",
+        "pred": "Cisco / SD-WAN Manager"
+      },
+      {
+        "id": "CVE-2026-20316",
+        "truth": "Cisco / Secure Firewall Management Center (FMC)",
+        "pred": "Cisco / FMC"
+      },
+      {
+        "id": "CVE-2026-20349",
+        "truth": "Cisco / Secure Firewall Adaptive Security Appliance (ASA) and Secure Firewall Threat Defense (FTD) ",
+        "pred": "Cisco / Cisco Secure Firewall"
+      },
+      {
+        "id": "CVE-2026-20700",
+        "truth": "Apple / Multiple Products",
+        "pred": "Apple / iOS"
+      },
+      {
+        "id": "CVE-2026-20805",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Desktop Windows Manager"
+      },
+      {
+        "id": "CVE-2026-20963",
+        "truth": "Microsoft / SharePoint",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-21385",
+        "truth": "Qualcomm / Multiple Chipsets",
+        "pred": " / "
+      },
+      {
+        "id": "CVE-2026-21510",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Windows Shell"
+      },
+      {
+        "id": "CVE-2026-21513",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / MSHTML"
+      },
+      {
+        "id": "CVE-2026-21514",
+        "truth": "Microsoft / Office",
+        "pred": "Microsoft / Microsoft Office Word"
+      },
+      {
+        "id": "CVE-2026-21519",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Desktop Window Manager"
+      },
+      {
+        "id": "CVE-2026-21525",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Windows Remote Access Connection Manager"
+      },
+      {
+        "id": "CVE-2026-21589",
+        "truth": "Atlassian / Multiple Products",
+        "pred": "Atlassian / Bitbucket, Confluence, Crowd, Jira Software, Jira Service Management, Bamboo, Crucible, Fisheye"
+      },
+      {
+        "id": "CVE-2026-21962",
+        "truth": "Oracle / HTTP Server and Oracle Weblogic Server Proxy Plug-in",
+        "pred": "Oracle / Oracle HTTP Server, Oracle Weblogic Server Proxy Plug-in"
+      },
+      {
+        "id": "CVE-2026-22769",
+        "truth": "Dell / RecoverPoint for Virtual Machines (RP4VMs)",
+        "pred": "Dell / RecoverPoint for Virtual Machines"
+      },
+      {
+        "id": "CVE-2026-2441",
+        "truth": "Google / Chromium",
+        "pred": "Google / Google Chrome"
+      },
+      {
+        "id": "CVE-2026-24858",
+        "truth": "Fortinet / Multiple Products",
+        "pred": "None / None"
+      },
+      {
+        "id": "CVE-2026-3055",
+        "truth": "Citrix / NetScaler",
+        "pred": "Citrix / NetScaler ADC and NetScaler Gateway"
+      },
+      {
+        "id": "CVE-2026-31431",
+        "truth": "Linux / Kernel",
+        "pred": "Linux / Linux kernel"
+      },
+      {
+        "id": "CVE-2026-32201",
+        "truth": "Microsoft / SharePoint Server",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-32202",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Windows Shell"
+      },
+      {
+        "id": "CVE-2026-33824",
+        "truth": "Microsoft / Internet Key Exchange (IKE) Service Extensions",
+        "pred": "Microsoft / Windows IKE Extension"
+      },
+      {
+        "id": "CVE-2026-33825",
+        "truth": "Microsoft / Defender",
+        "pred": "Microsoft / Microsoft Defender"
+      },
+      {
+        "id": "CVE-2026-34621",
+        "truth": "Adobe / Acrobat and Reader",
+        "pred": "Adobe / Acrobat Reader"
+      },
+      {
+        "id": "CVE-2026-3502",
+        "truth": "TrueConf / Client",
+        "pred": "TrueConf / TrueConf Client"
+      },
+      {
+        "id": "CVE-2026-3909",
+        "truth": "Google / Skia",
+        "pred": "Google / Chrome"
+      },
+      {
+        "id": "CVE-2026-3910",
+        "truth": "Google / Chromium V8",
+        "pred": "Google / Chrome"
+      },
+      {
+        "id": "CVE-2026-41091",
+        "truth": "Microsoft / Defender",
+        "pred": "Microsoft / Microsoft Defender"
+      },
+      {
+        "id": "CVE-2026-41709",
+        "truth": "Broadcom / VMware ESX",
+        "pred": "VMware / ESX"
+      },
+      {
+        "id": "CVE-2026-41940",
+        "truth": "WebPros / cPanel & WHM and WP2 (WordPress Squared)",
+        "pred": "cPanel / WHM"
+      },
+      {
+        "id": "CVE-2026-42897",
+        "truth": "Microsoft / Microsoft",
+        "pred": "Microsoft / Exchange Server"
+      },
+      {
+        "id": "CVE-2026-45247",
+        "truth": "Mirasvit / Mirasvit Full Page Cache Warmer",
+        "pred": "Mirasvit / Mirasvit Full Page Cache Warmer for Magento 2"
+      },
+      {
+        "id": "CVE-2026-45321",
+        "truth": "TanStack / TanStack",
+        "pred": "TanStack / @tanstack/*"
+      },
+      {
+        "id": "CVE-2026-45498",
+        "truth": "Microsoft / Defender",
+        "pred": "Microsoft / Microsoft Defender"
+      },
+      {
+        "id": "CVE-2026-45659",
+        "truth": "Microsoft / SharePoint Server",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-46300",
+        "truth": "Linux / Kernel",
+        "pred": "Linux / Linux kernel"
+      },
+      {
+        "id": "CVE-2026-46817",
+        "truth": "Oracle / E-Business Suite",
+        "pred": "Oracle / Oracle Payments"
+      },
+      {
+        "id": "CVE-2026-48172",
+        "truth": "LiteSpeed / cPanel Plugin",
+        "pred": "LiteSpeed / LiteSpeed User-End cPanel Plugin"
+      },
+      {
+        "id": "CVE-2026-48356",
+        "truth": "Adobe / Commerce and Magento",
+        "pred": "Adobe / Adobe Commerce"
+      },
+      {
+        "id": "CVE-2026-48907",
+        "truth": "Widget Factory / Joomla Content Editor ",
+        "pred": "Joomla / JCE editor extension"
+      },
+      {
+        "id": "CVE-2026-49869",
+        "truth": "Kestra / Kestra OSS",
+        "pred": "Kestra / Kestra"
+      },
+      {
+        "id": "CVE-2026-50522",
+        "truth": "Microsoft / SharePoint",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-50751",
+        "truth": "Check Point / Security Gateway",
+        "pred": "Cisco / Remote Access"
+      },
+      {
+        "id": "CVE-2026-5281",
+        "truth": "Google / Dawn",
+        "pred": "Google / Chrome"
+      },
+      {
+        "id": "CVE-2026-53266",
+        "truth": "Linux / Kernel",
+        "pred": "Linux / Linux kernel"
+      },
+      {
+        "id": "CVE-2026-53362",
+        "truth": "Linux / Kernel",
+        "pred": "Linux / Linux kernel"
+      },
+      {
+        "id": "CVE-2026-5430",
+        "truth": "WSO2 / Multiple Products",
+        "pred": "N/A / N/A"
+      },
+      {
+        "id": "CVE-2026-54420",
+        "truth": "LiteSpeed / cPanel Plugin",
+        "pred": "LiteSpeed / LiteSpeed cPanel plugin"
+      },
+      {
+        "id": "CVE-2026-55040",
+        "truth": "Microsoft / SharePoint",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-56155",
+        "truth": "Microsoft / Active Directory Federation Services",
+        "pred": "Microsoft / AD FS"
+      },
+      {
+        "id": "CVE-2026-56164",
+        "truth": "Microsoft / SharePoint Server",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-56290",
+        "truth": "Joomlack / Page Builder",
+        "pred": "joomlack.fr / Page Builder CK"
+      },
+      {
+        "id": "CVE-2026-56291",
+        "truth": "Balbooa / Forms",
+        "pred": "balbooa.com / Balbooa Forms"
+      },
+      {
+        "id": "CVE-2026-58644",
+        "truth": "Microsoft / SharePoint",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-58704",
+        "truth": "Google / Pixel",
+        "pred": "Cellular Modem / Cellular Modem"
+      },
+      {
+        "id": "CVE-2026-59310",
+        "truth": "Broadcom / VMware vCenter",
+        "pred": "VMware / vCenter"
+      },
+      {
+        "id": "CVE-2026-60137",
+        "truth": "WordPress / Core",
+        "pred": "WordPress / WordPress"
+      },
+      {
+        "id": "CVE-2026-63030",
+        "truth": "WordPress / Core",
+        "pred": "WordPress / WordPress"
+      },
+      {
+        "id": "CVE-2026-65660",
+        "truth": "Microsoft / SharePoint",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-66384",
+        "truth": "JFrog / Artifactory",
+        "pred": "Docker / Docker"
+      },
+      {
+        "id": "CVE-2026-6973",
+        "truth": "Ivanti / Endpoint Manager Mobile (EPMM)",
+        "pred": "Ivanti / Ivanti EPMM"
+      },
+      {
+        "id": "CVE-2026-71362",
+        "truth": "Adobe / Commerce and Magento ",
+        "pred": "Adobe / Adobe Commerce"
+      },
+      {
+        "id": "CVE-2026-72529",
+        "truth": "TrueConf / Server",
+        "pred": "TrueConf / TrueConf server"
+      },
+      {
+        "id": "CVE-2026-72530",
+        "truth": "TrueConf / Server",
+        "pred": "TrueConf / TrueConf server"
+      },
+      {
+        "id": "CVE-2026-7273",
+        "truth": "Zyxel / GS1900 Series Switches",
+        "pred": "Zyxel / GS1900-48HPv2"
+      },
+      {
+        "id": "CVE-2026-73570",
+        "truth": "Synacor / Zimbra Collaboration Suite (ZCS)",
+        "pred": "Zimbra / Zimbra Collaboration"
+      },
+      {
+        "id": "CVE-2026-7473",
+        "truth": "Arista / Extensible Operating System",
+        "pred": "Arista / EOS"
+      },
+      {
+        "id": "CVE-2026-75650",
+        "truth": "Adobe / Commerce and Magento",
+        "pred": "Adobe / Adobe Commerce"
+      },
+      {
+        "id": "CVE-2026-76418",
+        "truth": "Cisco / Secure Firewall ASA Software and Cisco Secure FTD Software",
+        "pred": "Cisco / Cisco Secure Firewall"
+      },
+      {
+        "id": "CVE-2026-76460",
+        "truth": "Cisco / Identity Services Engine",
+        "pred": "Cisco / ISE"
+      },
+      {
+        "id": "CVE-2026-76504",
+        "truth": "Cisco / Catalyst SD-WAN Manager",
+        "pred": "Cisco / Cisco Catalyst SD-WAN Manager"
+      },
+      {
+        "id": "CVE-2026-8037",
+        "truth": "Progress / LoadMaster",
+        "pred": "Progress / Progress ADC"
+      },
+      {
+        "id": "CVE-2026-81578",
+        "truth": "PaperCut / NG/MF",
+        "pred": "PaperCut / PaperCut MF and PaperCut NG"
+      },
+      {
+        "id": "CVE-2026-81963",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Windows Update Stack"
+      },
+      {
+        "id": "CVE-2026-82078",
+        "truth": "PaperCut / NG/MF",
+        "pred": "PaperCut / PaperCut"
+      },
+      {
+        "id": "CVE-2026-83548",
+        "truth": "SonicWall / SMA1000 Appliances",
+        "pred": "SMA / SMA1000 Appliance Work Place"
+      },
+      {
+        "id": "CVE-2026-83549",
+        "truth": "SonicWall / SMA1000 Appliances",
+        "pred": "HPE / SMA1000 Appliance Management Console"
+      },
+      {
+        "id": "CVE-2026-8452",
+        "truth": "Citrix / NetScaler ADC and NetScaler Gateway",
+        "pred": "Citrix / NetScaler ADC"
+      },
+      {
+        "id": "CVE-2026-85046",
+        "truth": "Google / Chromium V8",
+        "pred": "Google / Google Chrome"
+      },
+      {
+        "id": "CVE-2026-85102",
+        "truth": "Check Point / Multiple Products",
+        "pred": "Check Point / Quantum Security Gateway"
+      },
+      {
+        "id": "CVE-2026-85706",
+        "truth": "GitLab / Community Edition and Enterprise Edition",
+        "pred": "GitLab / GitLab"
+      },
+      {
+        "id": "CVE-2026-86950",
+        "truth": "Apple / Multiple Products",
+        "pred": "Apple / iOS, iPadOS, macOS"
+      },
+      {
+        "id": "CVE-2026-87491",
+        "truth": "Google / Chromium V8",
+        "pred": "Google / Google Chrome"
+      },
+      {
+        "id": "CVE-2026-87886",
+        "truth": "Acronis / Backup",
+        "pred": "Acronis / Acronis Backup plugin for cPanel & WHM"
+      },
+      {
+        "id": "CVE-2026-87902",
+        "truth": "WordPress / Core",
+        "pred": "WordPress / WordPress"
+      },
+      {
+        "id": "CVE-2026-88771",
+        "truth": "Citrix / NetScaler",
+        "pred": "Citrix / NetScaler ADC"
+      },
+      {
+        "id": "CVE-2026-88772",
+        "truth": "Citrix / NetScaler",
+        "pred": "Citrix / NetScaler ADC and NetScaler Gateway"
+      },
+      {
+        "id": "CVE-2026-88779",
+        "truth": "Citrix / NetScaler",
+        "pred": "Citrix / NetScaler ADC and NetScaler Gateway"
+      },
+      {
+        "id": "CVE-2026-9082",
+        "truth": "Drupal / Core",
+        "pred": "Drupal / Drupal"
+      },
+      {
+        "id": "CVE-2026-93616",
+        "truth": "Check Point / Multiple Products",
+        "pred": "Check Point / Check Point Management Server"
+      },
+      {
+        "id": "CVE-2026-93952",
+        "truth": "Arista / VeloCloud Orchestrator",
+        "pred": "VeloCloud / VCO"
+      },
+      {
+        "id": "CVE-2026-96652",
+        "truth": "Plex / Media Server",
+        "pred": "Plex / Plex Media Server"
+      },
+      {
+        "id": "CVE-2026-96654",
+        "truth": "Plex / Media Server",
+        "pred": "Plex / Plex Media Server"
+      },
+      {
+        "id": "CVE-2026-96655",
+        "truth": "Plex / Media Server",
+        "pred": "Plex / Plex Media Server"
+      },
+      {
+        "id": "CVE-2026-96656",
+        "truth": "Plex / Media Server",
+        "pred": "Plex / Plex Media Server"
+      },
+      {
+        "id": "CVE-2026-96951",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Windows Shell"
+      },
+      {
+        "id": "CVE-2026-97229",
+        "truth": "GitLab / Community Edition and Enterprise Edition",
+        "pred": "GitLab / GitLab"
+      }
+    ]
+  },
+  {
+    "model": "foundation-sec:8b-instruct",
+    "n": 194,
+    "json_valid_pct": 99.5,
+    "vendor_pct": 77.3,
+    "vendor_ci95": [
+      70.9,
+      82.6
+    ],
+    "product_pct": 40.7,
+    "product_ci95": [
+      34.1,
+      47.8
+    ],
+    "both_pct": 35.1,
+    "median_s": 1.55,
+    "misses": [
+      {
+        "id": "CVE-2026-104935",
+        "truth": "Ivanti / Connect Secure",
+        "pred": "ICS / ICS"
+      },
+      {
+        "id": "CVE-2026-110447",
+        "truth": "Collabora / Collabora Online \u2013 Built-in CODE Server",
+        "pred": "Collabora Online / CODE Server"
+      },
+      {
+        "id": "CVE-2026-114625",
+        "truth": "Arista / VeloCloud Orchestrator",
+        "pred": "VeloCloud / Orchestrator (VCO)"
+      },
+      {
+        "id": "CVE-2026-11645",
+        "truth": "Google / Chromium V8",
+        "pred": "Google / Chrome"
+      },
+      {
+        "id": "CVE-2026-12569",
+        "truth": "PTC / Windchill and FlexPLM",
+        "pred": "PTC / Windchill PDMlink and PTC FlexPLM"
+      },
+      {
+        "id": "CVE-2026-1281",
+        "truth": "Ivanti / Endpoint Manager Mobile (EPMM)",
+        "pred": "Ivanti / Endpoint Manager Mobile"
+      },
+      {
+        "id": "CVE-2026-1340",
+        "truth": "Ivanti / Endpoint Manager Mobile (EPMM)",
+        "pred": "Ivanti / Endpoint Manager Mobile"
+      },
+      {
+        "id": "CVE-2026-15410",
+        "truth": "SonicWall / SMA1000 Appliances",
+        "pred": "SonicWall / SMA1000"
+      },
+      {
+        "id": "CVE-2026-1603",
+        "truth": "Ivanti /  Endpoint Manager (EPM)",
+        "pred": "Ivanti / Endpoint Manager"
+      },
+      {
+        "id": "CVE-2026-16812",
+        "truth": "Arista / VeloCloud Orchestrator",
+        "pred": "VeloCloud / Orchestrator (VCO)"
+      },
+      {
+        "id": "CVE-2026-1731",
+        "truth": "BeyondTrust / Remote Support (RS) and Privileged Remote Access (PRA)",
+        "pred": "BeyondTrust / Remote Support (RS)"
+      },
+      {
+        "id": "CVE-2026-19490",
+        "truth": "Citrix / NetScaler",
+        "pred": "NetScaler / ADC and Gateway"
+      },
+      {
+        "id": "CVE-2026-20045",
+        "truth": "Cisco / Unified Communications Manager",
+        "pred": "Cisco / Multiple Products (Unified CM, Unified CM SME, Unified CM IM&P, Unity Connection, Webex Calling Dedicated Instance)"
+      },
+      {
+        "id": "CVE-2026-20079",
+        "truth": "Cisco / Secure Firewall Management Center (FMC) and Security Cloud Control (SCC) Firewall Management",
+        "pred": "Cisco / Secure Firewall Management Center (FMC) Software"
+      },
+      {
+        "id": "CVE-2026-20127",
+        "truth": "Cisco / Catalyst SD-WAN Controller and Manager",
+        "pred": "Cisco / Catalyst SD-WAN Controller (formerly SD-WAN vSmart), Catalyst SD-WAN Manager (formerly SD-WAN vManage), Catalyst SD-WAN Validator (formerly SD-WAN vBond)"
+      },
+      {
+        "id": "CVE-2026-20131",
+        "truth": "Cisco / Secure Firewall Management Center (FMC)",
+        "pred": "Cisco / Secure Firewall Management Center (FMC) Software"
+      },
+      {
+        "id": "CVE-2026-20133",
+        "truth": "Cisco / Catalyst SD-WAN Manager",
+        "pred": "Cisco / Catalyst SD-WAN"
+      },
+      {
+        "id": "CVE-2026-20182",
+        "truth": "Cisco / Catalyst SD-WAN",
+        "pred": "Cisco / Catalyst SD-WAN Controller (formerly SD-WAN vSmart), Catalyst SD-WAN Manager (formerly SD-WAN vManage), Catalyst SD-WAN Validator (formerly SD-WAN vBond)"
+      },
+      {
+        "id": "CVE-2026-20230",
+        "truth": "Cisco / Unified Communications Manager",
+        "pred": "Cisco / Unified Communications Manager (Unified CM) and Cisco Unified Communications Manager Session Management Edition (Unified CM SME)"
+      },
+      {
+        "id": "CVE-2026-20245",
+        "truth": "Cisco / Catalyst SD-WAN Manager",
+        "pred": "Cisco / Catalyst SD-WAN Controller (formerly SD-WAN vSmart), Catalyst SD-WAN Manager (formerly SD-WAN vManage), Catalyst SD-WAN Validator (formerly SD-WAN vBond)"
+      },
+      {
+        "id": "CVE-2026-20316",
+        "truth": "Cisco / Secure Firewall Management Center (FMC)",
+        "pred": "Cisco / Secure Firewall Management Center (FMC) Software"
+      },
+      {
+        "id": "CVE-2026-20349",
+        "truth": "Cisco / Secure Firewall Adaptive Security Appliance (ASA) and Secure Firewall Threat Defense (FTD) ",
+        "pred": "Cisco / Secure Firewall ASA Software, Secure Firewall Threat Defense (FTD) Software"
+      },
+      {
+        "id": "CVE-2026-20700",
+        "truth": "Apple / Multiple Products",
+        "pred": "Apple / Multiple Products (iOS, iPadOS, macOS Tahoe, tvOS, visionOS, watchOS)"
+      },
+      {
+        "id": "CVE-2026-20805",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Desktop Windows Manager"
+      },
+      {
+        "id": "CVE-2026-20963",
+        "truth": "Microsoft / SharePoint",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-21385",
+        "truth": "Qualcomm / Multiple Chipsets",
+        "pred": " / "
+      },
+      {
+        "id": "CVE-2026-21510",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Windows Shell"
+      },
+      {
+        "id": "CVE-2026-21513",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / MSHTML Framework"
+      },
+      {
+        "id": "CVE-2026-21514",
+        "truth": "Microsoft / Office",
+        "pred": "Microsoft / Office Word"
+      },
+      {
+        "id": "CVE-2026-21519",
+        "truth": "Microsoft / Windows",
+        "pred": "Desktop Window Manager / Desktop Window Manager"
+      },
+      {
+        "id": "CVE-2026-21525",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Windows Remote Access Connection Manager"
+      },
+      {
+        "id": "CVE-2026-21533",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Windows Remote Desktop"
+      },
+      {
+        "id": "CVE-2026-21962",
+        "truth": "Oracle / HTTP Server and Oracle Weblogic Server Proxy Plug-in",
+        "pred": "Oracle / HTTP Server, Weblogic Server Proxy Plug-in"
+      },
+      {
+        "id": "CVE-2026-22719",
+        "truth": "Broadcom / VMware Aria Operations",
+        "pred": "VMware / Aria Operations"
+      },
+      {
+        "id": "CVE-2026-22769",
+        "truth": "Dell / RecoverPoint for Virtual Machines (RP4VMs)",
+        "pred": "Dell / RecoverPoint for Virtual Machines"
+      },
+      {
+        "id": "CVE-2026-24061",
+        "truth": "GNU / InetUtils",
+        "pred": "GNU Inetutils / telnetd"
+      },
+      {
+        "id": "CVE-2026-2441",
+        "truth": "Google / Chromium",
+        "pred": "Google / Chrome"
+      },
+      {
+        "id": "CVE-2026-24858",
+        "truth": "Fortinet / Multiple Products",
+        "pred": "None / None"
+      },
+      {
+        "id": "CVE-2026-25108",
+        "truth": "Soliton Systems K.K / FileZen",
+        "pred": "FileZen / FileZen Antivirus"
+      },
+      {
+        "id": "CVE-2026-3055",
+        "truth": "Citrix / NetScaler",
+        "pred": "NetScaler / ADC and Gateway"
+      },
+      {
+        "id": "CVE-2026-31431",
+        "truth": "Linux / Kernel",
+        "pred": "Linux kernel / crypto: algif_aead"
+      },
+      {
+        "id": "CVE-2026-32201",
+        "truth": "Microsoft / SharePoint Server",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-32202",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Windows Shell"
+      },
+      {
+        "id": "CVE-2026-33824",
+        "truth": "Microsoft / Internet Key Exchange (IKE) Service Extensions",
+        "pred": "Microsoft / Windows IKE Extension"
+      },
+      {
+        "id": "CVE-2026-34621",
+        "truth": "Adobe / Acrobat and Reader",
+        "pred": "Adobe / Acrobat Reader"
+      },
+      {
+        "id": "CVE-2026-3502",
+        "truth": "TrueConf / Client",
+        "pred": "TrueConf / TrueConf Client"
+      },
+      {
+        "id": "CVE-2026-3909",
+        "truth": "Google / Skia",
+        "pred": "Google / Chrome"
+      },
+      {
+        "id": "CVE-2026-3910",
+        "truth": "Google / Chromium V8",
+        "pred": "Google / Chrome"
+      },
+      {
+        "id": "CVE-2026-41709",
+        "truth": "Broadcom / VMware ESX",
+        "pred": "VMware / ESX"
+      },
+      {
+        "id": "CVE-2026-41940",
+        "truth": "WebPros / cPanel & WHM and WP2 (WordPress Squared)",
+        "pred": "cPanel / cPanel and WHM"
+      },
+      {
+        "id": "CVE-2026-42897",
+        "truth": "Microsoft / Microsoft",
+        "pred": "Microsoft / Exchange Server"
+      },
+      {
+        "id": "CVE-2026-45247",
+        "truth": "Mirasvit / Mirasvit Full Page Cache Warmer",
+        "pred": "Mirasvit / Full Page Cache Warmer for Magento 2"
+      },
+      {
+        "id": "CVE-2026-45321",
+        "truth": "TanStack / TanStack",
+        "pred": "TanStack / Various packages"
+      },
+      {
+        "id": "CVE-2026-45498",
+        "truth": "Microsoft / Defender",
+        "pred": "Microsoft / Microsoft Defender"
+      },
+      {
+        "id": "CVE-2026-45659",
+        "truth": "Microsoft / SharePoint Server",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-46817",
+        "truth": "Oracle / E-Business Suite",
+        "pred": "Oracle / Oracle Payments"
+      },
+      {
+        "id": "CVE-2026-48172",
+        "truth": "LiteSpeed / cPanel Plugin",
+        "pred": "LiteSpeed / User-End cPanel Plugin"
+      },
+      {
+        "id": "CVE-2026-48356",
+        "truth": "Adobe / Commerce and Magento",
+        "pred": "Adobe / Adobe Commerce"
+      },
+      {
+        "id": "CVE-2026-48710",
+        "truth": "Kludex / Starlette",
+        "pred": "Starlette / ASGI framework/toolkit"
+      },
+      {
+        "id": "CVE-2026-48907",
+        "truth": "Widget Factory / Joomla Content Editor ",
+        "pred": "JCE / JCE editor extension"
+      },
+      {
+        "id": "CVE-2026-48908",
+        "truth": "JoomShaper / SP Page Builder",
+        "pred": "SP Page Builder / SP Page Builder for Joomla"
+      },
+      {
+        "id": "CVE-2026-49869",
+        "truth": "Kestra / Kestra OSS",
+        "pred": "Open-source / Kestra"
+      },
+      {
+        "id": "CVE-2026-50522",
+        "truth": "Microsoft / SharePoint",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-50751",
+        "truth": "Check Point / Security Gateway",
+        "pred": "Unknown (as no specific vendor is mentioned) / VPN Software (IKEv1 key exchange)"
+      },
+      {
+        "id": "CVE-2026-5281",
+        "truth": "Google / Dawn",
+        "pred": "Google / Chrome"
+      },
+      {
+        "id": "CVE-2026-5430",
+        "truth": "WSO2 / Multiple Products",
+        "pred": "Unknown (general issue description) / JWT Authentication Mechanism"
+      },
+      {
+        "id": "CVE-2026-55040",
+        "truth": "Microsoft / SharePoint",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-56164",
+        "truth": "Microsoft / SharePoint Server",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-56290",
+        "truth": "Joomlack / Page Builder",
+        "pred": "joomlack.fr / Page Builder CK"
+      },
+      {
+        "id": "CVE-2026-56291",
+        "truth": "Balbooa / Forms",
+        "pred": "Balbooa.com / Balbooa Forms"
+      },
+      {
+        "id": "CVE-2026-58644",
+        "truth": "Microsoft / SharePoint",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-58704",
+        "truth": "Google / Pixel",
+        "pred": "Cellular Modem / Cellular Modem"
+      },
+      {
+        "id": "CVE-2026-59310",
+        "truth": "Broadcom / VMware vCenter",
+        "pred": "VMware / vCenter"
+      },
+      {
+        "id": "CVE-2026-60137",
+        "truth": "WordPress / Core",
+        "pred": "WordPress / WordPress"
+      },
+      {
+        "id": "CVE-2026-63030",
+        "truth": "WordPress / Core",
+        "pred": "WordPress / WordPress"
+      },
+      {
+        "id": "CVE-2026-65660",
+        "truth": "Microsoft / SharePoint",
+        "pred": "Microsoft / Office SharePoint"
+      },
+      {
+        "id": "CVE-2026-66384",
+        "truth": "JFrog / Artifactory",
+        "pred": "Docker / Docker"
+      },
+      {
+        "id": "CVE-2026-6973",
+        "truth": "Ivanti / Endpoint Manager Mobile (EPMM)",
+        "pred": "Ivanti / EPMM"
+      },
+      {
+        "id": "CVE-2026-71362",
+        "truth": "Adobe / Commerce and Magento ",
+        "pred": "Adobe / Adobe Commerce"
+      },
+      {
+        "id": "CVE-2026-72529",
+        "truth": "TrueConf / Server",
+        "pred": "TrueConf / TrueConf Server"
+      },
+      {
+        "id": "CVE-2026-72530",
+        "truth": "TrueConf / Server",
+        "pred": "TrueConf / TrueConf Server"
+      },
+      {
+        "id": "CVE-2026-7273",
+        "truth": "Zyxel / GS1900 Series Switches",
+        "pred": "Zyxel / GS1900-48HPv2"
+      },
+      {
+        "id": "CVE-2026-73570",
+        "truth": "Synacor / Zimbra Collaboration Suite (ZCS)",
+        "pred": "Zimbra / Collaboration (ZCS)"
+      },
+      {
+        "id": "CVE-2026-7473",
+        "truth": "Arista / Extensible Operating System",
+        "pred": "Arista / EOS"
+      },
+      {
+        "id": "CVE-2026-75650",
+        "truth": "Adobe / Commerce and Magento",
+        "pred": "Adobe / Commerce"
+      },
+      {
+        "id": "CVE-2026-76418",
+        "truth": "Cisco / Secure Firewall ASA Software and Cisco Secure FTD Software",
+        "pred": "Cisco / Secure Firewall ASA Software, Secure Firewall FTD Software"
+      },
+      {
+        "id": "CVE-2026-76460",
+        "truth": "Cisco / Identity Services Engine",
+        "pred": "Cisco / Identity Services Engine (ISE)"
+      },
+      {
+        "id": "CVE-2026-8037",
+        "truth": "Progress / LoadMaster",
+        "pred": "Progress / ADC (LoadMaster)"
+      },
+      {
+        "id": "CVE-2026-81578",
+        "truth": "PaperCut / NG/MF",
+        "pred": "PaperCut / MF and NG"
+      },
+      {
+        "id": "CVE-2026-81963",
+        "truth": "Microsoft / Windows",
+        "pred": "Microsoft / Windows Update Stack"
+      },
+      {
+        "id": "CVE-2026-82078",
+        "truth": "PaperCut / NG/MF",
+        "pred": "PaperCut / MF and NG"
+      },
+      {
+        "id": "CVE-2026-83549",
+        "truth": "SonicWall / SMA1000 Appliances",
+        "pred": "SonicWall / SMA1000 Appliance Management Console (AMC)"
+      },
+      {
+        "id": "CVE-2026-8452",
+        "truth": "Citrix / NetScaler ADC and NetScaler Gateway",
+        "pred": "NetScaler / ADC and NetScaler Gateway"
+      },
+      {
+        "id": "CVE-2026-84869",
+        "truth": "ConnectWise / ScreenConnect",
+        "pred": "ScreenConnect / ScreenConnect client"
+      },
+      {
+        "id": "CVE-2026-85046",
+        "truth": "Google / Chromium V8",
+        "pred": "Google / Chrome"
+      },
+      {
+        "id": "CVE-2026-85102",
+        "truth": "Check Point / Multiple Products",
+        "pred": "Check Point / Quantum Security Gateway"
+      },
+      {
+        "id": "CVE-2026-85706",
+        "truth": "GitLab / Community Edition and Enterprise Edition",
+        "pred": "GitLab / GitLab CE/EE"
+      },
+      {
+        "id": "CVE-2026-86950",
+        "truth": "Apple / Multiple Products",
+        "pred": "Apple / iOS"
+      },
+      {
+        "id": "CVE-2026-87491",
+        "truth": "Google / Chromium V8",
+        "pred": "Google / Chrome"
+      },
+      {
+        "id": "CVE-2026-87886",
+        "truth": "Acronis / Backup",
+        "pred": "Acronis / Backup plugin for cPanel & WHM"
+      },
+      {
+        "id": "CVE-2026-87902",
+        "truth": "WordPress / Core",
+        "pred": "Unknown (WordPress plugin or theme developer) / WordPress plugin or theme"
+      },
+      {
+        "id": "CVE-2026-88771",
+        "truth": "Citrix / NetScaler",
+        "pred": "Citrix / NetScaler ADC and NetScaler Gateway"
+      },
+      {
+        "id": "CVE-2026-88772",
+        "truth": "Citrix / NetScaler",
+        "pred": "Citrix / NetScaler ADC and NetScaler Gateway"
+      },
+      {
+        "id": "CVE-2026-88779",
+        "truth": "Citrix / NetScaler",
+        "pred": "NetScaler / ADC"
+      },
+      {
+        "id": "CVE-2026-9082",
+        "truth": "Drupal / Core",
+        "pred": "Drupal / Drupal core"
+      },
+      {
+        "id": "CVE-2026-9198",
+        "truth": "IBM / Langflow",
+        "pred": "IBM / Langflow OSS"
+      },
+      {
+        "id": "CVE-2026-93616",
+        "truth": "Check Point / Multiple Products",
+        "pred": "Check Point / Management Server"
+      },
+      {
+        "id": "CVE-2026-93952",
+        "truth": "Arista / VeloCloud Orchestrator",
+        "pred": "VeloCloud / Orchestrator (VCO)"
+      },
+      {
+        "id": "CVE-2026-9586",
+        "truth": "Sangoma / Switchvox",
+        "pred": "Sangoma / Switchvox SMB Edition"
+      },
+      {
+        "id": "CVE-2026-96652",
+        "truth": "Plex / Media Server",
+        "pred": "Plex / Plex Media Server"
+      },
+      {
+        "id": "CVE-2026-96654",
+        "truth": "Plex / Media Server",
+        "pred": "Plex / Plex Media Server"
+      },
+      {
+        "id": "CVE-2026-96655",
+        "truth": "Plex / Media Server",
+        "pred": "Plex / Plex Media Server"
+      },
+      {
+        "id": "CVE-2026-96656",
+        "truth": "Plex / Media Server",
+        "pred": "Plex / Plex Media Server"
+      },
+      {
+        "id": "CVE-2026-96951",
+        "truth": "Microsoft / Windows",
+        "pred": "Windows / Windows Shell"
+      },
+      {
+        "id": "CVE-2026-97229",
+        "truth": "GitLab / Community Edition and Enterprise Edition",
+        "pred": "GitLab / GitLab CE/EE"
+      }
+    ]
+  }
+]

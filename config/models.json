@@ -1,0 +1,31 @@
+{
+  "_comment": "One model per role, no fallbacks. Core generative roles: cybersecurity-specialised <=8B-class models only, chosen by local measurement (docs/MODEL_CARD.md). Standard ML models are separate pipeline components (ml_components), not fallbacks.",
+  "roles": {
+    "extract": "mist:8b",
+    "classify": "mist:8b",
+    "narrate": "mist:8b",
+    "reason": "foundation-sec:8b-reasoning"
+  },
+  "role_notes": {
+    "reason": "free-text only (thinking cannot be disabled; JSON-schema tasks fail). Batch for Critical alerts, keep text after </think>.",
+    "narrate": "head-to-head vs foundation-sec:8b-instruct on grounded narratives pending; both hallucinated a number once, so the fact validator is mandatory."
+  },
+  "ml_components": {
+    "cwe_mapping": "TF-IDF + LinearSVC (data/models/text_clf.joblib) top-3, LLM adjudicates among candidates",
+    "cvss_prediction": "TF-IDF + LogisticRegression heads (data/models/text_clf.joblib); only when CNA/ADP vector is absent",
+    "exposure_matching": "backend/app/engine/exposure.py (NVD + CNA + text reconciliation, vendor-aware versions)",
+    "security_ner": "cisco-ai/SecureBERT2.0-NER (active: advisory entities) + regex IOC layer",
+    "security_embeddings": "cisco-ai/SecureBERT2.0-biencoder (active: related threats, data/embeddings.npz)",
+    "attack_mapping": "transparent rules CWE/CVE -> ATT&CK techniques with ATT&CK's own mitigations (backend/app/engine/attack.py, local STIX bundle)",
+    "translation": "ai4bharat/indictrans2-en-indic-dist-200M (active: all 22 scheduled languages, own Python 3.14 service :8010; per-sentence validation)",
+    "log_anomaly": "IsolationForest on per-host hourly flow features + robust-z gate on fan-out, ports and bytes (live engine, backend/app/live.py)",
+    "beacon_detector": "RITA-style periodicity / jitter scoring (pipeline and live engine)",
+    "campaign_clustering": "correlation by product of exploited CVEs, chained assets and decoy surges (backend/app/engine/campaigns.py)",
+    "surge_detector": "robust z (median/MAD) on sessions and unique sources per product tag, breadth across sensors (pipeline: daily; live engine: per tick)",
+    "exploit_forecast": "TF-IDF + CVSS/CWE/vendor + leak-free KEV history -> logistic regression (data/models/exploit_forecast.joblib, frozen 2026-07-31)",
+    "decision_model": "Bayesian P(compromise | exposure, exploitation, reachability, telemetry); the day-0 forecast is its prior",
+    "prompt_injection_guard": "protectai/deberta-v3-base-prompt-injection-v2 (0.90) + rules",
+    "risk_plan": "greedy change-ticket ordering: urgency class, then risk removed per unit of effort (backend/app/engine/riskplan.py)",
+    "web_attack_detection": "HTTP shield inline WAF/IDS: multi-decoder (URL/double-URL/HTML-entity/base64/comment-strip) signature engine over every input surface for SQLi/XSS/traversal/cmdi/SSTI/SSRF/Log4Shell/scanning, plus per-source behavioural detectors for brute force and scanning sweeps (backend/app/engine/webattack.py, backend/app/shield.py). Transparent CWE + ATT&CK per rule; the security LLM gives on-demand analyst explanation, not per-request verdicts (inline inspection must be sub-millisecond and offline)."
+  }
+}

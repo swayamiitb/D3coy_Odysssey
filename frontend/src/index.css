@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/* Uber Base, "Oreo" layering: black bands (nav, page hero, footer) around a white body, Base greys in between.
+   One theme only: no dark mode. Black is structure and primary actions, never a data fill; colour carries meaning
+   only (green done, red Critical, orange High, yellow Medium, purple compromise, blue links and activity).
+   Components use these semantic tokens, never raw hex. */
+@theme {
+  --color-ink: #ffffff;       /* page */
+  --color-panel: #ffffff;     /* cards, sheets */
+  --color-soft: #f6f6f6;      /* alternate sections */
+  --color-panel-2: #f3f3f3;   /* chips, inputs, wells, grey cards */
+  --color-panel-3: #e2e2e2;   /* hover on grey */
+  --color-line: #e2e2e2;      /* separators */
+  --color-mute: #545454;      /* secondary text */
+  --color-faint: #757575;     /* tertiary text, axes */
+  --color-text: #000000;      /* primary text */
+  --color-action: #000000;    /* primary buttons */
+  --color-band: #000000;      /* black bands: nav, hero, footer */
+  --color-band-2: #1f1f1f;    /* raised surface on black */
+  --color-band-3: #333333;    /* pills and inputs on black */
+  --color-band-mute: #afafaf; /* secondary text on black */
+  --color-accent: #276ef1;    /* links, selection, activity */
+  --color-crit: #e11900;      /* Critical */
+  --color-high: #ff6937;      /* High */
+  --color-med: #ffc043;       /* Medium */
+  --color-watch: #afafaf;
+  --color-ok: #05a357;        /* done, verified */
+  --color-comp: #7356bf;      /* suspected compromise */
+  --color-map: #f6f6f6;       /* map land */
+  --font-sans: "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", ui-monospace, monospace;
+}
+
+html { color-scheme: light; }
+html, body, #root { min-height: 100%; }
+body {
+  background: var(--color-ink); color: var(--color-text); font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased; letter-spacing: -0.005em;
+}
+h1, h2, h3 { letter-spacing: -0.02em; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #cbcbcb; border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+
+@keyframes odyssey-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-comp) 55%, transparent); }
+  70% { box-shadow: 0 0 0 14px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.pulse-comp { animation: odyssey-pulse 1.8s ease-out infinite; }
+@keyframes odyssey-toast { from { transform: translate(-50%, 16px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+.toast-in { animation: odyssey-toast .22s ease-out; }

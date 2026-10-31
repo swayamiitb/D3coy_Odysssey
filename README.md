@@ -1,26 +1,69 @@
-# D3COY 1.0 — PS 01: AI-Based National Cyber Threat Early Warning System
+# Odyssey: national cyber threat early warning, on one laptop
 
-> Working title · Status: **planning** (Sat 31 Oct 2026)
+Odyssey answers PS-01 of D3COY 1.0, the AI-Based National Cyber Threat Early Warning System. It watches public
+threat intelligence and its own sensors, finds what threatens India's critical-infrastructure operators, and warns
+each of them in its own language. It does the routine work on its own and asks a person before anything
+consequential.
 
-Team project for D3COY 1.0 (DJS ISACA). It aggregates threat intelligence, analyses it with a local AI model, prioritises risk against an asset inventory, and raises early warnings with recommended mitigations.
+Everything runs locally on an RTX 4070 Laptop (8 GB VRAM), with **0 cloud calls**.
 
-## For teammates — read first
+## What it does
 
-1. [CLAUDE.md](CLAUDE.md): team rulebook (every Claude session follows it)
-2. [docs/PLAN.md](docs/PLAN.md): timeline, owners, task board
-3. [docs/DECISIONS.md](docs/DECISIONS.md): why things are the way they are
+| PS-01 objective | In Odyssey |
+|---|---|
+| Aggregate threat intelligence | 13 sources: NVD, CISA KEV, SSVC, EPSS, CISA advisories, SANS ISC DShield, Feodo Tracker, OpenPhish and MITRE ATT&CK (real), plus a national decoy grid, firewall logs and CERT-In-style advisories (simulated, labelled SIM). |
+| AI-based threat analysis | A security-tuned LLM (MiST 8B) writes a fact-checked brief for every warning. It reads advisories with SecureBERT 2.0 and a prompt-injection guard, forecasts exploitation on day 0, and runs a Bayesian compromise model and three live detectors (surge, C2 beacon, IsolationForest flow anomaly). |
+| Protect & red-team a real app | An **HTTP shield** (inline WAF/IDS) protects a *real* connected web application through a drop-in agent (ASGI/WSGI/Express, or an access-log tailer). It detects SQLi, XSS, path traversal, command injection, SSTI/SSRF/Log4Shell, scanning and brute force, blocks them inline in block mode, and can be proved by a built-in **red-team** that fires real attacks at the app over the wire (loopback/private only) and measures detection rate, block rate, precision and time-to-detect. |
+| Early warnings | Pre-disclosure surge warnings, day-0 forecasts, and immediate notices in 22 Indian languages. The autopilot acts every 5 seconds. |
+| Risk prioritisation | `Risk = 100·R·K·(0.55·L + 0.30·S + 0.15·V)`, with version-verified exposure. An SSVC decision sets the tier and the CERT-In deadline. |
+| Actionable recommendations | A named fixed release, owner and deadline per change ticket, and a national and per-organisation risk plan (the fewest changes that remove the most risk). Also: indicators to block, STIX export, and a pre-filled CERT-In report. |
+| Dashboard | Six destinations, below. |
 
-## Repo layout (planned)
+## The interface
 
+- **Now:** what needs you right now. The incident card with its CERT-In clock, the map of India, what's next, and the decisions waiting for you.
+- **Live:** the system running. The pipeline stage by stage, sensor streams with z-scores, detections, real-feed freshness, and **real CVEs taken in from NVD** as they appear (matched to installed versions, forecast and acted on within seconds). **Attack drills** let anyone inject a scan, an implant, a full intrusion or a newly published CVE and watch Odyssey respond, with the time to detect.
+- **SOC:** cases with owners, SLAs and playbooks; the decision queue; every warning; everything the autopilot did; **adaptive detectors** (thresholds re-derived every minute from analysts' decisions, shown with their reasons); and the laptop's live vital signs.
+- **Intel:** what is under attack, where the exposure is (heatmaps), what will be exploited next, the risk plan, advisories, and a one-click **national situation report** (Markdown, for CERT-In, NCIIPC and the sector CSIRTs).
+- **Organisations:** each operator's **threat map** (the national picture cut down to one organisation: attack pressure on its ports, decoy-grid scanning of its products, exploited CVEs, implants calling out, phishing look-alikes, suppliers and blast radius, laid out from the internet-facing perimeter to the crown jewels, with provenance on every line), its exposure, fixes, what outsiders see (OSINT), and its inbox in its own language.
+- **Proof:** every claim measured on this laptop, each with its evidence, and a test bench you can re-run.
+
+## Run it
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1   # Ollama, API :8000, translation :8010, dashboard :5173
 ```
-ingestion/          data collection + backend API
-ai_engine/          AI analysis + risk scoring
-dashboard/          frontend dashboard
-shared/contracts/   JSON schemas + API contract
-data/               simulated datasets, demo cache
-docs/               plan, decisions, pitch material
-```
 
-## Run
+Open http://127.0.0.1:5173. `start_all.ps1` also launches the protected demo app (CityPower portal, :8080) behind the HTTP shield; set `ODYSSEY_TARGET=0` to skip it. To protect your own app instead, drop in an agent from `agent/` (see `agent/README.md`).
 
-TBD. A one-command run for the full stack will be documented here (rule 18).
+**Before a demo, run `scripts\demo_reset.ps1` (about 5 minutes).** It rebuilds the database from the offline feed snapshot, restarts the API and pre-computes what the demo touches. The CERT-In 6-hour clock on the incident starts at build time, so a build from the night before shows that deadline as overdue.
+
+## Check it
+
+| Check | Command | What it proves |
+|---|---|---|
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 98 tests: exposure, scoring, the proactive layer, SOC, advisories, the audit trail under concurrent writers, and the HTTP shield (signature engine on encoded/evaded payloads, block list, red-team safety). |
+| HTTP shield red-team | Live → *Red-team the shield* → *Run all attacks* (or `POST /api/redteam/run`) | Fires real SQLi/XSS/traversal/cmdi/SSTI/SSRF/Log4Shell/scanning/brute-force requests at the protected app over the wire and measures detection rate, block rate, precision and time-to-detect. Loopback/private targets only. |
+| Test bench | Proof → *Run them now* | 109 checks: 5 attack drills on a copy of the data, detectors with negative controls, the audit-trail chain, and the engine tests. |
+| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 16 flows through the API on a private copy: approve and reject, a warning from issued to closed, a SOC case from new to closed, advisory analysis, three live drills, and the audit trail. |
+| Interface | `python scripts\ui_audit.py` | A real browser clicks through every screen, sheet and button on another copy, and reports any page error, console error or failed request. |
+
+## Honesty
+
+- **Labels:** every fact is labelled REAL (public data) or SIM (simulated sensors, organisations and logs).
+- **Live sensors:** the live decoy grid and firewall flows are SIM, accelerated so one 5-second tick is one sensor-hour.
+- **Live feeds:** NVD (new CVEs), CISA KEV, Feodo Tracker and OpenPhish are re-read every 15 minutes when the network is up; new CVEs that name a product we run are taken in at once.
+- **HTTP shield:** it inspects real HTTP requests from the connected app; the bundled target and the red-team are a local lab (the runner only ever attacks loopback/private addresses), and every red-team request is labelled as an exercise in the audit trail.
+- **Audit trail:** every action is in a hash-chained trail; editing any past entry breaks the chain.
+
+More detail:
+- `docs/PS_COVERAGE.md`: objectives, mentor feedback, measured results and a five-minute walk-through.
+- `docs/MODEL_CARD.md`: models, evaluations and the live detectors.
+- `docs/PITCH.md`: the demo script and the judges' questions with honest answers.
+
+## Landing page and team notes
+
+The site opens on our scroll-story landing (`frontend/src/landing/`): real botnet command servers on a 3D globe, a dive
+into India's operators, the evidence arc, then the globe unrolls into a flat world where real attack origins fly in.
+"Open the console" goes to the Odyssey console above (`/?view=now`). Team rulebook: [CLAUDE.md](CLAUDE.md); decisions:
+[docs/DECISIONS.md](docs/DECISIONS.md); plan: [docs/PLAN.md](docs/PLAN.md).
