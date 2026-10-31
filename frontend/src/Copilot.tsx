@@ -1,5 +1,5 @@
 import { Bot, Loader2, Send, ShieldCheck, ShieldOff, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLanguages } from './proactive'
 import { Badge } from './ui'
 
@@ -27,7 +27,7 @@ const EXAMPLES = [
   'What is waiting for my approval?',
 ]
 
-export function Copilot({ onClose }: { onClose: () => void }) {
+export function Copilot({ onClose, initial }: { onClose: () => void; initial?: string }) {
   const [q, setQ] = useState('')
   const [lang, setLang] = useState('en')
   const [busy, setBusy] = useState(false)
@@ -44,6 +44,7 @@ export function Copilot({ onClose }: { onClose: () => void }) {
       .then(async (r) => { if (!r.ok) throw new Error((await r.json()).detail ?? r.statusText); return r.json() })
       .then(setA).catch((e) => setErr(String(e))).finally(() => setBusy(false))
   }
+  useEffect(() => { if (initial) ask(initial) }, [initial]) // eslint-disable-line react-hooks/exhaustive-deps
   const tr = a?.translation?.results
   return (
     <div className="flex h-full w-[34rem] max-w-[95vw] flex-col rounded-2xl border border-line bg-panel shadow-2xl">

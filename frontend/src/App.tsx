@@ -60,7 +60,8 @@ export default function App() {
   const [live, setLive] = useState<LedgerEvent[]>([])
   const [tick, setTick] = useState(0)
   const [connected, setConnected] = useState(false)
-  const [copilot, setCopilot] = useState(false)
+  const askParam = new URLSearchParams(window.location.search).get('ask') ?? undefined // ?ask=<question> opens the copilot
+  const [copilot, setCopilot] = useState(askParam != null)
   const esRef = useRef<EventSource | null>(null)
   const staticMode = new URLSearchParams(window.location.search).has('nolive')
 
@@ -180,7 +181,7 @@ export default function App() {
 
       {copilot && (
         <div className="fixed inset-0 z-30 flex justify-end bg-black/40" onClick={() => setCopilot(false)}>
-          <div className="h-full p-3" onClick={(e) => e.stopPropagation()}><Copilot onClose={() => setCopilot(false)} /></div>
+          <div className="h-full p-3" onClick={(e) => e.stopPropagation()}><Copilot onClose={() => setCopilot(false)} initial={askParam && askParam !== '1' ? askParam : undefined} /></div>
         </div>
       )}
 
