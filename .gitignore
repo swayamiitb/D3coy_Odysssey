@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+
+# Secrets (commit .env.example only)
+.env
+.env.*
+!.env.example
+
+# Local model weights (never commit; each laptop pulls its own)
+models/
+*.gguf
+*.safetensors
+*.bin
+
+# Generated data: raw feed downloads + local databases.
+# The curated demo cache in data/demo/ IS committed (rule 14).
+data/raw/
+data/cache/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Claude Code per-user settings
+.claude/settings.local.json
