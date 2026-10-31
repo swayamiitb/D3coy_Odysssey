@@ -796,19 +796,25 @@ def soc() -> dict:
     conn = db()
     meta = dict(conn.execute("SELECT key, value FROM meta").fetchall())
     rp = plan(conn, None, 5)
-    worst = conn.execute("""SELECT org_id, cve_id, MAX(CASE tier WHEN 'Compromise' THEN 4 WHEN 'Critical' THEN 3
-                            WHEN 'High' THEN 2 WHEN 'Medium' THEN 1 ELSE 0 END) FROM assessments WHERE R > 0
-                            GROUP BY org_id, cve_id""").fetchall()
+    from .engine import workflow
+    workflow.ensure(conn)
+    # a warning an analyst closed is no longer open: acting on warnings must move every headline number
+    closed = {r[0] for r in conn.execute("SELECT alert_id FROM workflow WHERE state = 'closed'").fetchall()}
+    worst = [r for r in conn.execute("""SELECT org_id, cve_id, MAX(CASE tier WHEN 'Compromise' THEN 4 WHEN 'Critical' THEN 3
+                                        WHEN 'High' THEN 2 WHEN 'Medium' THEN 1 ELSE 0 END) FROM assessments WHERE R > 0
+                                        GROUP BY org_id, cve_id""").fetchall() if f"{r[0]}:{r[1]}" not in closed]
     names = {4: "Compromise", 3: "Critical", 2: "High", 1: "Medium"}
     tiers: dict[str, int] = {}
-    for _, _, t in worst:
+    per_org: dict[str, dict] = {}
+    for org_id, _, t in worst:
         if t in names:
             tiers[names[t]] = tiers.get(names[t], 0) + 1
-    orgs_rows = conn.execute("""SELECT o.id, o.name, o.sector, o.state,
-                                COUNT(DISTINCT CASE WHEN a.tier IN ('Compromise','Critical') THEN a.cve_id END) AS critical,
-                                COUNT(DISTINCT CASE WHEN a.tier = 'Compromise' THEN a.cve_id END) AS compromise
-                                FROM orgs o LEFT JOIN assessments a ON a.org_id = o.id AND a.R > 0
-                                GROUP BY o.id ORDER BY compromise DESC, critical DESC""").fetchall()
+        po = per_org.setdefault(org_id, {"critical": 0, "compromise": 0})
+        po["critical"] += t >= 3
+        po["compromise"] += t == 4
+    orgs_rows = sorted(({**dict(r), **per_org.get(r["id"], {"critical": 0, "compromise": 0})}
+                        for r in conn.execute("SELECT id, name, sector, state FROM orgs").fetchall()),
+                       key=lambda o: (-o["compromise"], -o["critical"]))
     lang = scoring_config()[0]["sentinel"]["state_language"]
     return {"built_at": meta.get("built_at"), "tiers": tiers, "pressure": json.loads(meta.get("pressure", "[]")),
             "autopilot": summary(conn),
@@ -977,6 +983,35 @@ def _shield():
     if shield.ENGINE is None:
         raise HTTPException(503, "HTTP shield is not initialised")
     return shield.ENGINE
+
+
+@app.get("/api/sitrep")
+def sitrep() -> dict:
+    """National cyber threat situation report, written from the live state (Markdown; every figure is on a screen)."""
+    import datetime as _dt
+
+    from . import live
+    from .engine import soc as soc_mod
+    from .engine.campaigns import build
+    from .engine.riskplan import plan
+    from .engine.sitrep import render
+    conn = db()
+    fd, picture = feed(limit=12), soc()
+    obligations = []
+    for c in fd["cards"]:
+        if c["tier"] == "Compromise":
+            d = alert_detail(c["org_id"], c["cve_id"])
+            obligations += [{**o, "for": f"{c['org_name']}, {c['cve_id']}"} for o in d["assets"][0].get("obligations", [])
+                            if o.get("hours")]
+    snap = conn.execute("SELECT value FROM meta WHERE key='snapshot_date'").fetchone()[0]
+    text = render({"feed": fd, "soc": picture, "metrics": soc_mod.metrics(conn), "plan": plan(conn, None, 8),
+                   "live": live.ENGINE.status() if live.ENGINE else None, "campaigns": build(conn, _dt.date.fromisoformat(snap)),
+                   "obligations": obligations, "csirts": set(scoring_config()[0]["sentinel"]["sector_csirt"].values()),
+                   "ledger_events": conn.execute("SELECT COUNT(*) FROM ledger").fetchone()[0]})
+    now = _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
+    Ledger(conn=conn).append(ts=now, kind="report.sitrep", subject="national", source="ODYSSEY", provenance="AUTO",
+                             payload={"chars": len(text), "warnings": fd["counts"]["needs_action"]})
+    return {"generated_at": now, "text": text}
 
 
 @app.get("/api/live")

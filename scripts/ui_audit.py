@@ -222,6 +222,12 @@ def main() -> int:
                     page.locator("aside").first.wait_for()
                     page.keyboard.press("Escape")
                     page.locator("aside").first.wait_for(state="detached")
+                go("intel", "overview")
+                page.get_by_role("button").filter(has_text="Write it now").click()
+                page.locator("aside").get_by_text("National Cyber Threat Situation Report").wait_for(timeout=60000)
+                page.locator("aside").get_by_text("Recommended national actions").wait_for()
+                shot("sitrep")
+                page.keyboard.press("Escape")
                 go("intel", "risk")
                 page.get_by_text("Upgrade", exact=False).first.wait_for()
                 shot("intel-risk")
@@ -285,14 +291,26 @@ def main() -> int:
             proof(page)
 
             # ---------------------------------------------------------------- Live
-            @step("Live: start a drill and watch it detected end to end")
+            @step("Live: a new-CVE drill, then an implant drill, detected end to end")
             def drill(page):
                 go("live")
                 page.get_by_text("The pipeline, right now").wait_for()
-                page.get_by_role("button", name="Start").nth(1).click()
-                page.get_by_text("Detected", exact=True).first.wait_for(timeout=60000)
+                page.get_by_text("New CVEs, taken in live").wait_for()
+                starts = page.locator("main").get_by_role("button", name="Start", exact=True)
+                assert starts.count() == 4, f"{starts.count()} drill cards"
+                starts.nth(2).click()  # catalogue order: scan, implant, new CVE, full intrusion
+                card = page.locator("main .bg-band").filter(has_text="DRILL-")  # the drill card, not other sections
+                card.get_by_text("Detected", exact=True).wait_for(timeout=60000)
+                card.get_by_text("scored, acted on", exact=False).wait_for()
+                card.get_by_text("exposed assets at", exact=False).wait_for()
+                shot("live-cve-drill")
+                page.wait_for_timeout(6000)
+                starts.nth(1).click()
+                card = page.locator("main .bg-band").filter(has_text="Implant beaconing")
+                card.get_by_text("Implant beacon detected", exact=False).wait_for(timeout=60000)
+                card.get_by_text("Detected", exact=True).wait_for(timeout=60000)
                 shot("live-drill")
-                return page.locator("main").get_by_text("detected in", exact=False).first.inner_text()
+                return "4 drill cards; " + card.get_by_text("finished in", exact=False).first.inner_text()
             drill(page)
 
             @step("Footer: links navigate")

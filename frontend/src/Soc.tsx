@@ -4,7 +4,7 @@ import { api, type Campaign, type IntelAdvisory, type IntelSource, type Soc as S
 import { Heatmap, type HeatData } from './Heatmap'
 import { RiskPlanView } from './Orgs'
 import { ForecastPanel } from './proactive'
-import { Badge, Pill, Prov, Row, Section, Sheet, Tile } from './ui'
+import { Badge, Pill, Prov, Row, Section, Sheet, Tile, useToast } from './ui'
 
 const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString('en-IN'))
 
@@ -148,7 +148,14 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
   const [camps, setCamps] = useState<Campaign[]>([])
   const [heat, setHeat] = useState<Record<string, HeatData>>()
   const [plan, setPlan] = useState<RiskPlan>()
-  const [sheet, setSheet] = useState<'tech' | 'forecast' | 'decoy' | 'campaigns' | 'sources' | 'advisories'>()
+  const [sheet, setSheet] = useState<'tech' | 'forecast' | 'decoy' | 'campaigns' | 'sources' | 'advisories' | 'sitrep'>()
+  const [report, setReport] = useState<{ generated_at: string; text: string }>()
+  const toast = useToast()
+  const openReport = () => {
+    setSheet('sitrep')
+    setReport(undefined)
+    fetch('/api/sitrep').then((r) => r.json()).then(setReport).catch(() => toast('Could not write the report'))
+  }
   useEffect(() => { api.soc().then(setD).catch(() => undefined) }, [tick])
   useEffect(() => {
     api.intelSources().then(setSources).catch(() => undefined)
@@ -191,6 +198,10 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
                    action={<Pill onClick={() => setSheet('forecast')}>See all</Pill>}>
             <ForecastPanel limit={4} compact />
           </Section>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Tile value={new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} title="National situation report"
+                  sub="the CERT's daily report, written from the live state: headline, compromises, clocks, activity, the risk plan" cta="Write it now" onClick={openReport} />
+          </div>
         </>
       )}
 
@@ -227,6 +238,20 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
       {sheet === 'campaigns' && <Sheet title="Campaigns" sub="Correlated threats: exploited CVEs, chained assets and decoy surges." onClose={close}><Campaigns rows={camps} /></Sheet>}
       {sheet === 'advisories' && <Sheet title="Real advisories that name our products" sub="Latest CISA advisories, matched to the inventory." onClose={close}><Advisories rows={adv} /></Sheet>}
       {sheet === 'sources' && <Sheet wide title="Where the intelligence comes from" sub="Hover a row for its funnel." onClose={close}><Sources rows={sources} /></Sheet>}
+      {sheet === 'sitrep' && (
+        <Sheet wide title="National cyber threat situation report" sub="Markdown, ready for CERT-In, NCIIPC and the sector CSIRTs. Every figure is on a screen here." onClose={close}>
+          {!report ? <div className="text-mute"><Loader2 size={14} className="mr-1 inline animate-spin" />Writing the report from the live state…</div> : (
+            <>
+              <div className="mb-4 flex flex-wrap gap-2">
+                <button onClick={() => { navigator.clipboard?.writeText(report.text); toast('Report copied') }} className="rounded-full bg-action px-5 py-2.5 text-sm font-semibold text-ink hover:opacity-85">Copy</button>
+                <button onClick={() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([report.text], { type: 'text/markdown' })); a.download = `odyssey-sitrep-${report.generated_at.slice(0, 10)}.md`; a.click() }}
+                        className="rounded-full bg-panel-2 px-5 py-2.5 text-sm font-semibold hover:bg-panel-3">Download .md</button>
+              </div>
+              <pre className="whitespace-pre-wrap rounded-2xl bg-panel-2 p-6 font-sans text-[15px] leading-relaxed">{report.text}</pre>
+            </>
+          )}
+        </Sheet>
+      )}
     </div>
   )
 }

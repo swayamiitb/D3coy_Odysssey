@@ -22,9 +22,9 @@ Everything runs locally on an RTX 4070 Laptop (8 GB VRAM), with **0 cloud calls*
 ## The interface
 
 - **Now:** what needs you right now. The incident card with its CERT-In clock, the map of India, what's next, and the decisions waiting for you.
-- **Live:** the system running. **A real app, protected** — a live web application behind the HTTP shield, with a Monitor/Block toggle and a one-click **Red-team the shield** that fires real web attacks and shows what was caught and blocked. Then the pipeline stage by stage, sensor streams with z-scores, detections and real-feed freshness, and **attack drills** that inject a scan, an implant or a full intrusion so anyone can watch Odyssey catch it, with the time to detect.
+- **Live:** the system running. The pipeline stage by stage, sensor streams with z-scores, detections, real-feed freshness, and **real CVEs taken in from NVD** as they appear (matched to installed versions, forecast and acted on within seconds). **Attack drills** let anyone inject a scan, an implant, a full intrusion or a newly published CVE and watch Odyssey respond, with the time to detect.
 - **SOC:** cases with owners, SLAs and playbooks; every warning; everything the autopilot did; and the laptop's live vital signs.
-- **Intel:** what is under attack, where the exposure is (heatmaps), what will be exploited next, the risk plan, and advisories.
+- **Intel:** what is under attack, where the exposure is (heatmaps), what will be exploited next, the risk plan, advisories, and a one-click **national situation report** (Markdown, for CERT-In, NCIIPC and the sector CSIRTs).
 - **Organisations:** each operator's exposure, fixes, what outsiders see (OSINT), and its inbox in its own language.
 - **Proof:** every claim measured on this laptop, each with its evidence, and a test bench you can re-run.
 
@@ -42,9 +42,9 @@ Open http://127.0.0.1:5173. `start_all.ps1` also launches the protected demo app
 
 | Check | Command | What it proves |
 |---|---|---|
-| Engine tests | `.venv\Scripts\python -m pytest -q` | 93 tests: exposure, scoring, the proactive layer, SOC, advisories, the audit trail under concurrent writers, and the HTTP shield (signature engine on encoded/evaded payloads, block list, red-team safety). |
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 95 tests: exposure, scoring, the proactive layer, SOC, advisories, the audit trail under concurrent writers, and the HTTP shield (signature engine on encoded/evaded payloads, block list, red-team safety). |
 | HTTP shield red-team | Live → *Red-team the shield* → *Run all attacks* (or `POST /api/redteam/run`) | Fires real SQLi/XSS/traversal/cmdi/SSTI/SSRF/Log4Shell/scanning/brute-force requests at the protected app over the wire and measures detection rate, block rate, precision and time-to-detect. Loopback/private targets only. |
-| Test bench | Proof → *Run them now* | 103 checks: 4 attack drills on a copy of the data, detectors with negative controls, the audit-trail chain, and the engine tests. |
+| Test bench | Proof → *Run them now* | 106 checks: 5 attack drills on a copy of the data, detectors with negative controls, the audit-trail chain, and the engine tests. |
 | Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 15 flows through the API on a private copy: approve and reject, a warning from issued to closed, a SOC case from new to closed, advisory analysis, three live drills, and the audit trail. |
 | Interface | `python scripts\ui_audit.py` | A real browser clicks through every screen, sheet and button on another copy, and reports any page error, console error or failed request. |
 
@@ -52,10 +52,11 @@ Open http://127.0.0.1:5173. `start_all.ps1` also launches the protected demo app
 
 - **Labels:** every fact is labelled REAL (public data) or SIM (simulated sensors, organisations and logs).
 - **Live sensors:** the live decoy grid and firewall flows are SIM, accelerated so one 5-second tick is one sensor-hour.
-- **Live feeds:** CISA KEV, Feodo Tracker and OpenPhish are re-read every 15 minutes when the network is up.
+- **Live feeds:** NVD (new CVEs), CISA KEV, Feodo Tracker and OpenPhish are re-read every 15 minutes when the network is up; new CVEs that name a product we run are taken in at once.
 - **HTTP shield:** it inspects real HTTP requests from the connected app; the bundled target and the red-team are a local lab (the runner only ever attacks loopback/private addresses), and every red-team request is labelled as an exercise in the audit trail.
 - **Audit trail:** every action is in a hash-chained trail; editing any past entry breaks the chain.
 
 More detail:
 - `docs/PS_COVERAGE.md`: objectives, mentor feedback, measured results and a five-minute walk-through.
 - `docs/MODEL_CARD.md`: models, evaluations and the live detectors.
+- `docs/PITCH.md`: the demo script and the judges' questions with honest answers.

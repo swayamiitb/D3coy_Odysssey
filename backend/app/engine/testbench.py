@@ -158,7 +158,12 @@ def _drills(conn) -> list[dict]:
             d = eng.drill
             order = sorted(d["detected"], key=lambda k: d["detected"][k]["at"])
             ok = (d["status"] == "passed" and order == [k for k in d["expect"]]
-                  and (scenario == "scan" or (d["case"] and d.get("rescored", 0) >= 1)))
+                  and (scenario in ("scan", "cve") or (d["case"] and d.get("rescored", 0) >= 1)))
+            if scenario == "cve":
+                t = d.get("intake") or {}
+                ok = ok and t.get("exposed", 0) > 0 and "notified" in t.get("action", "")
+                return ok, (f"{t.get('cve')} matched to {t.get('exposed')} exposed asset(s) at {len(t.get('orgs', []))} "
+                            f"organisation(s), {t.get('worst')}; {t.get('action')}")
             return ok, (f"{' → '.join(order) or 'nothing'} detected within {eng.ticks - d['tick0']} tick(s)"
                         + (f"; {d['case']} opened, {d.get('rescored', 0)} warning(s) on the host re-scored live, the "
                            f"regulator report proposed" if d["case"] else "; early warning proposed for an analyst"))
@@ -167,7 +172,8 @@ def _drills(conn) -> list[dict]:
     out = [_check("Ordinary traffic raises nothing (negative control)", quiet),
            _check("Drill: mass scanning of FortiGate decoys is caught as a surge", drill("scan")),
            _check("Drill: an implant beaconing to a real C2 is caught, its warnings re-scored and a case opened", drill("beacon")),
-           _check("Drill: scan, implant, lateral movement are caught in that order", drill("chain"))]
+           _check("Drill: scan, implant, lateral movement are caught in that order", drill("chain")),
+           _check("Drill: a newly published CVE is matched, scored and acted on at once", drill("cve"))]
     shutil.rmtree(tmp, ignore_errors=True)
     return [{**r, "layer": "attack drills"} for r in out]
 

@@ -9,6 +9,7 @@ import { Figures, Pill, Row, Section, useToast } from './ui'
 type LiveState = any
 
 const KIND: Record<string, { icon: typeof Radar; label: string }> = {
+  intake: { icon: ScanSearch, label: 'New CVE taken in' },
   surge: { icon: Radar, label: 'Scanning surge' },
   beacon: { icon: ShieldAlert, label: 'C2 beacon' },
   anomaly: { icon: Waypoints, label: 'Flow anomaly' },
@@ -27,7 +28,7 @@ export function LiveFigures({ s }: { s?: LiveState }) {
   return (
     <Figures items={[
       { value: `${s.sensors}/${s.sensors}`, label: 'decoy sensors reporting', sub: 'national grid, simulated (SIM); one tick is one sensor-hour', dot: 'bg-ok' },
-      { value: `${fresh}/${s.feeds.length}`, label: 'real feeds fresh', sub: `CISA KEV checked ${ago(s.feeds[0]?.last_ok ?? s.feeds[0]?.last_try)}`, dot: fresh === s.feeds.length ? 'bg-ok' : 'bg-high' },
+      { value: `${fresh}/${s.feeds.length}`, label: 'real feeds fresh', sub: `NVD, KEV, Feodo, OpenPhish · checked ${ago(s.feeds[0]?.last_ok ?? s.feeds[0]?.last_try)}`, dot: fresh === s.feeds.length ? 'bg-ok' : 'bg-high' },
       { value: s.pipeline.detections_hour, label: 'detections in the last hour', sub: 'surge, C2 beacon, flow anomaly' },
       { value: s.tick_ms_p50 != null ? `${Math.round(s.tick_ms_p50)} ms` : '—', label: 'per detection cycle', sub: `every ${s.tick_s} s · ${s.ticks.toLocaleString('en-IN')} cycles since start` },
     ]} />
@@ -60,9 +61,11 @@ function Stage({ title, value, sub, status }: { title: string; value: React.Reac
 }
 
 function DrillCard({ d }: { d: any }) {
-  const labels: Record<string, string> = { surge: 'Scanning surge detected', beacon: 'Implant beacon detected', anomaly: 'Lateral movement detected' }
+  const labels: Record<string, string> = { surge: 'Scanning surge detected', beacon: 'Implant beacon detected', anomaly: 'Lateral movement detected', intake: 'CVE matched to installed versions, scored, acted on' }
   const steps = [
-    { name: 'Attack traffic started', at: d.started_at, done: true, extra: d.scenario === 'scan' ? `${d.sensors.length} decoy sensors` : `from ${d.victim_host}` },
+    d.scenario === 'cve'
+      ? { name: `${d.cve} published (simulated, NVD format)`, at: d.started_at, done: true, extra: d.intake ? `${d.intake.exposed} exposed assets at ${d.intake.orgs.length} organisations · ${d.intake.worst} · ${d.intake.action}` : 'taking it in…' }
+      : { name: 'Attack traffic started', at: d.started_at, done: true, extra: d.scenario === 'scan' ? `${d.sensors.length} decoy sensors` : `from ${d.victim_host}` },
     ...d.expect.map((k: string) => ({ name: labels[k], done: !!d.detected[k], at: d.detected[k]?.at, extra: d.detected[k] ? `${d.detected[k].seconds} s after the start` : 'watching…' })),
     ...(d.expect.includes('beacon') ? [{ name: 'Notice, CERT-In draft, hunt; incident case opened', done: !!d.case, at: undefined, extra: d.case ?? 'on detection, no human needed' }] : []),
     ...(d.expect.includes('beacon') ? [{ name: 'Warnings on the host re-scored live', done: d.rescored != null, at: undefined, extra: d.rescored != null ? `${d.rescored} now a suspected compromise, with a fresh 6-hour clock` : 'Bayesian model, beacon observed' }] : []),
@@ -78,7 +81,7 @@ function DrillCard({ d }: { d: any }) {
         {d.seconds != null && <span className="ml-auto text-sm text-band-mute">finished in {d.seconds} s</span>}
       </div>
       <h3 className="mt-3 text-3xl font-bold">{d.title}</h3>
-      <p className="mt-1 text-band-mute">{d.victim_org && d.scenario !== 'scan' ? `Target: ${d.victim_host} at ${d.victim_org}. ` : ''}Simulated traffic, labelled DRILL in the audit trail.</p>
+      <p className="mt-1 text-band-mute">{d.victim_org && d.scenario !== 'scan' && d.scenario !== 'cve' ? `Target: ${d.victim_host} at ${d.victim_org}. ` : ''}Simulated {d.scenario === 'cve' ? 'CVE' : 'traffic'}, labelled DRILL in the audit trail.</p>
       <ol className="mt-6 space-y-3">
         {steps.map((s) => (
           <li key={s.name} className="flex items-center gap-4">
@@ -171,6 +174,21 @@ export function Live({ s, onGo }: { s?: LiveState; onGo: (view: 'soc' | 'now', t
         )}
       </Section>
 
+      <Section title="New CVEs, taken in live" sub="Real CVEs from NVD that name a product we run, matched to installed versions, forecast and acted on the moment they appear. The snapshot covers everything before."
+               action={<span className="rounded-full bg-panel-2 px-3 py-1 text-xs font-semibold">REAL · NVD</span>}>
+        {(s.intakes ?? []).length === 0 && (
+          <div className="rounded-2xl bg-panel-2 p-5 text-mute">
+            {s.feeds.find((f: any) => f.name === 'NVD (new CVEs)')?.detail ?? 'Waiting for the first NVD check.'}
+          </div>
+        )}
+        {(s.intakes ?? []).slice(0, 8).map((t: any) => (
+          <Row key={t.cve} lead={<span className="h-3 w-3 rounded-full" style={{ background: t.worst === 'Critical' || t.worst === 'Compromise' ? 'var(--color-crit)' : t.worst === 'High' ? 'var(--color-high)' : t.worst === 'Medium' ? 'var(--color-med)' : 'var(--color-watch)' }} />}
+               title={<span><span className="font-mono text-sm">{t.cve}</span> <span className="text-mute">·</span> {t.product ?? 'product named in text'}</span>}
+               sub={`${t.exposed} exposed asset${t.exposed === 1 ? '' : 's'} at ${t.orgs.length} organisation${t.orgs.length === 1 ? '' : 's'} · ${t.action}${t.forecast?.flag ? ` · day-0 forecast ${Math.round(t.forecast.p * 100)}%` : ''}${t.kev ? ' · in CISA KEV' : ''}`}
+               trail={<span><b>{t.worst}</b><span className="block text-xs text-mute">{t.minutes_since_publication != null ? `${t.minutes_since_publication} min after publication` : 'published date unknown'}</span></span>} />
+        ))}
+      </Section>
+
       <Section title="Sensor streams" sub="Decoy-grid sessions per product, one point per tick. The number is the robust z-score against the last 72 ticks; 4 and above, with breadth across sensors, is a surge."
                action={<Pill onClick={() => onGo('soc', 'system')}><Activity size={14} /> System vital signs</Pill>}>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -209,7 +227,7 @@ export function Live({ s, onGo }: { s?: LiveState; onGo: (view: 'soc' | 'now', t
                  title={f.name} sub={f.detail}
                  trail={<span><b>{f.items != null ? f.items.toLocaleString('en-IN') : '—'}</b><span className="block text-xs text-mute">{f.status === 'fresh' ? `${ago(f.last_ok)} · ${f.ms} ms` : f.status}</span></span>} />
           ))}
-          <div className="mt-3 text-sm text-mute">NVD, EPSS, CISA advisories, SSVC, DShield and ATT&CK come from the build snapshot and refresh with each rebuild.</div>
+          <div className="mt-3 text-sm text-mute">EPSS, CISA advisories, SSVC, DShield and ATT&CK come from the build snapshot and refresh with each rebuild; NVD, KEV, Feodo and OpenPhish are also read live.</div>
         </Section>
       </div>
     </div>

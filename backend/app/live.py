@@ -47,6 +47,9 @@ DRILLS = {
     "beacon": {"title": "Implant beaconing to a known C2", "tag": None,
                "what": "An exposed FortiGate at one of our operators starts calling a real Feodo Tracker C2 every 60 s. "
                        "Expect a compromise notice, a CERT-In draft, a hunt and an incident case, with no human needed."},
+    "cve": {"title": "A new CVE is published for FortiGate", "tag": "fortios",
+            "what": "A critical FortiOS CVE appears in NVD (simulated, exact NVD format, labelled DRILL). Expect it matched to "
+                    "installed versions, scored and forecast within seconds, with notices sent to the exposed operators."},
     "chain": {"title": "Full intrusion: scan, implant, lateral movement", "tag": "fortios",
               "what": "Scanning, then an implant on an exposed FortiGate, then the host sweeping the internal network. "
                       "Expect all three detectors to fire in order."},
@@ -103,7 +106,19 @@ class Live:
         self.feeds: dict[str, dict] = {n: {"name": n, "url": u, "mode": "live", "status": "waiting", "last_try": None,
                                           "last_ok": None, "items": None, "new": None, "matched": [], "ms": None,
                                           "detail": "first check shortly after start"} for n, (u, _) in FEEDS.items()}
+        self.feeds["NVD (new CVEs)"] = {"name": "NVD (new CVEs)", "url": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+                                        "mode": "live", "status": "waiting", "last_try": None, "last_ok": None, "items": None,
+                                        "new": None, "matched": [], "ms": None, "detail": "first check shortly after start"}
+        manifest = ROOT / "data" / "raw" / "manifest.json"
+        try:  # take in everything NVD changed since the offline snapshot, then only what is new
+            self.nvd_since = dt.datetime.fromisoformat(json.loads(manifest.read_text(encoding="utf-8"))["snapshot_at"])
+        except (OSError, ValueError, KeyError):
+            self.nvd_since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)
+        self.nvd_since = max(self.nvd_since, dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=7))
+        self.kev_live: dict[str, dict] = {}
+        self.intakes: collections.deque = collections.deque(maxlen=40)
         self.next_feed = time.time() + 8
+        self._feed_thread: threading.Thread | None = None
         self.drill: dict | None = None
         self.drills: collections.deque = collections.deque(maxlen=12)
         self.forest = None
@@ -255,9 +270,10 @@ class Live:
                 conn.close()
         with self.lock:
             self._advance_drill(now)
-        if time.time() >= self.next_feed:
+        if time.time() >= self.next_feed and not (self._feed_thread and self._feed_thread.is_alive()):
             self.next_feed = time.time() + FEED_EVERY_S
-            self._check_feeds(now)
+            self._feed_thread = threading.Thread(target=self._check_feeds, args=(now,), daemon=True)
+            self._feed_thread.start()
         self.last_tick = _iso(now)
         self.tick_ms.append(round((time.perf_counter() - started) * 1000, 1))
 
@@ -441,7 +457,10 @@ class Live:
                           "c2": c2, "scan_ticks": 4 if scenario in ("scan", "chain") else 0,
                           "beacon_ticks": 3 if scenario == "beacon" else 0, "lateral_ticks": 0,
                           "detected": {}, "case": None, "expect": {"scan": ["surge"], "beacon": ["beacon"],
-                                                                     "chain": ["surge", "beacon", "anomaly"]}[scenario]}
+                                                                     "chain": ["surge", "beacon", "anomaly"],
+                                                                     "cve": ["intake"]}[scenario]}
+            if scenario == "cve":  # a fresh id every time, so the drill works again after a restart or on a copy
+                self.drill["cve"] = f"CVE-2026-9{now:%H%M%S}"
             from .engine.ledger import Ledger
             conn = self.connect()
             try:
@@ -450,7 +469,32 @@ class Live:
                 conn.commit()
             finally:
                 conn.close()
-            return dict(self.drill)
+        if scenario == "cve":
+            self._drill_cve()
+        return dict(self.drill)
+
+    def _drill_cve(self) -> None:
+        d = self.drill
+        cid, now = d["cve"], dt.datetime.now(dt.timezone.utc)
+        published = (now - dt.timedelta(minutes=7)).strftime("%Y-%m-%dT%H:%M:%S.000")
+        cve = {"id": cid, "published": published, "lastModified": published, "vulnStatus": "Awaiting Analysis",
+               "descriptions": [{"lang": "en", "value": f"[DRILL {d['id']}] A heap-based buffer overflow in Fortinet FortiOS "
+                                                         "SSL-VPN allows a remote unauthenticated attacker to execute arbitrary "
+                                                         "code via crafted requests. Exploitation in the wild has been observed."}],
+               "metrics": {"cvssMetricV31": [{"source": "drill", "type": "Secondary", "cvssData": {"version": "3.1",
+                           "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", "baseScore": 9.8}}]},
+               "configurations": [{"nodes": [{"operator": "OR", "negate": False, "cpeMatch": [
+                   {"vulnerable": True, "criteria": "cpe:2.3:o:fortinet:fortios:*:*:*:*:*:*:*:*", "versionEndExcluding": "7.4.9"}]}]}]}
+        taken = self.ingest([cve], now, source=f"DRILL {d['id']} (NVD format)")
+        with self.lock:
+            if taken:
+                t = taken[0]
+                d["detected"]["intake"] = {"at": _iso(now), "seconds": round((now - dt.datetime.fromisoformat(d["started_at"])).total_seconds(), 1)}
+                d["intake"] = {k: t[k] for k in ("cve", "exposed", "orgs", "worst", "action", "minutes_since_publication")}
+            self.detections.appendleft({"id": f"DET-{self.ticks:05d}-{len(self.detections) + 1}", "ts": _iso(now), "kind": "intake",
+                                        "title": f"{cid} taken in: {taken[0]['exposed'] if taken else 0} exposed assets at "
+                                                 f"{len(taken[0]['orgs']) if taken else 0} organisations, {taken[0]['worst'] if taken else '—'}",
+                                        "drill": d["id"], "seconds_to_detect": d["detected"].get("intake", {}).get("seconds")})
 
     @staticmethod
     def _feodo() -> list[dict]:
@@ -504,10 +548,44 @@ class Live:
                 f["status"], f["last_ok"] = "fresh", _iso(now)
             except Exception as exc:  # noqa: BLE001 - a feed outage is reported, never fatal
                 f["status"], f["detail"] = "offline", f"{type(exc).__name__}: {str(exc)[:120]}; serving the snapshot"
+        self._check_nvd(now)
+
+    def _check_nvd(self, now: dt.datetime) -> None:
+        """New real CVEs since the last check, taken into the running system (engine/intake.py)."""
+        from .engine import intake
+        f = self.feeds["NVD (new CVEs)"]
+        f["last_try"] = _iso(now)
+        t0 = time.perf_counter()
+        try:
+            cves = intake.fetch_recent(self.nvd_since - dt.timedelta(minutes=5), now)
+            f["ms"] = round((time.perf_counter() - t0) * 1000)
+            taken = self.ingest(cves, now)
+            self.nvd_since = now
+            f.update(items=len(cves), new=len(taken), matched=[t["cve"] for t in taken],
+                     status="fresh", last_ok=_iso(now),
+                     detail=f"{len(cves)} CVEs published or changed since the last check; {len(taken)} name a product we "
+                            f"run and were taken in" + (f", {sum(1 for t in taken if t['exposed'])} with exposed assets"
+                                                         if taken else ""))
+        except Exception as exc:  # noqa: BLE001
+            f["status"], f["detail"] = "offline", f"{type(exc).__name__}: {str(exc)[:120]}; the snapshot keeps serving"
+
+    def ingest(self, cves: list[dict], now: dt.datetime | None = None, source: str = "NVD (live)") -> list[dict]:
+        """Take NVD-format CVE objects into the running system; also the entry point for tests and drills."""
+        from .engine import intake
+        conn = self.connect()
+        try:
+            taken = intake.intake(conn, cves, self.kev_live, now or dt.datetime.now(dt.timezone.utc), source)
+        finally:
+            conn.close()
+        with self.lock:
+            for t in taken:
+                self.intakes.appendleft(t)
+        return taken
 
     def _read_feed(self, name: str, r, snap: Path) -> dict:
         if name == "CISA KEV":
             data = r.json()["vulnerabilities"]
+            self.kev_live = {v["cveID"]: v for v in data}
             known = {v["cveID"] for v in json.loads(snap.read_text(encoding="utf-8"))["vulnerabilities"]} if snap.exists() else set()
             new = [v for v in data if v["cveID"] not in known]
             from .engine.products import same_product
@@ -584,6 +662,7 @@ class Live:
                               {"name": "Flow anomaly", "how": "IsolationForest on per-host connections, destinations, ports, bytes"}],
                 "detections": list(self.detections)[:30],
                 "feeds": list(self.feeds.values()),
+                "intakes": list(self.intakes),
                 "drill": drill, "drills": list(self.drills),
                 "catalogue": [{"id": k, **{x: v[x] for x in ("title", "what")}} for k, v in DRILLS.items()],
             }

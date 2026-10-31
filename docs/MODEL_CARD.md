@@ -136,6 +136,11 @@ Measured on this laptop (test bench, attack-drill layer, private copy of the dat
 - **Implant drill:** beacon caught within 1 tick; an incident case opens and the regulator report is proposed.
 - **Full intrusion drill:** scan, implant and lateral movement caught in that order, within 6 ticks.
 
+Live CVE intake (`engine/intake.py`): every 15 minutes the NVD API is read for CVEs published or changed since the
+last check; those naming a constituency product are built into records, version-reconciled, scored and forecast on
+day 0, and acted on by the same policy. Measured in the test bench and e2e with an NVD-format CVE: matched, scored
+Critical and notified within one call.
+
 Live re-scoring: a confirmed beacon re-decides every warning on that host through the Bayesian model, with the
 beacon observed; those crossing 50% become suspected compromises immediately, each with a 6-hour clock from detection.
 

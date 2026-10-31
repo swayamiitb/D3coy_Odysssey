@@ -103,8 +103,8 @@ inventory (SIM) ─────┘    data/ews.db       ├─ SOC      cases, d
   - runs the surge detector, the C2 beacon detector (≥ 30 connections, interval coefficient of variation ≤ 0.2) and the flow-anomaly detector;
   - acts through the same Autopilot policy: compromise evidence triggers a notice, a CERT-In draft, a hunt and a SOC incident case at once, and the regulator escalation is proposed. Surge warnings are proposed.
 - **Flow-anomaly detector:** an IsolationForest trained on ten sensor-days. It alerts only below its 0.1% score quantile **and** when fan-out, ports or bytes are ≥ 6 robust z out of range, because its scores saturate beyond the training range.
-- **Every 15 min** it re-reads CISA KEV, Feodo Tracker and OpenPhish. New KEV entries that touch the inventory become proposals; Feodo C2s are matched to flows; OpenPhish hosts to look-alike domains. Each feed reports its freshness, and offline means the snapshot keeps serving.
-- **Attack drills** (scan, implant, full intrusion), started from the Live page or `POST /api/live/drill/{scan|beacon|chain}`. Traffic is labelled DRILL, and time to detect is measured.
+- **Every 15 min** (on its own thread) it re-reads **NVD for new and changed CVEs**, CISA KEV, Feodo Tracker and OpenPhish. A new CVE that names a product we run is taken in at once (`engine/intake.py`): record built, versions reconciled, scored, day-0 forecast, then the autopilot policy (Critical: notified; forecast-flagged: pre-emptive advisory proposed; else the digest). Also drillable: "A new CVE is published for FortiGate". New KEV entries that touch the inventory become proposals; Feodo C2s are matched to flows; OpenPhish hosts to look-alike domains. Each feed reports its freshness, and offline means the snapshot keeps serving.
+- **Attack drills** (scan, implant, full intrusion, new CVE), started from the Live page or `POST /api/live/drill/{scan|beacon|chain|cve}`. Traffic is labelled DRILL, and time to detect is measured.
   - Full intrusion, measured: caught in order in about 26 s, with the incident case opened automatically.
   - 720 quiet ticks give 0 detections.
 - **`GET /api/live`** returns the stream state plus what each pipeline stage did in the last hour. That counts only since the engine started, so a rebuild does not inflate it.
@@ -144,7 +144,7 @@ by content hash (`data/cache.db`); a rebuild keeps still-valid outputs.
   - **Log:** everything Odyssey did, plus every human decision.
   - **System:** CPU, GPU, VRAM and memory, resident models, every AI job timed and checked, API latency, audit trail and build stages.
 - **Intel:**
-  - **Overview:** what is under attack, the critical-exposure heatmap (technology × sector) and the likely-next forecast.
+  - **Overview:** what is under attack, the critical-exposure heatmap (technology × sector), the likely-next forecast, and the **national situation report** (`GET /api/sitrep`, Markdown written from the live state; copy or download).
   - **Threats:** real DShield attacks heatmap (port × day), plus the decoy grid, campaigns, CISA advisories and sources as sheets.
   - **Risk plan:** 93 changes remove 50% of national risk, 205 remove 80%, out of 344 tickets.
   - **Advisories:** inbox plus paste-any-advisory; who must act, what to block, how it was read.
@@ -166,7 +166,7 @@ by content hash (`data/cache.db`); a rebuild keeps still-valid outputs.
 | Public sources | REAL | NVD, CISA KEV, Vulnrichment (SSVC), FIRST EPSS, CISA advisories, SANS ISC DShield, abuse.ch Feodo Tracker, OpenPhish, MITRE ATT&CK |
 | Organisations, inventory, decoy grid, firewall logs, CERT-In-style advisories | SIM, labelled on screen | The CERT-In site is unreachable from the venue. |
 | Live sensors | SIM, accelerated | |
-| Three small feeds (KEV, Feodo, OpenPhish) | REAL, live | Re-read every 15 min. |
+| Four feeds read live (NVD new CVEs, KEV, Feodo, OpenPhish) | REAL, live | Re-read every 15 min; new CVEs taken in. |
 | Snapshot | Fetched 31 Oct 2026 | Refreshes with each rebuild. |
 
 Lead time over KEV is reported separately for REAL signals only (4 CVEs, median 20.5 d, up to 42.4 d). Exposures that
@@ -176,8 +176,8 @@ were already known when monitoring began are reported apart and not counted as l
 
 | Check | How | Result |
 |---|---|---|
-| Engine tests | `.venv\Scripts\python -m pytest -q` | 93/93: 62 core plus 31 from the shield thread. Includes a regression test proving concurrent writers no longer fork the audit chain, and tests for decay, the clocks, supplier fan-out and the hostile advisory. |
-| Test bench | Proof → *Run them now* (`POST /api/tests/run`) | 103/103: 4 attack drills on a data copy, 5 detection checks with negative controls, the audit-trail chain, and the engine tests. |
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 95/95: 64 core plus 31 from the shield thread. Includes a regression test proving concurrent writers no longer fork the audit chain, and tests for decay, the clocks, supplier fan-out and the hostile advisory. |
+| Test bench | Proof → *Run them now* (`POST /api/tests/run`) | 106/106: 5 attack drills on a data copy, 5 detection checks with negative controls, the audit-trail chain, and the engine tests. |
 | Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 15/15 on a private DB copy: every screen loads; approve and reject; a warning from issued to closed; a SOC case from new to closed; advisory analysis; compliance clocks, supplier fan-out and the hostile advisory; three live drills with live re-scoring; the audit trail. |
 | Interface | `python scripts\ui_audit.py` (Playwright drives the installed Edge) | 17/17 click-through steps on a copy API at :8001, with 0 page or console errors and 0 HTTP 5xx. |
 | Production build | `cd frontend && npm run build` | OK (one large-chunk warning only). |
@@ -250,6 +250,7 @@ Deliberate deviation: the research suggested no India map. We use a tile cartogr
 
 - Live sensors and the organisations are simulated. Dark-web sources are not covered.
 - **Deadlines run in real time from the build.** The incident's 6 h CERT-In clock starts at build time, so run `scripts\demo_reset.ps1` shortly before every demo.
+- Closing a warning now removes it from every headline count and the risk plan (workflow state flows through).
 - Each attack drill adds proposals and cases to the live database. So does each shield attack, which is why there were 52 pending decisions at 02:00. A demo reset clears them.
 - The frontend bundle is 832 KB, which is fine for local use.
 
@@ -272,7 +273,7 @@ Deliberate deviation: the research suggested no India map. We use a tile cartogr
 5. Intel → Overview, then Risk plan.
 6. Intel → Advisories: WinCC.
 7. Organisations → Vidyut Grid West Corp.
-8. Live: run the *Full intrusion* drill.
+8. Live: run the *new CVE* drill, then the *Full intrusion* drill.
 9. Proof: *Run them now*.
 
 ## 13. Repository map (main thread)
@@ -285,6 +286,7 @@ Deliberate deviation: the research suggested no India map. We use a tile cartogr
 | Runtime | `backend/app/main.py` (API, SSE, startup warm-up), `backend/app/live.py`, `backend/app/telemetry.py`, `backend/app/cache.py` |
 | UI (`frontend/src/`) | `App`, `Shell` (nav, footer, hero figures), `ui` (design system), `Now`, `Live`, `SocOps`, `SystemView`, `Soc` (Intel), `Advisories`, `Orgs`, `Proof`, `ProofProactive`, `HowItWorks`, `AlertDetail` and its panels, `Heatmap`, `IndiaMap`, `Rewind`, `proactive` |
 | Checks | `tests/`, `scripts/e2e_check.py`, `scripts/ui_audit.py` |
+| Pitch | `docs/PITCH.md` |
 | Docs | `README.md`, `docs/PS_COVERAGE.md`, `docs/MODEL_CARD.md`, `PLAN.md`, `reports/`, `research_notes/` |
 
 ## 14. How this thread got here

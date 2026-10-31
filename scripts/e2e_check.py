@@ -214,6 +214,21 @@ def main_() -> int:
                         break
                 assert st["drill"]["status"] == "passed", f"{d['id']} {st['drill']['status']}: {st['drill']['detected']}"
                 seen.append(f"{scenario}: {'+'.join(st['drill']['detected'])}")
+            # the PS use case, live: a CVE published an hour ago (NVD shape, no network needed) names a product we run
+            fresh = {"id": "CVE-2026-999100", "published": "2026-11-01T02:10:00.000", "vulnStatus": "Awaiting Analysis",
+                     "descriptions": [{"lang": "en", "value": "An authentication bypass in Fortinet FortiOS SSL-VPN allows "
+                                                              "remote code execution. Exploitation in the wild has been observed."}],
+                     "metrics": {"cvssMetricV31": [{"source": "cna", "type": "Secondary", "cvssData": {"version": "3.1",
+                                 "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", "baseScore": 9.8}}]},
+                     "configurations": [{"nodes": [{"operator": "OR", "negate": False, "cpeMatch": [
+                         {"vulnerable": True, "criteria": "cpe:2.3:o:fortinet:fortios:*:*:*:*:*:*:*:*", "versionEndExcluding": "7.4.9"}]}]}]}
+            taken = eng.ingest([fresh], source="e2e")
+            assert taken and taken[0]["exposed"] > 0, taken
+            listed = [a for a in get("/api/alerts?limit=4000") if a["cve_id"] == "CVE-2026-999100"]
+            assert listed, "ingested CVE missing from the warnings list"
+            get("/api/alerts/" + listed[0]["org_id"] + "/CVE-2026-999100")  # its evidence sheet opens
+            assert any(t["cve"] == "CVE-2026-999100" for t in get("/api/live")["intakes"]), "intake not on the Live page"
+            seen.append(f"intake: {taken[0]['exposed']} exposed at {len(taken[0]['orgs'])} orgs, {taken[0]['worst']}, {taken[0]['action']}")
             grew = len(get("/api/approvals")) - pending
             opened = get("/api/soc/metrics")["open"] - cases
             assert grew >= 3 and opened == 2, f"{grew} new proposals, {opened} new cases"
@@ -221,7 +236,7 @@ def main_() -> int:
             assert comp > compromise_before, "live evidence did not re-score any warning"
             return (f"{' · '.join(seen)}; {grew} proposals wait for a person, {opened} incident cases opened, "
                     f"suspected compromises {compromise_before} → {comp} (re-scored live)")
-        check("live engine: three attack drills detected and answered", live_drills)
+        check("live engine: three attack drills answered; a new CVE taken in live", live_drills)
 
         def ledger():
             v = get("/api/ledger/verify")
