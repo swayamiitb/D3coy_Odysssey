@@ -107,6 +107,10 @@ def main() -> int:
             def why(page):
                 page.get_by_role("button", name="Why this warning?").click()
                 page.locator("aside").filter(has_text="CVE-").first.wait_for()
+                page.get_by_text("Clocks that apply").wait_for()
+                page.locator("aside").get_by_role("button", name="Related").click()
+                page.get_by_text("Through suppliers").wait_for()
+                page.locator("aside").get_by_role("button", name="What to do").click()
                 shot("alert-sheet")
                 page.mouse.click(30, 500)
                 page.locator("aside").filter(has_text="CVE-").first.wait_for(state="detached")
@@ -236,12 +240,19 @@ def main() -> int:
                 page.get_by_role("button", name="Analyse").click()
                 page.get_by_text("Pasted advisory").wait_for(timeout=120000)
                 shot("advisory-pasted")
+                page.locator("aside button").filter(has_text="hidden injection").click()
+                page.get_by_text("Prompt injection blocked").wait_for(timeout=120000)
+                shot("advisory-injection")
                 return page.locator("main").get_by_text("assets exposed", exact=False).first.inner_text()
             advisories(page)
 
             # ---------------------------------------------------------------- Organisations
-            @step("Organisations: switch org, every tab, open a warning")
+            @step("Organisations: switch org, every tab, suppliers, open a warning")
             def orgs(page):
+                page.goto(f"{UI}/?view=orgs&org=PWR-01&nolive", wait_until="domcontentloaded")
+                page.get_by_role("heading", level=1).first.wait_for()
+                page.locator("main").get_by_role("button", name="What outsiders see", exact=True).click()
+                page.get_by_text("Its suppliers").wait_for()
                 go("orgs")
                 page.locator("aside button").nth(3).click()
                 page.wait_for_timeout(1500)
