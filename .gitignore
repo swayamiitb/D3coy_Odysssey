@@ -16,3 +16,5 @@ frontend/node_modules/
 .venv-mt/
 data/cache.db*
 .claude/settings.local.json
+data/testbench_last.json
+data/build.log
