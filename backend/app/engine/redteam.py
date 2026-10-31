@@ -115,6 +115,8 @@ def _target_ok(base: str) -> tuple[bool, str]:
             ip = ipaddress.ip_address(socket.gethostbyname(host))
         except (socket.gaierror, OSError):
             return False, f"cannot resolve '{host}'"
+    if ip.is_link_local:  # 169.254/16 incl. cloud metadata - never a legitimate red-team target
+        return False, f"'{host}' is a link-local address and is refused"
     if ip.is_loopback or ip.is_private:
         return True, str(ip)
     return False, f"'{host}' is not a loopback or private address - the red-team runner only targets a local lab"

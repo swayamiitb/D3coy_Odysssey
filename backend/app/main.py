@@ -11,7 +11,7 @@ import sqlite3
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from .engine.ledger import Ledger
@@ -889,6 +889,8 @@ async def _start_live() -> None:
             except Exception as exc:  # noqa: BLE001 - a failed warm-up only means a slower first visit
                 print(f"warm-up {fn.__name__} failed: {exc!r}", flush=True)
     threading.Thread(target=warm, daemon=True).start()
+    from . import shield
+    shield.ENGINE = shield.Shield(db)  # HTTP shield is event-driven (no background loop); always on for the sensor API
     if os.environ.get("ODYSSEY_LIVE", "1") == "0":
         return
     live.ENGINE = live.Live(db)
@@ -900,6 +902,13 @@ def _engine():
     if live.ENGINE is None:
         raise HTTPException(503, "live engine is off (ODYSSEY_LIVE=0)")
     return live.ENGINE
+
+
+def _shield():
+    from . import shield
+    if shield.ENGINE is None:
+        raise HTTPException(503, "HTTP shield is not initialised")
+    return shield.ENGINE
 
 
 @app.get("/api/live")
@@ -935,3 +944,99 @@ def live_drill(scenario: str) -> dict:
         raise HTTPException(404, f"unknown drill {scenario}") from exc
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
+
+
+# ---------------------------------------------------------------- HTTP shield: protect a real app, red-team it
+@app.post("/api/sensor/register")
+async def sensor_register(request: Request) -> dict:
+    """An Odyssey agent announces the app it protects (name, base URL, mode, owning organisation)."""
+    meta = await request.json()
+    app_id = meta.get("app") or meta.get("app_id")
+    if not app_id:
+        raise HTTPException(400, "app id required")
+    return _shield().register(app_id, meta)
+
+
+@app.post("/api/sensor/http")
+async def sensor_http(request: Request) -> dict:
+    """Ingest one forwarded HTTP request (or a batch under {"events": [...]}). This is the webhook an Odyssey agent
+    in a protected app calls for every request. Returns the shield's decision so the agent can drop an attack inline."""
+    payload = await request.json()
+    sh = _shield()
+    if isinstance(payload, dict) and isinstance(payload.get("events"), list):
+        results = [sh.ingest(e) for e in payload["events"]]
+        return {"count": len(results), "blocked": sum(r["blocked"] for r in results), "results": results}
+    return sh.ingest(payload)
+
+
+@app.get("/api/sensor/policy")
+def sensor_policy() -> dict:
+    """The current block list, for agents to enforce even without a per-request round trip."""
+    return _shield().policy()
+
+
+@app.get("/api/shield")
+def shield_status() -> dict:
+    """The HTTP shield: protected apps, recent requests and attacks, the attackers seen, and the block list."""
+    st = _shield().status()
+    conn, hour = db(), __import__("time").time() - 3600
+    st["ledger"] = {
+        "detections_hour": conn.execute("SELECT COUNT(*) FROM ledger WHERE kind LIKE 'shield.detect.%' "
+                                        "AND ingested > ?", (hour,)).fetchone()[0],
+        "blocks": conn.execute("SELECT COUNT(*) FROM ledger WHERE kind = 'shield.block'").fetchone()[0],
+    }
+    return st
+
+
+@app.post("/api/shield/apps/{app_id}/mode")
+def shield_mode(app_id: str, mode: str = Query(...)) -> dict:
+    """Switch a protected app between monitor (detect and propose) and block (drop attacks inline)."""
+    try:
+        return _shield().set_mode(app_id, mode)
+    except KeyError as exc:
+        raise HTTPException(404, f"unknown app {app_id}") from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/shield/block/{ip}")
+def shield_block(ip: str, reason: str = "analyst decision") -> dict:
+    return _shield().block(ip, reason)
+
+
+@app.post("/api/shield/unblock/{ip}")
+def shield_unblock(ip: str) -> dict:
+    return _shield().unblock(ip)
+
+
+@app.get("/api/redteam/catalogue")
+def redteam_catalogue() -> dict:
+    """The attack scenarios the red-team runner can fire at the protected app."""
+    from .engine import redteam
+    return {"scenarios": redteam.catalogue()}
+
+
+@app.post("/api/redteam/run")
+async def redteam_run(body: dict = Body(default={})) -> dict:
+    """Fire a red-team scenario (or all) at the protected app over the wire, then report what the shield caught,
+    blocked and how fast. Loopback/private targets only - this never touches a third party."""
+    import asyncio
+
+    from .engine import redteam
+    sh = _shield()
+    target = body.get("target") or _default_target(sh)
+    scenario = body.get("scenario")
+    try:
+        return await asyncio.to_thread(redteam.run, target, scenario, sh)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(404, f"unknown scenario {scenario}") from exc
+
+
+def _default_target(sh) -> str:
+    """Attack the first registered app that has a base URL, else the bundled portal on :8080."""
+    for app_meta in sh.status()["apps"]:
+        if app_meta.get("base_url"):
+            return app_meta["base_url"]
+    return "http://127.0.0.1:8080"

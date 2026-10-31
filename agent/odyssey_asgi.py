@@ -6,11 +6,18 @@ drop the offending request. This is how you connect a *real* web application to 
 
     from agent.odyssey_asgi import OdysseyShield
     app.add_middleware(OdysseyShield, app_id="citypower-portal", name="CityPower Customer Portal",
-                       org_id="PWR-01", mode="monitor")          # or mode="block" to drop attacks inline
+                       org_id="PWR-01", mode="enforce")          # "monitor" = detect only; "enforce" = drop when told
 
-Design: standard-library only (no extra dependency in your app), non-blocking in monitor mode (requests are forwarded
-on a background thread, so the shield adds no latency to your users), and fail-open (if the shield is unreachable your
-app keeps serving). Configure the shield URL with the ODYSSEY_SHIELD_URL env var (default http://127.0.0.1:8000).
+Modes:
+  - "monitor": every request is forwarded to the shield on a background thread (zero added latency) and recorded;
+    the shield never drops a request, it proposes a block for an analyst. Best when you only want visibility.
+  - "enforce": every request is forwarded synchronously and the shield's decision is honoured, so a request the
+    shield blocks is dropped inline with 403. Whether the shield blocks is governed by the app's mode *in Odyssey*
+    (Live -> HTTP shield -> Monitor/Block), so you can turn blocking on and off from the dashboard without a restart.
+
+Design: standard-library only (no extra dependency in your app), non-blocking in monitor mode, and fail-open (if the
+shield is unreachable your app keeps serving). Configure the shield URL with ODYSSEY_SHIELD_URL (default
+http://127.0.0.1:8000).
 """
 
 from __future__ import annotations
@@ -71,10 +78,12 @@ class OdysseyShield:
             "host": headers.get("host"), "headers": {h: headers[h] for h in FORWARD_HEADERS if h in headers},
         }
 
-        if self.mode == "block":
+        if self.mode == "enforce":
             decision = self._ingest_sync(event)
             if decision == "block":
                 return await self._forbidden(send, event)
+            await self.app(scope, receive, send)  # already ingested synchronously above
+            return
 
         status_holder = {}
 
@@ -85,8 +94,7 @@ class OdysseyShield:
 
         await self.app(scope, receive, send_wrapper)
         event["status"] = status_holder.get("status")
-        if self.mode != "block":                 # block mode already ingested synchronously before the response
-            self._enqueue(event)
+        self._enqueue(event)
 
     async def _buffer_body(self, receive):
         """Read and buffer the request body, then hand back a `receive` that replays it so the app is unaffected."""

@@ -265,7 +265,7 @@ class Shield:
             pilot.flush()
             conn.commit()
 
-            if success or det["severity"] == "Compromise":
+            if success or _rank(det["severity"]) >= _rank("Critical"):
                 self._open_case(conn, det, app, src_ip, redteam)
         finally:
             conn.close()
