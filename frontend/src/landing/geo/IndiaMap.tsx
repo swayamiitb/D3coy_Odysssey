@@ -225,7 +225,7 @@ export function IndiaMap({ threats, names, showCves, entered, interactive, hover
             <div className="whitespace-nowrap text-[12px] font-medium tracking-[0.01em] text-text">{t.name}</div>
             <div className="num whitespace-nowrap text-[12px] text-text/85">{num(t.critical)} Critical</div>
             {t.top && rank != null && (
-              <a href={`#/incident/${t.top.org_id}/${t.top.cve_id}`} tabIndex={showCves ? 0 : -1} aria-hidden={!showCves}
+              <a href="/?view=soc&tab=warnings" tabIndex={showCves ? 0 : -1} aria-hidden={!showCves}
                 className={`india-cve mt-1 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-ground px-2 py-0.5 text-[12px] text-text ${showCves ? 'is-on pointer-events-auto' : ''}`}
                 style={{ '--d': `${250 + rank * 60}ms` } as CSSProperties}>
                 <span className="font-mono">{t.top.cve_id}</span>

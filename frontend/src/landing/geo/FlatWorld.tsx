@@ -12,8 +12,8 @@ const rad = (d: number) => (d * Math.PI) / 180
 const clamp = (x: number, a = 0, b = 1) => Math.min(b, Math.max(a, x))
 const smooth = (t: number) => t * t * (3 - 2 * t)
 const CENTRE: LatLng = [22.7, 82.8] // the globe's pose when it starts to unroll: India facing us
-// The flat map shows where the story happens: 125°W to 155°E and 50°S to 80°N (no Antarctica, little Pacific).
-const FLAT = { lng: 15, halfLng: 140, lat: 15, halfLat: 65 }
+// The flat map shows where the story happens: 105°W to 160°E and 50°S to 85°N (no Antarctica, little Pacific).
+const FLAT = { lng: 27.5, halfLng: 132.5, lat: 17.5, halfLat: 67.5 }
 
 /** India, roughly (lat, lng), to colour its dots. Coarse on purpose: the dots are 1.5° apart. */
 const INDIA_POLY: LatLng[] = [
@@ -51,7 +51,7 @@ async function landDots(): Promise<Dot[]> {
     return px[(y * cv.width + x) * 4] > 127
   }
   const out: Dot[] = []
-  for (let lat = -56; lat <= 78; lat += 1.5) {
+  for (let lat = -56; lat <= 84; lat += 1.5) {
     for (let lng = -180; lng < 180; lng += 1.5) {
       if (!land(lat, lng)) continue
       const india = inIndia([lat, lng])
@@ -94,7 +94,7 @@ export function FlatWorld({ state, globeBox, shots, targets, still }: {
     // Projectiles in flight: random waves of 3 or 4 different origins, each to a random target, then a ripple.
     type Live = { from: [number, number]; to: [number, number]; c: [number, number]; t0: number; dur: number; color: string }
     let flying: Live[] = []
-    let nextWave = 0
+    let nextLaunch = 0
     const colorOf = (k: Shot['kind']) => (k === 'c2' ? '#64d2ff' : '#ff5d8f')
 
     let raf = 0
@@ -114,11 +114,16 @@ export function FlatWorld({ state, globeBox, shots, targets, still }: {
       const gx = gb ? gb.left - cr.left + gb.width / 2 : W * 0.7
       const gy = gb ? gb.top - cr.top + gb.height / 2 : H / 2
       const R = gb ? 0.8 * (gb.height / 2) : H * 0.35
-      const left0 = 40 + Math.min(520, 0.41 * W) + 32
+      const left0 = 40 + Math.min(520, 0.41 * W) + 12
       const aspect = FLAT.halfLng / FLAT.halfLat
-      let fw = W - 32 - left0, fh = fw / aspect
-      if (fh > H - 56 - 64) { fh = H - 56 - 64; fw = fh * aspect }
-      const fx = left0 + (W - 32 - left0 - fw) / 2, fy = 56 + (H - 56 - fh) / 2
+      let fw = W - 16 - left0, fh = fw / aspect
+      if (fh > H - 56 - 40) { fh = H - 56 - 40; fw = fh * aspect }
+      const fx = left0 + (W - 16 - left0 - fw) / 2, fy = 56 + (H - 56 - fh) / 2
+      // Dots fade over the last 7% towards every edge of the frame: no hard cut across Greenland or Siberia.
+      const edgeFade = (x: number, y: number) => {
+        const m = Math.min((x - fx) / fw, (fx + fw - x) / fw, (y - fy) / fh, (fy + fh - y) / fh)
+        return clamp(m / 0.07)
+      }
       const flat = ([lat, lng]: LatLng): [number, number] => {
         let d = lng - FLAT.lng
         if (d > 180) d -= 360
@@ -141,7 +146,7 @@ export function FlatWorld({ state, globeBox, shots, targets, still }: {
         const oy = gy - R * (Math.cos(p0) * Math.sin(p) - Math.sin(p0) * Math.cos(p) * Math.cos(l))
         const [qx, qy] = flat([d.lat, d.lng])
         // The far side appears as it unrolls; land outside the flat frame fades away instead of crossing the captions.
-        const a = (cosc > 0 ? 1 : e) * (inFrame(qx, qy) ? 1 : 1 - e)
+        const a = (cosc > 0 ? 1 : e) * (inFrame(qx, qy) ? 1 - e + e * edgeFade(qx, qy) : 1 - e)
         if (a <= 0.01) continue
         ctx.globalAlpha = a * (d.india ? 1 : 0.5 + 0.2 * (1 - e))
         ctx.fillStyle = d.india ? d.c : '#ffffff'
@@ -181,9 +186,9 @@ export function FlatWorld({ state, globeBox, shots, targets, still }: {
         ctx.lineWidth = 1
         ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.stroke()
       }
-      const arc = (from: [number, number], to: [number, number]): [number, number] => {
+      const arc = (from: [number, number], to: [number, number], lift = 0.28): [number, number] => {
         const [mx, my] = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2]
-        return [mx, my - Math.hypot(to[0] - from[0], to[1] - from[1]) * 0.28] // lob it: projectiles arc upward
+        return [mx, my - Math.hypot(to[0] - from[0], to[1] - from[1]) * lift] // lob it: projectiles arc upward
       }
       const at = (f: [number, number], c: [number, number], t: [number, number], u: number): [number, number] =>
         [(1 - u) ** 2 * f[0] + 2 * (1 - u) * u * c[0] + u * u * t[0], (1 - u) ** 2 * f[1] + 2 * (1 - u) * u * c[1] + u * u * t[1]]
@@ -201,13 +206,12 @@ export function FlatWorld({ state, globeBox, shots, targets, still }: {
         return
       }
 
-      if (now >= nextWave && flying.length === 0 && list.length && ends.length) {
-        const size = Math.min(list.length, Math.random() < 0.5 ? 3 : 4)
-        const pick = [...list].sort(() => Math.random() - 0.5).slice(0, size)
-        flying = pick.map((sh) => {
-          const from = flat(sh.at), to = ends[Math.floor(Math.random() * ends.length)]
-          return { from, to, c: arc(from, to), t0: now + Math.random() * 350, dur: 1100 + Math.random() * 500, color: colorOf(sh.kind) }
-        })
+      // Any origin, any time, any speed: one shot at a time on a random clock, sometimes a burst, sometimes a pause.
+      if (now >= nextLaunch && flying.length < 10 && list.length && ends.length) {
+        const sh = list[Math.floor(Math.random() * list.length)]
+        const from = flat(sh.at), to = ends[Math.floor(Math.random() * ends.length)]
+        flying.push({ from, to, c: arc(from, to, 0.16 + Math.random() * 0.24), t0: now, dur: 650 + Math.random() * 2600, color: colorOf(sh.kind) })
+        nextLaunch = now + (Math.random() < 0.3 ? 60 + Math.random() * 140 : 250 + Math.random() * 1300)
       }
       ctx.lineCap = 'round'
       flying = flying.filter((f) => {
@@ -243,7 +247,6 @@ export function FlatWorld({ state, globeBox, shots, targets, still }: {
         ctx.globalAlpha = 1
         return true
       })
-      if (flying.length === 0 && now > nextWave) nextWave = now + 350 + Math.random() * 450
     }
     raf = requestAnimationFrame(draw)
     return () => { alive = false; cancelAnimationFrame(raf); ro.disconnect() }

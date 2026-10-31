@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const src = process.argv[2] ?? 'http://127.0.0.1:8000/api/intel/attacks'
-const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'geo', 'attackers.json')
+const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'landing', 'geo', 'attackers.json')
 const TOP_IPS = Number(process.env.TOP_IPS ?? 100) // the most-reported IPs to locate
 const KEEP = 7 // countries to keep
 

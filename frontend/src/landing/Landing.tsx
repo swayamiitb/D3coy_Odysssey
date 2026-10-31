@@ -8,17 +8,17 @@
 import type { COBEOptions } from 'cobe'
 import { ArrowRight } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { api, getMode, getSnapshotTakenAt, useLoad } from '../data'
-import { date, dateTime, duration, num, sla } from '../format'
-import attackers from '../geo/attackers.json'
-import feodo from '../geo/feodo.json'
-import { anglesFor, COUNTRY_CENTROID, MAP_CENTRE, refang, sideOf, slerp, spread, STATE_CENTROID, stateName, type LatLng } from '../geo/geo'
-import { FlatWorld, type FlatState } from '../geo/FlatWorld'
-import { Globe, hasWebGL, type GlobeFrame } from '../geo/Globe'
-import { describeState, IndiaMap, type Origin, type StateThreat } from '../geo/IndiaMap'
-import { takeScroll } from '../scroll'
-import type { Card, Soc } from '../types'
-import { useNow } from '../ui'
+import { api, getMode, getSnapshotTakenAt, useLoad } from './data'
+import { date, dateTime, duration, num, sla } from './format'
+import attackers from './geo/attackers.json'
+import feodo from './geo/feodo.json'
+import { anglesFor, COUNTRY_CENTROID, MAP_CENTRE, refang, sideOf, slerp, spread, STATE_CENTROID, stateName, type LatLng } from './geo/geo'
+import { FlatWorld, type FlatState } from './geo/FlatWorld'
+import { Globe, hasWebGL, type GlobeFrame } from './geo/Globe'
+import { describeState, IndiaMap, type Origin, type StateThreat } from './geo/IndiaMap'
+import { takeScroll } from './scroll'
+import type { Card, Soc } from './types'
+import { useNow } from './ui'
 
 type RGB = [number, number, number]
 const clamp = (x: number, a = 0, b = 1) => Math.min(b, Math.max(a, x))
@@ -249,7 +249,7 @@ function ModeBadge({ down }: { down: string | null }) {
 function LandingHeader({ quiet, down, still }: { quiet: boolean; down: string | null; still: boolean }) {
   return (
     <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between gap-4 bg-ground px-5 sm:px-8 md:px-10">
-      <a href="#/" aria-label="Odyssey, back to the top" translate="no" className="flex min-w-0 items-center gap-2.5"
+      <a href="/" aria-label="Odyssey, back to the top" translate="no" className="flex min-w-0 items-center gap-2.5"
         onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' }) }}>
         <img src="/mark.svg" alt="" width={28} height={28} className="size-7" />
         <span className="text-[18px] font-semibold tracking-[-0.01em]">Odyssey</span>
@@ -257,7 +257,7 @@ function LandingHeader({ quiet, down, still }: { quiet: boolean; down: string | 
       </a>
       <div className="flex shrink-0 items-center gap-5">
         <ModeBadge down={down} />
-        <a href="#/overview" className={`pill pill-sm ${quiet ? 'pill-secondary' : 'pill-primary'}`}>Open the console</a>
+        <a href="/?view=now" className={`pill pill-sm ${quiet ? 'pill-secondary' : 'pill-primary'}`}>Open the console</a>
       </div>
     </header>
   )
@@ -313,7 +313,7 @@ function StateList({ threats, hover, onHover, loading }: {
         ))}
       </ol>
       {threats.length > rows.length && (
-        <a href="#/orgs" className="mt-2 inline-block text-[15px] text-accent hover:underline">See all {num(operators)} operators</a>
+        <a href="/?view=orgs" className="mt-2 inline-block text-[15px] text-accent hover:underline">See all {num(operators)} operators</a>
       )}
     </div>
   )
@@ -641,7 +641,7 @@ export function Landing() {
                   {reasons.length && factor ? <>; the beacon multiplies those odds by <span className="fig">{num(factor)}</span>.</> : reasons.length ? '.' : null}
                 </p>
               )}
-              <a href={`#/incident/${hot.org_id}/${hot.cve_id}`} className="mt-4 inline-block text-[15px] text-accent hover:underline">See the evidence</a>
+              <a href="/?view=now" className="mt-4 inline-block text-[15px] text-accent hover:underline">See the evidence</a>
               <p className={`${LINE} mt-4`}>{sample ? 'Sample data, not real.' : `Simulated: the firewall logs that show the beacon. Real: the ${sighting.malware} server, from abuse.ch Feodo Tracker.`}</p>
             </>
           ) : (
@@ -667,30 +667,13 @@ export function Landing() {
           </p>
           {hot && <div className="mt-6"><HeroClock card={hot} /></div>}
           <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-            {hot && <a href={`#/incident/${hot.org_id}/${hot.cve_id}`} className="pill pill-primary">Open the incident <ArrowRight size={16} aria-hidden /></a>}
-            {pending ? <a href="#/decisions" className="text-[15px] text-accent hover:underline">Review {plural(pending, 'decision', 'decisions')}</a> : null}
+            {hot && <a href="/?view=now" className="pill pill-primary">Open the incident <ArrowRight size={16} aria-hidden /></a>}
+            {pending ? <a href="/?view=now" className="text-[15px] text-accent hover:underline">Review {plural(pending, 'decision', 'decisions')}</a> : null}
           </div>
           {origins.length > 0 && (
             <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2">
               <Key color="var(--color-attack)">Attack reports, SANS ISC DShield</Key>
               {origins.some((o) => o.kind === 'c2') && <Key color="var(--color-c2)">Botnet command servers, Feodo Tracker</Key>}
-            </div>
-          )}
-          {topAlerts.length > 0 && (
-            <div className="mt-6">
-              <p className="mb-2 text-[15px] text-mute">{sample ? 'Worst CVE in the top states (sample data)' : 'Worst real CVE in the top states'}</p>
-              <ol className="space-y-1.5">
-                {threats.slice(0, 3).flatMap((t) => (t.top ? [{ t, a: t.top }] : [])).map(({ t, a }) => (
-                  <li key={t.name} className="text-[15px] [overflow-wrap:anywhere]">
-                    <a href={`#/incident/${a.org_id}/${a.cve_id}`} className="group">
-                      <span>{t.name}: </span>
-                      <span className="fig underline-offset-4 group-hover:underline" translate="no">{a.cve_id}</span>
-                      {productNames[a.id] ? <span className="text-mute">, {productNames[a.id]}</span> : null}
-                      {a.kev ? <span className="text-mute">, in CISA KEV</span> : null}
-                    </a>
-                  </li>
-                ))}
-              </ol>
             </div>
           )}
           <p className={`${LINE} mt-3`}>

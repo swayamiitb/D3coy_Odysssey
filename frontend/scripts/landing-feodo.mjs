@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const URL_DEFAULT = 'https://feodotracker.abuse.ch/downloads/ipblocklist.json'
 const src = process.argv[2] ?? URL_DEFAULT
-const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'geo', 'feodo.json')
+const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'landing', 'geo', 'feodo.json')
 
 let rows, takenAt
 if (/^https?:/.test(src)) {
