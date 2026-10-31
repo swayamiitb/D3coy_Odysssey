@@ -26,8 +26,18 @@
 <p style="font-size:28px;font-weight:700;line-height:1.4;color:#FFFFFF;width:300px;text-align:right">Flagged 110/110</p>
 </div>
 </div>
-<p style="font-size:28px;line-height:1.4;color:#A6A6A6;width:1500px">EPSS estimates how likely a flaw is to be attacked in the next 30 days. CVSS is the standard 0–10 severity score.</p>
-<p style="position:absolute;left:128px;bottom:64px;width:1400px;font-size:24px;color:#A6A6A6">Source: our replay of CISA KEV entries added August–October 2026</p>
-<p style="position:absolute;right:128px;bottom:64px;width:200px;text-align:right;font-size:24px;color:#A6A6A6">10</p>
+<div style="display:flex;flex-direction:row;gap:48px;align-items:center">
+<div style="display:flex;flex-direction:row;gap:12px;align-items:center">
+<div style="width:28px;height:28px;border-radius:6px;background:#E11900"></div>
+<p style="font-size:24px;line-height:1.35;color:#FFFFFF">Our evidence rules</p>
+</div>
+<div style="display:flex;flex-direction:row;gap:12px;align-items:center">
+<div style="width:28px;height:28px;border-radius:6px;background:#4A4A4A;border:2px solid #A6A6A6"></div>
+<p style="font-size:24px;line-height:1.35;color:#FFFFFF">One score on its own</p>
+</div>
+<p style="font-size:24px;line-height:1.35;color:#A6A6A6">Bar length = share of the 110 flaws flagged</p>
+</div>
+<p style="position:absolute;left:128px;bottom:48px;width:1480px;font-size:24px;line-height:1.35;color:#A6A6A6"><b>EPSS</b> Exploit Prediction Scoring System, the daily estimate that a flaw will be attacked in the next 30 days · <b>CVSS</b> Common Vulnerability Scoring System, the standard 0–10 severity score · <b>CISA KEV</b> the US Cybersecurity and Infrastructure Security Agency’s Known Exploited Vulnerabilities list<br>Source: our replay of CISA KEV entries added August–October 2026</p>
+<p style="position:absolute;right:128px;bottom:48px;width:120px;text-align:right;font-size:24px;line-height:1.35;color:#A6A6A6">10</p>
 <aside>The honest test: we took the 110 flaws CISA confirmed were attacked between August and October 2026 and asked what each method would have flagged. Ranking by EPSS alone would have missed 49 percent. Ranking by CVSS 9 or higher would have missed 53 percent. Our evidence rules flagged all 110. The point is not that EPSS or CVSS are bad: one number is not enough, so we combine the evidence.</aside>
 </section>
