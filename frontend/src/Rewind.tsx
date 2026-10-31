@@ -52,7 +52,7 @@ export function Rewind({ d }: { d: Soc }) {
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <button onClick={() => { if (cursor == null || cursor >= d.pressure.length - 1) setCursor(Math.max(start, 0)); setPlaying(!playing) }}
-                className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-ink hover:brightness-110">
+                className="flex items-center gap-1.5 rounded-full bg-action px-3 py-1 text-xs font-semibold text-ink hover:opacity-85">
           {playing ? <Pause size={12} /> : <Play size={12} />} {playing ? 'Pause' : cursor == null ? 'Replay since go-live' : 'Resume'}
         </button>
         {cursor != null && !playing && (
@@ -66,13 +66,13 @@ export function Rewind({ d }: { d: Soc }) {
       <div className="h-56">
         <ResponsiveContainer>
           <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: -8 }}>
-            <CartesianGrid stroke="#243041" strokeDasharray="2 4" vertical={false} />
-            <XAxis dataKey="date" tick={{ fill: '#8b98a9', fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} minTickGap={24} />
-            <YAxis tick={{ fill: '#8b98a9', fontSize: 11 }} allowDecimals={false} />
-            <Tooltip contentStyle={{ background: '#0b0f14', border: '1px solid #243041', fontSize: 12 }} labelStyle={{ color: '#e6edf3' }} />
+            <CartesianGrid stroke="var(--color-line)" strokeDasharray="2 4" vertical={false} />
+            <XAxis dataKey="date" tick={{ fill: 'var(--color-mute)', fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} minTickGap={24} />
+            <YAxis tick={{ fill: 'var(--color-mute)', fontSize: 11 }} allowDecimals={false} />
+            <Tooltip contentStyle={{ background: 'var(--color-panel)', border: '1px solid #243041', fontSize: 12 }} labelStyle={{ color: 'var(--color-text)' }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <ReferenceLine x={d.autopilot.go_live} stroke="#8b98a9" strokeDasharray="3 3" label={{ value: 'go-live', fill: '#8b98a9', fontSize: 11, position: 'insideTopLeft' }} />
-            {day && <ReferenceLine x={day} stroke="#38bdf8" strokeWidth={2} />}
+            <ReferenceLine x={d.autopilot.go_live} stroke="var(--color-mute)" strokeDasharray="3 3" label={{ value: 'go-live', fill: 'var(--color-mute)', fontSize: 11, position: 'insideTopLeft' }} />
+            {day && <ReferenceLine x={day} stroke="var(--color-accent)" strokeWidth={2} />}
             {(['High', 'Critical', 'Compromise'] as const).map((t) => (
               <Area key={t} type="stepAfter" dataKey={t} stackId="1" stroke={TIER_FILL[t]} fill={TIER_FILL[t]} fillOpacity={0.35} strokeWidth={2} isAnimationActive={false} />
             ))}

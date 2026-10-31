@@ -19,13 +19,13 @@ export function RiskPlanView({ r, compact, limit }: { r: RiskPlan; compact?: boo
         <div className="mb-3 h-36">
           <ResponsiveContainer>
             <LineChart data={r.curve} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
-              <CartesianGrid stroke="#243041" strokeDasharray="2 4" vertical={false} />
-              <XAxis dataKey="k" tick={{ fill: '#8b98a9', fontSize: 11 }} label={{ value: 'changes made', fill: '#8b98a9', fontSize: 11, position: 'insideBottomRight', offset: -2 }} />
-              <YAxis domain={[0, 100]} tick={{ fill: '#8b98a9', fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
-              <Tooltip contentStyle={{ background: '#0b0f14', border: '1px solid #243041', fontSize: 12 }} formatter={(v) => [`${v}% of risk removed`, '']} labelFormatter={(k) => `after ${k} change(s)`} />
-              <ReferenceLine y={50} stroke="#8b98a9" strokeDasharray="3 3" />
-              <ReferenceLine y={80} stroke="#8b98a9" strokeDasharray="3 3" />
-              <Line type="monotone" dataKey="cum_pct" stroke="#22c55e" strokeWidth={2} dot={false} />
+              <CartesianGrid stroke="var(--color-line)" strokeDasharray="2 4" vertical={false} />
+              <XAxis dataKey="k" tick={{ fill: 'var(--color-mute)', fontSize: 11 }} label={{ value: 'changes made', fill: 'var(--color-mute)', fontSize: 11, position: 'insideBottomRight', offset: -2 }} />
+              <YAxis domain={[0, 100]} tick={{ fill: 'var(--color-mute)', fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
+              <Tooltip contentStyle={{ background: 'var(--color-panel)', border: '1px solid #243041', fontSize: 12 }} formatter={(v) => [`${v}% of risk removed`, '']} labelFormatter={(k) => `after ${k} change(s)`} />
+              <ReferenceLine y={50} stroke="var(--color-mute)" strokeDasharray="3 3" />
+              <ReferenceLine y={80} stroke="var(--color-mute)" strokeDasharray="3 3" />
+              <Line type="monotone" dataKey="cum_pct" stroke="var(--color-ok)" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -143,7 +143,7 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
                   <span>{t.service} <span className="text-mute">:{t.port}</span></span>
                   <span className={t.elevated ? 'text-crit' : 'text-mute'}>{t.ratio >= 1 ? '+' : ''}{Math.round((t.ratio - 1) * 100)}% vs 28-day median</span>
                 </div>
-                <Spark values={t.series.map((s) => s.records)} color={t.elevated ? '#ef4444' : '#38bdf8'} />
+                <Spark values={t.series.map((s) => s.records)} color={t.elevated ? 'var(--color-crit)' : 'var(--color-accent)'} />
                 <div className="truncate text-[10px] text-mute">{t.hosts?.length} of this organisation's hosts listen here</div>
               </div>
             ))}
@@ -200,7 +200,7 @@ export function Orgs({ selected, onSelect, onAlert }: { selected?: string; onSel
               <span className="font-mono text-xs text-crit">{o.critical}</span>
             </div>
             <div className="truncate text-[11px] text-mute">
-              {o.sector} · {langs[o.lang]?.native ?? o.lang}{o.compromise > 0 && <span className="text-fuchsia-300"> · compromise</span>}
+              {o.sector} · {langs[o.lang]?.native ?? o.lang}{o.compromise > 0 && <span className="text-comp"> · compromise</span>}
             </div>
           </button>
         ))}

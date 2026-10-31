@@ -75,9 +75,9 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={waterfall} layout="vertical" margin={{ left: 10, right: 20 }}>
                 <XAxis type="number" domain={[0, 100]} hide />
-                <YAxis type="category" dataKey="name" width={80} tick={{ fill: '#8b98a9', fontSize: 12 }} />
-                <Tooltip contentStyle={{ background: '#121821', border: '1px solid #243041' }} />
-                <Bar dataKey="value" fill="#38bdf8" radius={3} />
+                <YAxis type="category" dataKey="name" width={80} tick={{ fill: 'var(--color-mute)', fontSize: 12 }} />
+                <Tooltip contentStyle={{ background: 'var(--color-panel)', border: '1px solid #243041' }} />
+                <Bar dataKey="value" fill="var(--color-accent)" radius={3} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -119,7 +119,7 @@ export function Copilot({ onClose, initial }: { onClose: () => void; initial?: s
           <option value="en">English</option>
           {Object.values(langs).sort((x, y) => x.name.localeCompare(y.name)).map((l) => <option key={l.code} value={l.code}>{l.native}</option>)}
         </select>
-        <button disabled={busy} className="rounded-full bg-accent p-2 text-ink disabled:opacity-50"><Send size={16} /></button>
+        <button disabled={busy} className="rounded-full bg-action p-2 text-ink disabled:opacity-50"><Send size={16} /></button>
       </form>
     </div>
   )

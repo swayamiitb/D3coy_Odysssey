@@ -17,7 +17,7 @@ function Budget({ e }: { e: ForecastEval }) {
           <div className={`text-sm ${r.ours ? 'font-semibold' : 'text-mute'}`}>{r.name}</div>
           <div className="relative h-5">
             <div className="absolute inset-y-2 left-0 right-0 rounded-sm bg-panel-2" />
-            <div className="absolute inset-y-1 left-0 rounded-r-[4px]" style={{ width: `${r.v}%`, background: r.ours ? '#38bdf8' : '#64748b' }} />
+            <div className="absolute inset-y-1 left-0 rounded-r-[4px]" style={{ width: `${r.v}%`, background: r.ours ? 'var(--color-accent)' : '#64748b' }} />
           </div>
           <div className="text-right font-mono text-sm">{r.v}%</div>
         </div>
@@ -130,7 +130,7 @@ export function TestBench() {
         <h3 className="text-lg font-semibold">Test bench: run it now</h3>
         {b?.ran_at && <Badge tone={b.passed === b.total ? 'ok' : 'crit'}>{b.passed}/{b.total} passed · {b.seconds}s · {b.ran_at.slice(11, 19)}</Badge>}
         <button onClick={run} disabled={busy}
-                className="ml-auto flex items-center gap-2 rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-ink hover:brightness-110 disabled:opacity-50">
+                className="ml-auto flex items-center gap-2 rounded-full bg-action px-4 py-1.5 text-sm font-semibold text-ink hover:opacity-85 disabled:opacity-50">
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} {busy ? 'Running…' : 'Run all tests'}
         </button>
       </div>

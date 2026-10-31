@@ -68,11 +68,11 @@ export function ReplayPanel({ orgId, cveId }: { orgId: string; cveId: string }) 
       <div className="h-36">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chart} margin={{ left: -20, right: 10, top: 5 }}>
-            <CartesianGrid stroke="#243041" strokeDasharray="3 3" />
-            <XAxis dataKey="label" tick={{ fill: '#8b98a9', fontSize: 11 }} />
-            <YAxis domain={[0, 100]} tick={{ fill: '#8b98a9', fontSize: 11 }} />
-            <Tooltip contentStyle={{ background: '#121821', border: '1px solid #243041' }} />
-            <Line type="stepAfter" dataKey="risk" stroke="#38bdf8" strokeWidth={2} isAnimationActive={false}
+            <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" />
+            <XAxis dataKey="label" tick={{ fill: 'var(--color-mute)', fontSize: 11 }} />
+            <YAxis domain={[0, 100]} tick={{ fill: 'var(--color-mute)', fontSize: 11 }} />
+            <Tooltip contentStyle={{ background: 'var(--color-panel)', border: '1px solid #243041' }} />
+            <Line type="stepAfter" dataKey="risk" stroke="var(--color-accent)" strokeWidth={2} isAnimationActive={false}
                   dot={(p) => {
                     const { cx, cy, payload, index } = p as { cx: number; cy: number; payload: { tier: keyof typeof TIER_FILL; risk: number | null }; index: number }
                     if (payload.risk == null) return <g key={index} />

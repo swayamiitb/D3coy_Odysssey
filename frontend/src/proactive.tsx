@@ -17,9 +17,9 @@ export const KIND: Record<string, { label: string; icon: LucideIcon; tone: strin
   'auto.advisory': { label: 'Advisory notice', icon: Send, tone: 'text-mute' },
   'auto.digest': { label: 'Daily digest', icon: Mail, tone: 'text-mute' },
   'auto.baseline': { label: 'Go-live baseline', icon: ClipboardList, tone: 'text-mute' },
-  'auto.escalate': { label: 'Reported to regulator', icon: ShieldAlert, tone: 'text-fuchsia-300' },
+  'auto.escalate': { label: 'Reported to regulator', icon: ShieldAlert, tone: 'text-comp' },
   'auto.escalate_sla': { label: 'SLA escalation', icon: Timer, tone: 'text-crit' },
-  'auto.report': { label: 'Report drafted', icon: FileText, tone: 'text-fuchsia-300' },
+  'auto.report': { label: 'Report drafted', icon: FileText, tone: 'text-comp' },
   'auto.hunt': { label: 'Threat hunt', icon: Crosshair, tone: 'text-mute' },
   'auto.proposed': { label: 'Proposed', icon: Hand, tone: 'text-high' },
   'auto.withdrawn': { label: 'Withdrawn', icon: Undo2, tone: 'text-mute' },
@@ -130,7 +130,7 @@ export function ApprovalQueue({ onChanged, limit = 6 }: { onChanged?: () => void
             ) : (
               <>
                 <button disabled={busy === a.id} onClick={() => decide(a, true)}
-                        className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-ink hover:brightness-110 disabled:opacity-50">
+                        className="flex items-center gap-1.5 rounded-full bg-action px-4 py-1.5 text-sm font-semibold text-ink hover:opacity-85 disabled:opacity-50">
                   {busy === a.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Approve &amp; send
                 </button>
                 <button onClick={() => setRejecting(a.id)} className="rounded-full px-3 py-1.5 text-sm text-mute hover:text-text">Reject</button>
@@ -170,7 +170,7 @@ export function AutopilotFeed({ orgId, limit = 120, tick, height = 'max-h-[28rem
       <div className="mb-2 flex flex-wrap gap-1">
         {Object.keys(FILTERS).map((f) => (
           <button key={f} onClick={() => setFilter(f)}
-                  className={`rounded-full px-2.5 py-0.5 text-xs ${filter === f ? 'bg-accent font-semibold text-ink' : 'bg-panel-2 text-mute hover:text-text'}`}>{f}</button>
+                  className={`rounded-full px-2.5 py-0.5 text-xs ${filter === f ? 'bg-text font-semibold text-ink' : 'bg-panel-2 text-mute hover:text-text'}`}>{f}</button>
         ))}
       </div>
       <ol className={`space-y-1.5 overflow-auto pr-1 ${height}`}>

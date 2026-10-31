@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { Tier } from './api'
 
 export const TIER_STYLE: Record<Tier, string> = {
-  Compromise: 'bg-fuchsia-500/20 text-fuchsia-300 ring-fuchsia-400/60',
+  Compromise: 'bg-comp/15 text-comp ring-comp/50',
   Critical: 'bg-crit/15 text-crit ring-crit/40',
   High: 'bg-high/15 text-high ring-high/40',
   Medium: 'bg-med/15 text-med ring-med/40',

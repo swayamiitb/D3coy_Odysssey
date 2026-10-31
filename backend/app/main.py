@@ -739,15 +739,19 @@ def tests_run() -> dict:
     """Run the test bench now: engine tests, detection checks with negative controls, audit-trail integrity."""
     from .engine.testbench import run
     _TESTS["last"] = run(db())
+    (ROOT / "data" / "testbench_last.json").write_text(json.dumps(_TESTS["last"]), encoding="utf-8")
     return _TESTS["last"]
 
 
 @app.get("/api/tests/last")
 def tests_last() -> dict:
+    saved = ROOT / "data" / "testbench_last.json"  # survives API restarts
+    if "last" not in _TESTS and saved.exists():
+        _TESTS["last"] = json.loads(saved.read_text(encoding="utf-8"))
     return _TESTS.get("last") or {"ran_at": None, "results": []}
 
 
-COPILOT_VERSION = "copilot-v4"  # v3: model picks the tool; entities resolved deterministically (distinctive names only)
+COPILOT_VERSION = "copilot-v7"  # tool chosen by the model; entities resolved deterministically; loop-safe decoding
 
 
 @app.post("/api/copilot")

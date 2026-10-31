@@ -1,4 +1,4 @@
-import { Building2, FlaskConical, Radar, Search, ShieldCheck, Telescope, Zap } from 'lucide-react'
+import { Building2, FlaskConical, Moon, Radar, Search, ShieldCheck, Sun, Telescope, Zap } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
@@ -31,6 +31,20 @@ function initial(): { view: View; tab?: string } {
   return { view: (['now', 'intel', 'orgs', 'proof'].includes(v) ? v : 'now') as View, tab: q.get('tab') ?? undefined }
 }
 
+/** Light (Uber-style) by default; dark one click away. Remembered per browser; ?theme=dark|light overrides. */
+function useTheme(): ['light' | 'dark', () => void] {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const q = new URLSearchParams(window.location.search).get('theme')
+    if (q === 'dark' || q === 'light') return q
+    try { return localStorage.getItem('odyssey-theme') === 'dark' ? 'dark' : 'light' } catch { return 'light' }
+  })
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    try { localStorage.setItem('odyssey-theme', theme) } catch { /* private mode: theme still applies */ }
+  }, [theme])
+  return [theme, () => setTheme((t) => (t === 'light' ? 'dark' : 'light'))]
+}
+
 function PageHead({ title, sub, children }: { title: string; sub: string; children?: React.ReactNode }) {
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -45,6 +59,7 @@ function PageHead({ title, sub, children }: { title: string; sub: string; childr
 
 export default function App() {
   const start = initial()
+  const [theme, toggleTheme] = useTheme()
   const [view, setView] = useState<View>(start.view)
   const [intelTab, setIntelTab] = useState<IntelTab>((start.view === 'intel' && start.tab as IntelTab) || 'overview')
   const [proofTab, setProofTab] = useState<ProofTab>((start.view === 'proof' && start.tab as ProofTab) || 'evidence')
@@ -124,6 +139,10 @@ export default function App() {
         <button onClick={() => setCopilot(true)}
                 className="ml-auto flex w-80 max-w-[30vw] items-center gap-2 rounded-full bg-panel px-4 py-2 text-left text-sm text-mute ring-1 ring-line hover:ring-accent/60">
           <Search size={15} /> <span className="truncate">Ask Odyssey anything…</span>
+        </button>
+        <button onClick={toggleTheme} title={theme === 'light' ? 'Switch to dark' : 'Switch to light'}
+                className="rounded-full p-2 text-mute ring-1 ring-line hover:text-text">
+          {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
         </button>
         <div className="flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-mute ring-1 ring-line"
              title={health ? `audit trail ${health.ledger_intact ? 'intact' : 'TAMPERED'} · models: ${health.models.narrate} (GPU) + CPU encoders · no cloud calls` : undefined}>

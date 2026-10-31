@@ -59,6 +59,7 @@ def chat(
     max_tokens: int = 1024,
     think: bool = False,
     timeout: float = 300.0,
+    repeat_penalty: float | None = None,
 ) -> LLMResult:
     payload: dict[str, Any] = {
         "model": model or resolve(role),
@@ -66,7 +67,8 @@ def chat(
         "stream": False,
         "think": think,
         # num_predict caps runaway generations (constrained decoding can loop on small models).
-        "options": {"temperature": temperature, "num_ctx": num_ctx, "num_predict": max_tokens, "seed": 7},
+        "options": {"temperature": temperature, "num_ctx": num_ctx, "num_predict": max_tokens, "seed": 7,
+                    **({"repeat_penalty": repeat_penalty} if repeat_penalty else {})},
     }
     if schema is not None:
         payload["format"] = schema

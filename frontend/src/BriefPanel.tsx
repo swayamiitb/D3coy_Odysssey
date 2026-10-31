@@ -43,14 +43,14 @@ export function BriefPanel({ orgId, cveId }: { orgId: string; cveId: string }) {
     <div className="flex items-center gap-1 rounded-full bg-panel-2 p-0.5">
       {['en', 'hi'].map((l) => (
         <button key={l} onClick={() => pick(l)}
-                className={`rounded-full px-2 py-0.5 text-xs ${lang === l ? 'bg-accent font-semibold text-ink' : 'text-mute hover:text-text'}`}>
+                className={`rounded-full px-2 py-0.5 text-xs ${lang === l ? 'bg-text font-semibold text-ink' : 'text-mute hover:text-text'}`}>
           {l === 'en' ? 'EN' : 'हिन्दी'}
         </button>
       ))}
       {langs.length > 0 && (
         <select value={lang === 'en' || lang === 'hi' ? '' : lang} onChange={(e) => e.target.value && pick(e.target.value)}
                 title={`${langs.length} scheduled Indian languages, translated on this laptop`}
-                className={`max-w-36 rounded-full bg-transparent px-1.5 py-0.5 text-xs outline-none ${lang !== 'en' && lang !== 'hi' ? 'bg-accent font-semibold text-ink' : 'text-mute'}`}>
+                className={`max-w-36 rounded-full bg-transparent px-1.5 py-0.5 text-xs outline-none ${lang !== 'en' && lang !== 'hi' ? 'bg-text font-semibold text-ink' : 'text-mute'}`}>
           <option value="">+{langs.length - 1} languages</option>
           {langs.filter((x) => x.code !== 'hi').map((x) => (
             <option key={x.code} value={x.code}>{x.native} · {x.name}</option>

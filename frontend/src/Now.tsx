@@ -78,7 +78,7 @@ function ActionButtons({ c, onChanged, size }: { c: Card; onChanged: () => void;
   return (
     <div className="flex items-center gap-2">
       <button disabled={busy} onClick={() => run(next)}
-              className={`flex items-center gap-2 rounded-full bg-accent font-semibold text-ink transition hover:brightness-110 disabled:opacity-50
+              className={`flex items-center gap-2 rounded-full bg-action font-semibold text-ink transition hover:opacity-85 disabled:opacity-50
                 ${size === 'lg' ? 'px-6 py-3 text-base' : 'px-4 py-1.5 text-sm'}`}>
         {ACTION_LABEL[next] ?? next} <ArrowRight size={size === 'lg' ? 18 : 14} />
       </button>
@@ -108,7 +108,7 @@ export function Now({ onOpen, tick }: { onOpen: (c: Card) => void; tick: number 
       <div className="flex items-baseline gap-3">
         <h2 className="text-3xl font-semibold">{feed.counts.needs_action} warnings need action</h2>
         {feed.counts.compromise > 0 && (
-          <span className="text-lg text-fuchsia-300">{feed.counts.compromise} suspected compromise</span>
+          <span className="text-lg text-comp">{feed.counts.compromise} suspected compromise</span>
         )}
         <span className="text-sm text-mute">· {feed.counts.closed} closed</span>
       </div>
@@ -137,7 +137,7 @@ export function Now({ onOpen, tick }: { onOpen: (c: Card) => void; tick: number 
           <div className="flex items-center gap-4">
             {hero.tier === 'Compromise' && (
               <button onClick={() => setReportFor(hero)}
-                      className="flex items-center gap-1 rounded-full px-4 py-2 text-sm text-fuchsia-300 ring-1 ring-fuchsia-400/50 hover:bg-fuchsia-500/10">
+                      className="flex items-center gap-1 rounded-full px-4 py-2 text-sm text-comp ring-1 ring-comp/50 hover:bg-comp/10">
                 <FileText size={14} /> Draft CERT-In report
               </button>
             )}

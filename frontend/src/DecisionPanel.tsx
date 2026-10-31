@@ -9,7 +9,7 @@ export interface Bayes {
 }
 
 const TONE: Record<Bayes['decision'], string> = {
-  compromised: 'text-fuchsia-300',
+  compromised: 'text-comp',
   hunt: 'text-high',
   'no evidence of compromise': 'text-ok',
 }
@@ -27,9 +27,9 @@ export function DecisionPanel({ bayes }: { bayes?: Bayes }) {
         </div>
         <div className="flex-1">
           <div className="relative h-2 rounded-full bg-panel-2">
-            <div className="absolute inset-y-0 left-0 rounded-full bg-fuchsia-400" style={{ width: `${Math.max(pct, 0.5)}%` }} />
+            <div className="absolute inset-y-0 left-0 rounded-full bg-comp" style={{ width: `${Math.max(pct, 0.5)}%` }} />
             <div className="absolute inset-y-[-3px] w-px bg-high" style={{ left: '20%' }} title="hunt threshold 20%" />
-            <div className="absolute inset-y-[-3px] w-px bg-fuchsia-300" style={{ left: '50%' }} title="compromise threshold 50%" />
+            <div className="absolute inset-y-[-3px] w-px bg-comp" style={{ left: '50%' }} title="compromise threshold 50%" />
           </div>
           <div className="mt-1 flex justify-between text-[10px] text-mute"><span>0%</span><span>hunt 20%</span><span>compromised 50%</span><span>100%</span></div>
         </div>

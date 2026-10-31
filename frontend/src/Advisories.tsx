@@ -147,7 +147,7 @@ export function Advisories() {
                     placeholder="Paste a CERT-In note, vendor bulletin or email. Odyssey finds the product, versions and indicators, and tells you who is exposed."
                     className="w-full resize-none rounded-lg border border-line bg-ink p-2 text-xs outline-none focus:border-accent" />
           <button onClick={analyse} disabled={busy || paste.trim().length < 40}
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-accent py-2 text-sm font-semibold text-ink disabled:opacity-40">
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-action py-2 text-sm font-semibold text-ink disabled:opacity-40">
             {busy ? <Loader2 size={14} className="animate-spin" /> : <ScanText size={14} />} Analyse
           </button>
         </div>

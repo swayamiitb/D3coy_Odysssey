@@ -19,7 +19,7 @@ function Kpi({ value, label, sub, tone }: { value: string; label: string; sub?: 
 }
 
 /** Single-series sparkline; optional shaded bands (e.g. detected surges). Text stays in text tokens. */
-export function Spark({ values, bands = [], color = '#38bdf8', h = 36 }: { values: number[]; bands?: [number, number][]; color?: string; h?: number }) {
+export function Spark({ values, bands = [], color = 'var(--color-accent)', h = 36 }: { values: number[]; bands?: [number, number][]; color?: string; h?: number }) {
   if (values.length < 2) return null
   const w = 160
   const max = Math.max(...values) || 1
@@ -41,7 +41,7 @@ function PortCard({ t }: { t: PortTrend }) {
         <span className="truncate text-xs">{t.service}</span>
         <span className={`font-mono text-xs ${t.elevated ? 'text-crit' : 'text-mute'}`}>{pct >= 0 ? '+' : ''}{pct}%</span>
       </div>
-      <Spark values={t.series.map((s) => s.records)} color={t.elevated ? '#ef4444' : '#38bdf8'} />
+      <Spark values={t.series.map((s) => s.records)} color={t.elevated ? 'var(--color-crit)' : 'var(--color-accent)'} />
       <div className="text-[10px] text-mute">:{t.port} · {fmt(t.last7_mean)}/day</div>
     </div>
   )
@@ -66,7 +66,7 @@ function Technologies({ rows }: { rows: Technology[] }) {
           <tr key={r.label} className="border-t border-line/50">
             <td className="py-1.5 pr-2">
               <span className="font-medium">{r.label}</span>
-              {r.compromised_assets > 0 && <span className="ml-2 text-fuchsia-300">{r.compromised_assets} compromised</span>}
+              {r.compromised_assets > 0 && <span className="ml-2 text-comp">{r.compromised_assets} compromised</span>}
             </td>
             <td className="py-1.5 text-right font-mono">{r.orgs}</td>
             <td className="py-1.5 text-right font-mono">{r.internet_facing}</td>
@@ -186,7 +186,7 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
       {section === 'overview' && (
         <>
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <Kpi value={fmt(d.tiers.Compromise ?? 0)} label="suspected compromise" sub="Bayesian decision model" tone="text-fuchsia-300" />
+            <Kpi value={fmt(d.tiers.Compromise ?? 0)} label="suspected compromise" sub="Bayesian decision model" tone="text-comp" />
             <Kpi value={fmt(d.tiers.Critical ?? 0)} label="Critical warnings" sub={`${fmt(d.tiers.High ?? 0)} High · ${fmt(d.tiers.Medium ?? 0)} Medium`} tone="text-crit" />
             <Kpi value={fmt(d.pending)} label="await your decision" sub="predictions and escalations need a human" tone="text-accent" />
             <Kpi value={real?.median_lead_days != null ? `${real.median_lead_days} d` : '—'} label="ahead of CISA KEV"
@@ -237,7 +237,7 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
                       return (
                         <div key={tag} className="rounded-lg border border-line bg-panel-2/50 p-2">
                           <div className="text-xs">{tag}</div>
-                          <Spark values={series} bands={bands} color="#8b98a9" />
+                          <Spark values={series} bands={bands} color="var(--color-mute)" />
                           <div className="text-[10px] text-mute">{bands.length ? `${bands.length} surge${bands.length > 1 ? 's' : ''}` : 'no surge'}</div>
                         </div>
                       )

@@ -10,7 +10,7 @@ function Stage({ n, title, body, stat }: { n: number; title: string; body: strin
   return (
     <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-line bg-panel p-3">
       <div className="mb-1 flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-ink">{n}</span>
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-action text-xs font-semibold text-ink">{n}</span>
         <span className="font-semibold">{title}</span>
       </div>
       <ul className="flex-1 space-y-0.5 text-xs text-mute">{body.map((b) => <li key={b}>· {b}</li>)}</ul>

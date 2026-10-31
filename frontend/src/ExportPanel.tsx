@@ -46,7 +46,7 @@ export function CertInReportModal({ orgId, cveId, onClose }: { orgId: string; cv
             <pre className="whitespace-pre-wrap rounded-lg bg-ink p-4 font-mono text-xs leading-relaxed text-text">{asText(report)}</pre>
             <div className="mt-3 flex gap-2">
               <button onClick={() => navigator.clipboard.writeText(asText(report))}
-                      className="flex items-center gap-1 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-ink"><Copy size={14} /> Copy text</button>
+                      className="flex items-center gap-1 rounded-full bg-action px-4 py-2 text-sm font-semibold text-ink"><Copy size={14} /> Copy text</button>
               <button onClick={() => download(`CERT-In-draft-${orgId}-${cveId}.json`, JSON.stringify(report, null, 2))}
                       className="flex items-center gap-1 rounded-full px-4 py-2 text-sm text-mute ring-1 ring-line hover:text-text"><Download size={14} /> JSON</button>
             </div>
@@ -69,7 +69,7 @@ export function ExportPanel({ orgId, cveId, compromise }: { orgId: string; cveId
     <Panel title="Share & report">
       <div className="flex flex-wrap gap-2">
         <button onClick={() => setOpen(true)}
-                className={`flex items-center gap-1 rounded-full px-4 py-2 text-sm font-semibold ${compromise ? 'bg-fuchsia-500 text-ink' : 'bg-panel-2 text-text ring-1 ring-line'}`}>
+                className={`flex items-center gap-1 rounded-full px-4 py-2 text-sm font-semibold ${compromise ? 'bg-comp text-ink' : 'bg-panel-2 text-text ring-1 ring-line'}`}>
           <FileText size={14} /> CERT-In incident report (draft)
         </button>
         <button onClick={exportStix} className="flex items-center gap-1 rounded-full bg-panel-2 px-4 py-2 text-sm ring-1 ring-line">

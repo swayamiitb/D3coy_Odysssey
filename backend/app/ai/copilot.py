@@ -58,7 +58,8 @@ ANSWER_SCHEMA = {
 }
 ANSWER_SYSTEM = (
     "You are the analyst copilot of India's national cyber early-warning centre. Answer the question using ONLY the "
-    "numbered facts. Give a one-sentence direct answer, then 2-5 points; every point cites the fact IDs it uses, for "
+    "numbered facts. Give a one-sentence direct answer (at most 40 words), then 2-5 short points (at most 30 words "
+    "each); every point cites the fact IDs it uses, for "
     "example [\"F2\"]. Copy CVE ids, hostnames, versions, dates and numbers exactly as written in the facts; never "
     "introduce any that are not there. If the facts do not answer the question, say so."
 )
@@ -162,7 +163,8 @@ def _facts(conn: sqlite3.Connection, route: dict, api) -> tuple[list[str], list[
             if ssvc:
                 facts.append(f"{cve} CISA SSVC: Exploitation={ssvc.get('Exploitation')}, Automatable={ssvc.get('Automatable')}.")
             if (fc := rec.get("forecast")):
-                facts.append(f"{cve} day-0 forecast: probability {fc['p']} of exploitation; flagged={fc['flag']}.")
+                facts.append(f"{cve} day-0 forecast: {round(fc['p'] * 100)}% likely to be exploited"
+                             + (" (flagged as likely)." if fc["flag"] else " (not flagged)."))
             for r in conn.execute("""SELECT a.tier, COUNT(DISTINCT a.org_id) orgs, COUNT(*) assets FROM assessments a
                                      WHERE a.cve_id = ? AND a.R > 0 GROUP BY a.tier""", (cve,)).fetchall():
                 facts.append(f"{cve} exposure: {r['orgs']} organisation(s), {r['assets']} asset(s) at tier {r['tier']}.")
@@ -175,7 +177,7 @@ def _facts(conn: sqlite3.Connection, route: dict, api) -> tuple[list[str], list[
         facts.append(f"{f['flagged']} recent CVEs on exposed assets are flagged likely-to-be-exploited; "
                      f"{f['since_exploited']} have since been confirmed exploited (added to CISA KEV), "
                      f"{f['flagged'] - f['since_exploited']} not yet.")
-        facts += [f"Not yet exploited: {i['cve']} ({i['product']}), forecast probability {i['p']}, "
+        facts += [f"Not yet exploited: {i['cve']} ({i['product']}), forecast {round(i['p'] * 100)}% likely to be exploited, "
                   f"{i['orgs']} organisation(s), {i['assets']} asset(s)." for i in
                   sorted(pending, key=lambda i: -i["p"])[:6]]
         facts += [f"Already confirmed: {i['cve']} ({i['product']}) was flagged on day 0 and added to CISA KEV on "
@@ -183,8 +185,10 @@ def _facts(conn: sqlite3.Connection, route: dict, api) -> tuple[list[str], list[
     elif tool == "plan":
         p = api.riskplan(org, 6)
         facts.append(f"Scope {p['scope']}: {p['tickets']} change tickets; {p['for_50_pct']} remove 50% of the risk and "
-                     f"{p['for_80_pct']} remove 80%.")
-        facts += [f"Step {t['rank']}: upgrade {t['label']} {t['version']} at {t['org_id']}"
+                     f"{p['for_80_pct']} remove 80%. The steps are already in the order to fix them: urgency first "
+                     f"(suspected compromise, then known-exploited), then risk removed per unit of effort. Step 1 is "
+                     f"what to fix first, even when a later step removes a larger share.")
+        facts += [f"Step {t['rank']}{' (fix first)' if t['rank'] == 1 else ''}: upgrade {t['label']} {t['version']} at {t['org_id']}"
                   + (f" to {t['target_version']}" if t["target_version"] else "")
                   + f" ({t['n_assets']} host(s), {t['n_cves']} CVE(s), top tier {t['top_tier']}), removing "
                     f"{t['pct']}% of the risk." for t in p["plan"]]
@@ -205,7 +209,12 @@ def _facts(conn: sqlite3.Connection, route: dict, api) -> tuple[list[str], list[
                   if e["payload"].get("title")]
     elif tool == "pending":
         waiting = api.approvals()
-        facts.append(f"{len(waiting)} proposal(s) are waiting for an analyst's decision (approve or reject).")
+        kinds = {"auto.escalate_sla": "SLA escalation(s) to sector CSIRTs", "auto.advisory": "new-advisory notice(s)",
+                 "auto.forecast": "pre-emptive advisory(ies)", "auto.warn": "early warning(s)",
+                 "auto.escalate": "report(s) to regulators"}
+        split = ", ".join(f"{sum(p['kind'] == k for p in waiting)} {label}" for k, label in kinds.items()
+                          if any(p["kind"] == k for p in waiting))
+        facts.append(f"{len(waiting)} proposal(s) are waiting for an analyst's decision (approve or reject): {split}.")
         facts += [f"Waiting: {p['title']} ({len(p['orgs'])} organisation(s))." for p in waiting[:8]]
     if not facts:
         facts.append("The question could not be mapped to Odyssey's data; try naming an organisation, sector, product or CVE.")
@@ -220,11 +229,18 @@ def _validate(out: dict, facts: dict[str, str]) -> list[str]:
             problems.append(f"uncited point: {p.get('text', '')[:50]}")
         if bad := [c for c in p.get("cites", []) if c not in facts]:
             problems.append(f"cites unknown facts {bad}")
+    numbers = set(_NUMBER.findall(corpus))
     for text in [out.get("answer", "")] + [p.get("text", "") for p in points]:
         for token in _GROUNDED.findall(text):
             if token not in corpus:
                 problems.append(f"ungrounded token '{token}'")
+        for n in _NUMBER.findall(text):  # every count and figure, single digits included, must come from the facts
+            if n not in numbers:
+                problems.append(f"number '{n}' is not in the facts")
     return problems
+
+
+_NUMBER = re.compile(r"(?<![\w.-])\d+(?:\.\d+)?(?![\w-])")
 
 
 def ask(conn: sqlite3.Connection, question: str, api) -> dict:
@@ -237,13 +253,18 @@ def ask(conn: sqlite3.Connection, question: str, api) -> dict:
                 {"role": "user", "content": "Facts:\n" + "\n".join(f"[{k}] {v}" for k, v in facts.items())
                                             + f"\n\nQuestion: {question}"}]
     seconds, out, problems = route.get("_seconds", 0.0), {}, ["not run"]
-    for _ in range(2):  # one self-repair round with the same model, never a different model
-        r = chat(messages, role="copilot", schema=ANSWER_SCHEMA, max_tokens=600, temperature=0.0, timeout=180)
+    temperature = 0.0
+    for _ in range(2):  # one repair round with the same model, never a different model
+        r = chat(messages, role="copilot", schema=ANSWER_SCHEMA, max_tokens=700, temperature=temperature,
+                 repeat_penalty=1.15, timeout=180)
         seconds += r.seconds
         out = r.data if isinstance(r.data, dict) else {}
         problems = [r.error] if r.error else _validate(out, facts)
         if not problems:
             break
+        if r.error:  # broken output (e.g. a decoding loop hit the token cap): re-sample, don't feed it back
+            temperature = 0.3
+            continue
         messages += [{"role": "assistant", "content": r.content},
                      {"role": "user", "content": "Your answer failed validation: " + "; ".join(problems)
                                                  + ". Rewrite it using only text that appears in the facts."}]

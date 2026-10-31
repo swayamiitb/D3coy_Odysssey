@@ -56,7 +56,7 @@ export function SectorHeatmap({ s, active, onPick }: { s: Summary; active?: stri
                 const n = s.sector_heatmap[sec]?.[t] ?? 0
                 return (
                   <td key={t} className="h-8 rounded text-center font-mono"
-                      style={{ background: n ? `${TIER_FILL[t]}${Math.round(30 + (190 * n) / max).toString(16).padStart(2, '0')}` : '#18202b' }}>
+                      style={{ background: n ? `${TIER_FILL[t]}${Math.round(30 + (190 * n) / max).toString(16).padStart(2, '0')}` : 'var(--color-panel-2)' }}>
                     {n || ''}
                   </td>
                 )

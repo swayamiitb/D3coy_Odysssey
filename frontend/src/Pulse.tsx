@@ -39,7 +39,7 @@ export function Pulse({ summary, live }: { summary?: Summary; live: LedgerEvent[
                   </span>
                   <span className="text-xs text-mute">critical</span>
                 </div>
-                {(h.Compromise ?? 0) > 0 && <div className="text-xs text-fuchsia-300">{h.Compromise} compromise</div>}
+                {(h.Compromise ?? 0) > 0 && <div className="text-xs text-comp">{h.Compromise} compromise</div>}
               </div>
             )
           })}
@@ -57,7 +57,7 @@ export function Pulse({ summary, live }: { summary?: Summary; live: LedgerEvent[
             <li key={e.seq} className="flex items-start gap-2">
               <Prov p={e.provenance} />
               <div className="min-w-0">
-                <div className="truncate">{KIND_LABEL[e.kind] ?? KIND[e.kind]?.label ?? e.kind.replace('analyst.', 'Analyst: ')}</div>
+                <div className="truncate">{e.kind === 'model.output' && e.subject === 'copilot' ? 'Copilot answer' : KIND_LABEL[e.kind] ?? KIND[e.kind]?.label ?? e.kind.replace('analyst.', 'Analyst: ')}</div>
                 <div className="truncate font-mono text-mute">{e.subject} · {e.ts.slice(5, 16).replace('T', ' ')}</div>
               </div>
             </li>
