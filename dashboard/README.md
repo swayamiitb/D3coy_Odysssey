@@ -7,10 +7,10 @@ An analyst-first SOC website on top of the lead's **Odyssey** backend (`swayamii
 ```bash
 cd dashboard
 npm ci          # first time only; versions are pinned
-npm run dev     # http://localhost:5174
+npm run dev     # http://localhost:5174  (the landing story; the console is at #/overview)
 ```
 
-At start-up the console picks one data mode and shows it at the bottom of the sidebar:
+At start-up the app picks one data mode and shows it (landing header, and the bottom of the console sidebar):
 
 | Mode | When | Actions (acknowledge, approve…) |
 |---|---|---|
@@ -27,13 +27,15 @@ npm run snapshot                          # backend on 127.0.0.1:8000
 node scripts/snapshot.mjs http://HOST:8000
 ```
 
-Commit `public/demo/` after a good run.
+Commit `public/demo/` after a good run. The committed snapshot was taken on 1 Nov at 03:22 IST; re-run it after the backend's final build so the counts and the CERT-In clock match the demo. AI briefs are missing from it until the local model is installed (the backend answers 500 for them).
 
-## Landing story and globe
+## Landing story (`#/`)
 
-The Overview opens with a four-step scroll story (`src/screens/Landing.tsx`): real botnet C2 servers on a 3D globe (`cobe`) → the globe dives into a flat India state map with the operators and their Critical counts (`src/geo/IndiaMap.tsx`) → the beacon arc from the compromised gateway to its C2 → the India map again, with each top state's worst real CVE. Hover a state for details. Visitors with "reduce motion" on get a still version.
+The site opens on a full-screen scroll story, outside the console (`src/screens/Landing.tsx`): real botnet command servers on a 3D globe (`cobe`) → the globe dives into a flat India state map with the operators, their Critical warnings and a ranked list (`src/geo/IndiaMap.tsx`) → the beacon arc from the compromised gateway to its C2 → the map again with each top state's worst real CVE, the CERT-In clock and the decisions waiting. "Open the console" (header and last step) goes to `#/overview`; Back returns to the same step.
 
-State boundaries: MapSVG via [`@svg-maps/india`](https://www.npmjs.com/package/@svg-maps/india), CC BY 4.0 (credited on the map). They are pre-2019 divisions: Ladakh is drawn inside Jammu and Kashmir.
+Hover, focus or tap a state for its card. Reduced motion, no WebGL, phones and short screens get the stacked version: the four steps one under another, each with a still picture. Labels on the globe need CSS anchor positioning (Chrome or Edge); present in one of those. Design decisions live in `.interface-design/system.md`.
+
+State boundaries: MapSVG via [`@svg-maps/india`](https://www.npmjs.com/package/@svg-maps/india), CC BY 4.0 (credited in the page footer). They are pre-2019 divisions: Ladakh is drawn inside Jammu and Kashmir.
 
 The C2 layer comes from abuse.ch Feodo Tracker, bundled in `src/geo/feodo.json` because the Odyssey API does not return C2 countries. Refresh it before a demo:
 

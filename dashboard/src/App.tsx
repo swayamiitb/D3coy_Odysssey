@@ -1,5 +1,5 @@
 import { Building2, Gavel, LayoutGrid, ListChecks, Menu, Radar, ScrollText, Telescope, TrendingDown, X } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { Component, useEffect, useState, type ReactNode } from 'react'
 import { api, getAnalyst, getMode, getSnapshotTakenAt, setAnalyst, useLoad } from './data'
 import { clock, dateTime } from './format'
 import { AuditLog } from './screens/AuditLog'
@@ -7,23 +7,49 @@ import { Decisions } from './screens/Decisions'
 import { Forecast } from './screens/Forecast'
 import { Incident } from './screens/Incident'
 import { Intel } from './screens/Intel'
+import { Landing } from './screens/Landing'
 import { Organisation, OrgList } from './screens/Orgs'
 import { Overview } from './screens/Overview'
 import { Queue } from './screens/Queue'
 import { RiskPlanScreen } from './screens/RiskPlan'
+import { rememberScroll } from './scroll'
 import { useNow } from './ui'
 
-/** Hash routes: #/ · #/queue · #/decisions · #/log · #/incident/<org>/<cve>
- *  · #/intel · #/orgs · #/orgs/<id> · #/risk · #/risk/<org> · #/ahead */
+/** Hash routes: #/ (the landing story, outside the console) · #/overview · #/queue · #/decisions · #/log
+ *  · #/incident/<org>/<cve> · #/intel · #/orgs · #/orgs/<id> · #/risk · #/risk/<org> · #/ahead */
 export function useRoute(): string[] {
   const read = () => window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
   const [parts, setParts] = useState(read)
   useEffect(() => {
-    const on = () => { setParts(read()); window.scrollTo(0, 0) }
+    let current = read()[0] ?? ''
+    const on = () => {
+      rememberScroll(current)
+      const next = read()
+      current = next[0] ?? ''
+      setParts(next)
+      // Console screens open at the top; the landing restores where the reader left it (see scroll.ts).
+      if (current !== '') window.scrollTo(0, 0)
+    }
     window.addEventListener('hashchange', on)
     return () => window.removeEventListener('hashchange', on)
   }, [])
   return parts
+}
+
+/** If the landing ever fails to render, the console is still one click away. */
+class LandingBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(e: unknown) { console.error('landing', e) }
+  render() {
+    if (!this.state.failed) return this.props.children
+    return (
+      <div className="landing flex flex-col items-center justify-center gap-5 p-8 text-center">
+        <p className="text-[18px]">The story couldn't load.</p>
+        <a href="#/overview" className="pill pill-primary">Open the console</a>
+      </div>
+    )
+  }
 }
 
 export const go = (path: string) => { window.location.hash = path }
@@ -61,8 +87,13 @@ function Analyst() {
   )
 }
 
+/** The landing is its own page: no sidebar, no console chrome, and no per-second console clock re-rendering it. */
 export default function App() {
   const route = useRoute()
+  return (route[0] ?? '') === '' ? <LandingBoundary><Landing /></LandingBoundary> : <Console route={route} />
+}
+
+function Console({ route }: { route: string[] }) {
   const [menu, setMenu] = useState(false)
   const t = useNow(1000)
   const feed = useLoad(api.feed, 'feed')
@@ -73,7 +104,7 @@ export default function App() {
 
   const nav = (
     <nav className="space-y-0.5" onClick={() => setMenu(false)}>
-      <NavItem href="#/" icon={<LayoutGrid size={16} />} label="Overview" active={screen === ''} />
+      <NavItem href="#/overview" icon={<LayoutGrid size={16} />} label="Overview" active={screen === 'overview'} />
       <NavItem href="#/queue" icon={<ListChecks size={16} />} label="Triage queue" count={needsAction} active={screen === 'queue' || screen === 'incident'} />
       <NavItem href="#/decisions" icon={<Gavel size={16} />} label="Decisions" count={pending} active={screen === 'decisions'} />
       <NavItem href="#/log" icon={<ScrollText size={16} />} label="Audit log" active={screen === 'log'} />
@@ -85,7 +116,7 @@ export default function App() {
     </nav>
   )
   const brand = (
-    <a href="#/" className="flex items-center gap-2.5">
+    <a href="#/overview" className="flex items-center gap-2.5">
       <img src="/mark.svg" alt="" className="size-7" />
       <span>
         <span className="block text-[15px] font-semibold leading-5">Odyssey SOC</span>

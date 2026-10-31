@@ -29,10 +29,14 @@ async function withTimeout(url: string, ms: number): Promise<Response> {
 }
 
 export async function detectMode(): Promise<Mode> {
-  try {
-    const r = await withTimeout('/api/health', 2500)
-    if (r.ok && (r.headers.get('content-type') ?? '').includes('json')) return (mode = 'live')
-  } catch { /* backend not reachable */ }
+  // A slow first answer (a cold backend) gets one longer retry before the app settles for a snapshot or sample data.
+  for (const ms of [2500, 5000]) {
+    try {
+      const r = await withTimeout('/api/health', ms)
+      if (r.ok && (r.headers.get('content-type') ?? '').includes('json')) return (mode = 'live')
+      break // it answered, just not as Odyssey: don't wait again
+    } catch { /* backend not reachable yet */ }
+  }
   try {
     const r = await withTimeout('/demo/manifest.json', 2500)
     if (r.ok && (r.headers.get('content-type') ?? '').includes('json')) {

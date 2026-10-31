@@ -42,7 +42,7 @@ if (!health) {
   process.exit(1)
 }
 
-const [soc] = await Promise.all([
+const [soc, , , , , alerts] = await Promise.all([
   save('/api/soc'),
   save('/api/approvals?status=pending'),
   save('/api/approvals?status=approved'),
@@ -66,6 +66,14 @@ for (const o of orgs) {
   process.stdout.write(`\r${orgs.indexOf(o) + 1}/${orgs.length} organisations saved`)
 }
 if (orgs.length) process.stdout.write('\n')
+
+// Landing map: each organisation's worst Critical/Compromise alert, so the CVE chips keep their product names offline.
+const seen = new Set()
+for (const a of alerts ?? []) {
+  if (seen.has(a.org_id) || (a.tier !== 'Critical' && a.tier !== 'Compromise')) continue
+  seen.add(a.org_id)
+  await save(`/api/alerts/${a.org_id}/${a.cve_id}`)
+}
 
 const feed = await save('/api/feed')
 

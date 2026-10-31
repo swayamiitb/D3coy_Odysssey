@@ -5,7 +5,6 @@ import { api, now, useLoad } from '../data'
 import { date, num, sla, STATE_LABEL, TIER_RANK } from '../format'
 import type { Approval, Card, Soc } from '../types'
 import { Bars, Button, Countdown, Empty, ErrorLine, Kpis, Panel, TierMark } from '../ui'
-import { Landing } from './Landing'
 
 export const LANG: Record<string, string> = {
   as: 'Assamese', bn: 'Bengali', brx: 'Bodo', doi: 'Dogri', gu: 'Gujarati', hi: 'Hindi', kn: 'Kannada', ks: 'Kashmiri',
@@ -92,8 +91,7 @@ export function Overview() {
 
   return (
     <div className="space-y-4">
-      <Landing />
-      <div id="overview-start" className="scroll-mt-4 pb-2">
+      <div className="pb-2">
         <h1 className="text-[26px] font-semibold tracking-tight">Overview</h1>
         <p className="text-mute">What needs a person now, across {s?.orgs.length ?? '—'} organisations.</p>
       </div>

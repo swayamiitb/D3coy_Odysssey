@@ -11,7 +11,17 @@ export const STATE_CENTROID: Record<string, LatLng> = {
   Sikkim: [27.5, 88.5], 'Tamil Nadu': [11.0, 78.4], Telangana: [17.9, 79.0], Tripura: [23.7, 91.7],
   'Uttar Pradesh': [26.9, 80.9], Uttarakhand: [30.1, 79.0], 'West Bengal': [23.0, 87.9], Delhi: [28.6, 77.2],
   'Jammu and Kashmir': [33.6, 75.0], Ladakh: [34.2, 77.6], Puducherry: [11.9, 79.8], Chandigarh: [30.7, 76.8],
+  'Andaman and Nicobar Islands': [11.7, 92.7], 'Dadra and Nagar Haveli': [20.2, 73.0], 'Daman and Diu': [20.4, 72.8],
+  Lakshadweep: [10.6, 72.6],
 }
+
+/** Other spellings of the same state, so an operator is never silently dropped from the map. */
+const STATE_ALIAS: Record<string, string> = {
+  'NCT of Delhi': 'Delhi', 'National Capital Territory of Delhi': 'Delhi', Orissa: 'Odisha', Pondicherry: 'Puducherry',
+  'Jammu & Kashmir': 'Jammu and Kashmir', 'Andaman & Nicobar Islands': 'Andaman and Nicobar Islands',
+  'Dadra and Nagar Haveli and Daman and Diu': 'Daman and Diu', Uttaranchal: 'Uttarakhand',
+}
+export const stateName = (s: string) => STATE_ALIAS[s] ?? s
 
 export const COUNTRY_CENTROID: Record<string, LatLng> = {
   US: [39.8, -98.6], CA: [56.1, -106.3], MX: [23.6, -102.5], BR: [-14.2, -51.9], AR: [-38.4, -63.6],
@@ -28,6 +38,8 @@ export const COUNTRY_CENTROID: Record<string, LatLng> = {
 }
 
 export const INDIA: LatLng = [22, 79]
+/** The centre of the @svg-maps/india drawing: aim the globe here so its India lands on the flat map's India. */
+export const MAP_CENTRE: LatLng = [22.7, 82.8]
 
 const rad = (d: number) => (d * Math.PI) / 180
 
@@ -66,4 +78,5 @@ export function spread(center: LatLng, i: number, n: number): LatLng {
   return [center[0] + 0.9 * Math.sin(a), center[1] + 0.9 * Math.cos(a)]
 }
 
-export const refang = (s: string) => s.replace(/\[\.\]/g, '.')
+/** Undo the usual defanging: 1[.]2[.]3[.]4, [:], hxxp. */
+export const refang = (s: string) => s.replace(/\[\.\]/g, '.').replace(/\[:\]/g, ':').replace(/^hxxp/i, 'http')

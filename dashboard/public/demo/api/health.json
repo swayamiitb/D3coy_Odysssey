@@ -1,0 +1,1 @@
+{"status":"ok","ledger_intact":true,"first_bad_seq":null,"models":{"extract":"mist:8b","classify":"mist:8b","copilot":"mist:8b","narrate":"mist:8b","reason":"foundation-sec:8b-reasoning"},"scoring_config_hash":"286f5884bcbc379b"}
