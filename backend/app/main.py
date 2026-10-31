@@ -298,6 +298,53 @@ def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
     return {**body, "cached": False}
 
 
+ADVISORIES = ROOT / "data" / "sim" / "advisories.json"
+ANALYSER_VERSION = "advisory-v1"
+
+
+def _analyse_advisory(adv: dict) -> dict:
+    from datetime import datetime, timezone
+
+    from . import cache
+    from .ai.advisory import analyse
+    from .ai.llm import resolve
+
+    key = cache.key_of(ANALYSER_VERSION, resolve("extract"), adv["text"])
+    if hit := cache.get("advisory", key):
+        return {**hit, "cached": True}
+    conn = db()
+    assets = [dict(r) for r in conn.execute("SELECT * FROM assets").fetchall()]
+    orgs = {r["id"]: {**dict(r), "cii": bool(r["cii"])} for r in conn.execute("SELECT * FROM orgs").fetchall()}
+    result = analyse(adv, assets, orgs)
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    Ledger(conn=conn).append(ts=now, kind="advisory.analysed", subject=adv["id"], source="ANALYST_INPUT"
+                             if adv.get("provenance") == "USER" else "CERTIN_SIM", provenance=adv.get("provenance", "USER"),
+                             payload={"product": result["product"]["label"], "exposed": len(result["exposed"]),
+                                      "cleared": len(result["cleared"]), "iocs": sum(map(len, result["iocs"].values()))})
+    cache.put("advisory", key, result, now, adv["id"])
+    return {**result, "cached": False}
+
+
+@app.get("/api/advisories")
+def advisories() -> list[dict]:
+    """Advisory inbox (SIM, CERT-In style) with Odyssey's analysis of each."""
+    items = json.loads(ADVISORIES.read_text(encoding="utf-8"))
+    return [{**{k: a[k] for k in ("id", "title", "severity", "published", "provenance", "note", "text")},
+             "analysis": _analyse_advisory(a)} for a in items]
+
+
+@app.post("/api/advisories/analyze")
+def analyze_advisory(body: dict) -> dict:
+    """Analyse any pasted advisory text against the national inventory (closed-set, evidence-grounded)."""
+    import hashlib
+    text = (body.get("text") or "").strip()
+    if len(text) < 40:
+        raise HTTPException(400, "paste the advisory text (at least a sentence or two)")
+    adv = {"id": "USER-" + hashlib.sha256(text.encode()).hexdigest()[:10], "title": body.get("title") or "Pasted advisory",
+           "provenance": "USER", "text": text[:8000]}
+    return _analyse_advisory(adv)
+
+
 _SCORECARD_CACHE: dict = {}
 
 

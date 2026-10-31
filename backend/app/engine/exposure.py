@@ -103,7 +103,8 @@ def cna_vote(asset: dict, affected: list[dict]) -> Vote | None:
 
 # ---------------------------------------------------------------- description text
 
-_V = r"(\d+(?:\.\d+)+(?:[A-Za-z]+\d+(?:\.\d+)*)?(?:-[\w.]+)?)"
+# Versions incl. vendor suffixes written with spaces: "8.0 Update 3", "2019 CU14", "7.5 SP2".
+_V = r"(\d+(?:\.\d+)+(?:[A-Za-z]+\d+(?:\.\d+)*)?(?:-[\w.]+)?(?:\s+(?:Update|SP|Service Pack|CU|Cumulative Update|Patch|Build)\s*\d+)?)"
 _NEGATION = re.compile(r"\b(does not|do not|doesn't|is not|are not|not)\s+(impact|affect|vulnerable)|unaffected", re.I)
 _PATTERNS = [
     (re.compile(rf"\b(?:before|prior to|earlier than|below|lower than)\s+(?:version\s+)?{_V}", re.I), "lt"),

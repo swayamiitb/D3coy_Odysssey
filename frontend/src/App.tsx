@@ -1,5 +1,6 @@
-import { Cpu, FlaskConical, LayoutList, Radar, ShieldCheck, WifiOff, Zap } from 'lucide-react'
+import { Cpu, FileSearch, FlaskConical, LayoutList, Radar, ShieldCheck, WifiOff, Zap } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
 import { AlertQueue } from './AlertQueue'
 import { api, type AlertDetail as Detail, type AlertRow, type Health, type LedgerEvent, type Summary, type Tier } from './api'
@@ -9,7 +10,7 @@ import { Proof } from './Proof'
 import { Pulse } from './Pulse'
 import { Badge } from './ui'
 
-type View = 'now' | 'explore' | 'proof'
+type View = 'now' | 'advisories' | 'explore' | 'proof'
 
 export default function App() {
   const [view, setView] = useState<View>(() => (new URLSearchParams(window.location.search).get('view') as View) || 'now')
@@ -71,7 +72,7 @@ export default function App() {
             <p className="text-xs text-mute">Know first. Act first. Every warning explained.</p>
           </div>
           <nav className="ml-6 flex rounded-full bg-panel p-1">
-            {([['now', 'Now', Zap], ['explore', 'All warnings', LayoutList], ['proof', 'Proof', FlaskConical]] as const).map(([k, label, Icon]) => (
+            {([['now', 'Now', Zap], ['advisories', 'Advisories', FileSearch], ['explore', 'All warnings', LayoutList], ['proof', 'Proof', FlaskConical]] as const).map(([k, label, Icon]) => (
               <button key={k} onClick={() => setView(k)}
                       className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm ${view === k ? 'bg-accent text-ink font-semibold' : 'text-mute hover:text-text'}`}>
                 <Icon size={14} /> {label}
@@ -98,6 +99,8 @@ export default function App() {
       <main className="flex min-h-0 flex-1 gap-5 p-5">
         {view === 'proof' ? (
           <Proof />
+        ) : view === 'advisories' ? (
+          <Advisories />
         ) : view === 'now' ? (
           <>
             <Now onOpen={(c) => setSelected(c)} tick={tick} />
