@@ -27,6 +27,7 @@ import json
 import os
 import queue
 import threading
+import time
 import urllib.error
 import urllib.request
 
@@ -34,6 +35,8 @@ DEFAULT_SHIELD = os.environ.get("ODYSSEY_SHIELD_URL", "http://127.0.0.1:8000")
 FORWARD_HEADERS = ("user-agent", "referer", "referrer", "cookie", "x-forwarded-for", "x-real-ip",
                    "content-type", "x-api-version", "x-odyssey-redteam", "x-odyssey-rt-case")
 BODY_LIMIT = 64 * 1024
+HEARTBEAT_S = 10.0   # re-announce the app this often: the shield's registry is in memory and forgets on a restart
+RETRY_S = 2.0        # ...and this often while the shield is unreachable or still starting up
 
 
 def _iso() -> str:
@@ -54,14 +57,19 @@ class OdysseyShield:
         self._q: queue.Queue = queue.Queue(maxsize=2000)
         self._worker = threading.Thread(target=self._drain, daemon=True, name="odyssey-shield-forward")
         self._worker.start()
-        self._register()
+        threading.Thread(target=self._heartbeat, daemon=True, name="odyssey-shield-heartbeat").start()
 
     # -- registration --------------------------------------------------------------------------------------
-    def _register(self) -> None:
-        try:
-            self._post(self.register_url, self.meta, timeout=1.5)
-        except Exception:  # noqa: BLE001 - registration is best-effort; the first event registers the app anyway
-            pass
+    def _heartbeat(self) -> None:
+        """Announce the app now and every HEARTBEAT_S seconds, so the shield knows it again after a restart and can
+        show that the agent is alive; while the shield is down or still starting, try again every RETRY_S. Best
+        effort: a failure never touches the app, and every forwarded request carries the same metadata anyway."""
+        while True:
+            try:
+                self._post(self.register_url, self.meta, timeout=1.5)
+                time.sleep(HEARTBEAT_S)
+            except Exception:  # noqa: BLE001
+                time.sleep(RETRY_S)
 
     # -- ASGI entrypoint -----------------------------------------------------------------------------------
     async def __call__(self, scope, receive, send):

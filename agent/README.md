@@ -54,7 +54,10 @@ python agent/tail_logs.py --app marketing-site --name "Marketing Site" \
   inline with 403. Whether the shield blocks is governed by the app's mode **in Odyssey** (Live → *A real app,
   protected* → Monitor / Block), so you can turn blocking on and off from the dashboard without restarting your app.
 
-All agents are **fail-open**: if the shield is unreachable, your app keeps serving.
+All agents are **fail-open**: if the shield is unreachable, your app keeps serving. They announce the app when they
+start and every 10 s after that (retrying every 2 s while the shield is down), and every forwarded request carries the
+app's metadata, so the shield knows your app again the moment it restarts and the dashboard shows whether the agent is
+alive.
 
 ## Protecting an app on another machine (tunnelling)
 The agent only needs to reach the shield's HTTP endpoint. If your app runs elsewhere, expose the shield (or run the

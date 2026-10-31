@@ -42,10 +42,10 @@ Open http://127.0.0.1:5173. `start_all.ps1` also launches the protected demo app
 
 | Check | Command | What it proves |
 |---|---|---|
-| Engine tests | `.venv\Scripts\python -m pytest -q` | 98 tests: exposure, scoring, the proactive layer, SOC, advisories, the audit trail under concurrent writers, and the HTTP shield (signature engine on encoded/evaded payloads, block list, red-team safety). |
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 101 tests: exposure, scoring, the proactive layer, SOC, advisories, the audit trail under concurrent writers, and the HTTP shield (signature engine on encoded/evaded payloads, block list, a registration that survives an API restart, red-team safety). |
 | HTTP shield red-team | Live → *Red-team the shield* → *Run all attacks* (or `POST /api/redteam/run`) | Fires real SQLi/XSS/traversal/cmdi/SSTI/SSRF/Log4Shell/scanning/brute-force requests at the protected app over the wire and measures detection rate, block rate, precision and time-to-detect. Loopback/private targets only. |
-| Test bench | Proof → *Run them now* | 109 checks: 5 attack drills on a copy of the data, detectors with negative controls, the audit-trail chain, and the engine tests. |
-| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 16 flows through the API on a private copy: approve and reject, a warning from issued to closed, a SOC case from new to closed, advisory analysis, three live drills, and the audit trail. |
+| Test bench | Proof → *Run them now* | 112 checks: 5 attack drills on a copy of the data, detectors with negative controls, the audit-trail chain, and the engine tests. |
+| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 17 flows through the API on a private copy: approve and reject, a warning from issued to closed, a SOC case from new to closed, advisory analysis, three live drills, the HTTP shield (an agent announces an app, an attack is detected and opens a case, block mode drops the next one, a public red-team target is refused), and the audit trail. |
 | Interface | `python scripts\ui_audit.py` | A real browser clicks through every screen, sheet and button on another copy, and reports any page error, console error or failed request. |
 
 ## Honesty

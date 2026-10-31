@@ -21,6 +21,8 @@ const SHIELD = (process.env.ODYSSEY_SHIELD_URL || 'http://127.0.0.1:8000').repla
 const FORWARD = ['user-agent', 'referer', 'referrer', 'cookie', 'x-forwarded-for', 'x-real-ip',
   'content-type', 'x-api-version', 'x-odyssey-redteam', 'x-odyssey-rt-case']
 const BODY_LIMIT = 64 * 1024
+const HEARTBEAT_MS = 10000 // re-announce the app this often: the shield's registry is in memory and forgets on a restart
+const RETRY_MS = 2000 // ...and this often while the shield is unreachable or still starting up
 
 function post (path, payload, timeout, cb) {
   const url = new URL(SHIELD + path)
@@ -45,7 +47,13 @@ function odysseyShield (opts) {
     app: opts.appId, name: opts.name || opts.appId, base_url: opts.baseUrl || null,
     mode: opts.mode || 'monitor', org_id: opts.orgId || null, framework: opts.framework || 'express'
   }
-  post('/api/sensor/register', meta, 1500, () => {})
+  // Announce the app now and every 10 s, retrying every 2 s while the shield is down. unref: never keep the process
+  // alive just for the heartbeat. Best-effort; every forwarded request carries the same metadata anyway.
+  const heartbeat = () => post('/api/sensor/register', meta, 1500, (err) => {
+    const t = setTimeout(heartbeat, err ? RETRY_MS : HEARTBEAT_MS)
+    if (t.unref) t.unref()
+  })
+  heartbeat()
 
   return function (req, res, next) {
     const chunks = []

@@ -8,6 +8,8 @@ writing), the API is pointed at the copies, and the script makes the same HTTP c
   - approves one proposal and rejects another (human in the loop), and checks that the notices went out;
   - works the top warning through its lifecycle, and a SOC case from new to closed;
   - analyses a pasted advisory (guard model and encoders; skipped with --no-ai);
+  - connects an app to the HTTP shield through the agents' webhook, detects an attack, drops the next one in block
+    mode, and checks that the red-team runner refuses a public target;
   - re-verifies the hash-chained audit trail.
 The live databases are never touched. Exit code 1 if any check fails.
 """
@@ -253,6 +255,33 @@ def main_() -> int:
             return (f"{' · '.join(seen)}; {grew} proposals wait for a person, {opened} incident cases opened, "
                     f"suspected compromises {compromise_before} → {comp} (re-scored live)")
         check("live engine: three attack drills answered; a new CVE taken in live", live_drills)
+
+        def http_shield():
+            # the same calls an in-process agent makes: announce the app, then forward each request
+            reg = post("/api/sensor/register", {"app": "e2e-portal", "name": "E2E Portal", "org_id": "PWR-01",
+                                                "base_url": "http://127.0.0.1:8080", "mode": "enforce", "framework": "asgi"})
+            assert reg["mode"] == "monitor" and reg["agent_mode"] == "enforce", reg  # the agent's mode is not the policy
+            ok = post("/api/sensor/http", {"app": "e2e-portal", "method": "GET", "path": "/search", "query": "q=lamp",
+                                           "status": 200, "source_ip": "198.51.100.23"})
+            assert ok["decision"] == "allow" and not ok["findings"], ok
+            cases_before = len(get("/api/cases?status=open"))
+            hit = post("/api/sensor/http", {"app": "e2e-portal", "method": "GET", "path": "/search", "query": "q=' OR 1=1--",
+                                            "status": 200, "source_ip": "203.0.113.66", "headers": {"x-odyssey-redteam": "e2e"}})
+            assert hit["decision"] == "allow" and hit["worst"] in ("High", "Critical", "Compromise"), hit  # monitor: detect only
+            assert len(get("/api/cases?status=open")) == cases_before + 1, "a likely-successful web attack must open a case"
+            post("/api/shield/apps/e2e-portal/mode?mode=block")
+            blk = post("/api/sensor/http", {"app": "e2e-portal", "method": "GET", "path": "/d",
+                                            "query": "file=../../../../etc/passwd", "source_ip": "203.0.113.66"})
+            assert blk["decision"] == "block" and blk["blocked"], blk
+            st = get("/api/shield")
+            app = next(a for a in st["apps"] if a["id"] == "e2e-portal")
+            assert (app["mode"], app["requests"], app["attacks"], app["blocked"]) == ("block", 3, 2, 1), app
+            assert "203.0.113.66" in get("/api/sensor/policy")["blocklist"], "blocked source missing from the agents' policy"
+            r = c.post("/api/redteam/run", json={"target": "http://example.com"})
+            assert r.status_code == 400, f"the runner must refuse a public target: {r.status_code} {r.text[:120]}"
+            return (f"{hit['worst']} {hit['findings'][0]['cwe']} detected in monitor mode and a case opened; "
+                    f"block mode dropped the next attack and listed the source; public target refused (400)")
+        check("HTTP shield: announce, detect, open a case, block inline, refuse a public target", http_shield)
 
         def ledger():
             v = get("/api/ledger/verify")

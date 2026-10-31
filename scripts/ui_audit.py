@@ -327,6 +327,30 @@ def main() -> int:
                 return "4 drill cards; " + card.get_by_text("finished in", exact=False).first.inner_text()
             drill(page)
 
+            @step("Live: HTTP shield card, a forwarded attack listed, Block toggle")
+            def shield(page):
+                go("live")
+                page.get_by_text("A real app, protected").wait_for()
+                page.get_by_text("Red-team the shield").wait_for()
+                # Drive the webhook an agent calls, against the copy API only. "Run all attacks" is deliberately not
+                # clicked here: it fires at the real portal on :8080, whose agent reports to the demo API, not the copy.
+                import httpx
+                httpx.post(f"{COPY_API}/api/sensor/register", timeout=5, json={
+                    "app": "ui-audit", "name": "UI Audit App", "org_id": "PWR-01", "base_url": "http://127.0.0.1:8080",
+                    "mode": "enforce", "framework": "asgi"}).raise_for_status()
+                httpx.post(f"{COPY_API}/api/sensor/http", timeout=5, json={
+                    "app": "ui-audit", "method": "GET", "path": "/search", "query": "q=' OR 1=1--", "status": 200,
+                    "source_ip": "203.0.113.66", "headers": {"x-odyssey-redteam": "ui-audit"}}).raise_for_status()
+                page.get_by_text("UI Audit App").wait_for(timeout=10000)   # the card picks it up on its next poll
+                page.get_by_text("agent connected").wait_for()
+                page.get_by_text("CWE-89", exact=False).first.wait_for(timeout=10000)
+                page.get_by_text("203.0.113.66").first.wait_for()
+                page.get_by_role("button", name="Block inline").click()
+                toast("now blocking attacks inline")
+                shot("live-shield")
+                return "card with a live agent, SQL injection listed with its CWE, toggled to Block"
+            shield(page)
+
             @step("Footer: links navigate")
             def footer(page):
                 page.locator("footer").get_by_role("button", name="Risk plan").click()

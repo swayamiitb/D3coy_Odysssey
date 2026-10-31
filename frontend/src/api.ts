@@ -411,7 +411,8 @@ export interface Soc {
 // --- HTTP shield: a real connected app, protected and red-teamed ---------------------------------------------
 export interface ShieldApp {
   id: string; name: string; base_url: string | null; mode: 'monitor' | 'block'
-  org_id: string | null; framework: string | null; first_seen: string
+  agent_mode: string | null; announced: boolean
+  org_id: string | null; framework: string | null; first_seen: string; last_seen: string | null
   requests: number; attacks: number; blocked: number
 }
 export interface ShieldFinding {
