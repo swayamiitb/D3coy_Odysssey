@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+/* Neutral dark ground, lightness steps for surfaces, colour only on data (taste-skill app rules). */
+@theme {
+  --color-ground: #0f0f10;
+  --color-panel: #161617;
+  --color-raised: #1f1f21;
+  --color-line: #29292c;
+  --color-text: #ededed;
+  --color-mute: #a1a1a1;
+  --color-faint: #8a8a8a;
+  --color-compromise: #ff453a;
+  --color-critical: #ff9f0a;
+  --color-high: #ffd60a;
+  --color-medium: #bdbdbd;
+  --color-watch: #6e6e73;
+  --color-ok: #30d158;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+}
+
+html, body, #root { height: 100%; }
+body {
+  background: var(--color-ground);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+.num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2px; border-radius: 4px; }
+::selection { background: #3a3a3d; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 4px; }
