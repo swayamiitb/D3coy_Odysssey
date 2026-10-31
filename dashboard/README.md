@@ -28,3 +28,14 @@ node scripts/snapshot.mjs http://HOST:8000
 ```
 
 Commit `public/demo/` after a good run.
+
+## Landing story and globe
+
+The Overview opens with a four-step scroll story around a 3D globe (`src/screens/Landing.tsx`, globe by `cobe`): real botnet C2 servers worldwide → the operators in India → the beacon from the compromised gateway to its C2 → what a person does now. Visitors with "reduce motion" on get a still version.
+
+The C2 layer comes from abuse.ch Feodo Tracker, bundled in `src/geo/feodo.json` because the Odyssey API does not return C2 countries. Refresh it before a demo:
+
+```bash
+node scripts/feodo.mjs                                   # download the public list
+node scripts/feodo.mjs D:\D3coy_Odysssey\data\raw\feodo_ipblocklist.json   # or reuse the backend's saved feed
+```

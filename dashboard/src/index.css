@@ -33,3 +33,39 @@ body {
 ::selection { background: #3a3a3d; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 4px; }
+
+/* Landing story (screens/Landing.tsx). The stage carries --p (scroll 0..1), --b0..--b2 (label layers) and --heat
+   (the evidence beat), all written per frame by the globe loop. */
+.landing-stage { --p: 0; --heat: 0; }
+.landing-glow {
+  background:
+    radial-gradient(55% 65% at 70% 50%, color-mix(in oklab, var(--color-compromise) calc(var(--heat) * 20%), transparent), transparent 70%),
+    radial-gradient(45% 55% at 70% 50%, rgb(255 255 255 / 0.035), transparent 70%);
+}
+@media (width < 64rem) {
+  .landing-glow {
+    background:
+      radial-gradient(70% 45% at 50% 30%, color-mix(in oklab, var(--color-compromise) calc(var(--heat) * 20%), transparent), transparent 70%),
+      radial-gradient(60% 40% at 50% 30%, rgb(255 255 255 / 0.035), transparent 70%);
+  }
+}
+.landing-cue { opacity: max(0, calc(1 - var(--p) * 25)); }
+.landing-beat {
+  opacity: 0; translate: 0 28px; filter: blur(6px); pointer-events: none;
+  transition: opacity 0.5s ease, translate 0.5s ease, filter 0.5s ease;
+}
+.landing-beat.is-past { translate: 0 -28px; }
+.landing-beat.is-on { opacity: 1; translate: 0 0; filter: none; pointer-events: auto; }
+
+/* Labels hang off cobe's CSS anchors (--cobe-<id>); cobe sets --cobe-visible-<id> while the point faces us. */
+.globe-label {
+  position: absolute; position-anchor: var(--anchor);
+  left: anchor(center); bottom: anchor(top); translate: -50% -8px;
+  padding: 2px 8px; border-radius: 999px; white-space: nowrap; pointer-events: none;
+  font-size: 12px; color: var(--color-mute); background: color-mix(in oklab, var(--color-ground) 72%, transparent);
+  transition: opacity 0.25s;
+}
+.globe-label-right { left: anchor(right); top: anchor(center); bottom: auto; translate: 10px -50%; }
+.globe-label-strong { color: var(--color-text); font-weight: 500; font-size: 13px; pointer-events: auto; }
+.globe-label-alert { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-compromise) 55%, transparent); }
+@supports not (anchor-name: --a) { .globe-label { display: none; } }
