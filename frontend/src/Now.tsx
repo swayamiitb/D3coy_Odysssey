@@ -138,7 +138,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
             <p className="text-band-mute">National CERT duty desk · {new Date(feed.issued_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} IST</p>
             <h1 className="mt-4 max-w-3xl text-6xl font-bold leading-[1.05] tracking-tight">{headline}</h1>
             <p className="mt-6 max-w-2xl text-xl leading-relaxed text-band-mute">
-              {feed.counts.needs_action} open warnings across {soc?.orgs.length ?? '…'} operators, each told in its own language{langs ? ` (${langs} in use)` : ''}.
+              {feed.counts.needs_action} warnings need action across {soc?.orgs.length ?? '…'} operators, each told in its own language{langs ? ` (${langs} in use)` : ''}.
               {' '}{soc?.pending ?? '…'} decisions wait for you; Odyssey handles the rest.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">

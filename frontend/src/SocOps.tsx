@@ -80,7 +80,7 @@ export function OpsOverview({ tick, onCases, onWarnings }: { tick: number; onCas
 
       {sheet === 'decisions' && (
         <Sheet title={`Needs your decision · ${d.pending}`} sub="Predictions, escalations and advisory notices wait here until a person approves or rejects them." onClose={() => setSheet(undefined)}>
-          <ApprovalQueue limit={50} onChanged={() => setStamp((s) => s + 1)} />
+          <ApprovalQueue limit={1000} onChanged={() => setStamp((s) => s + 1)} />
         </Sheet>
       )}
       {sheet === 'replay' && (

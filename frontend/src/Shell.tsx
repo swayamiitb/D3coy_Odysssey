@@ -136,7 +136,7 @@ export function IntelFigures({ tick }: { tick: number }) {
   const real = d.autopilot.lead?.real_signals_only
   return (
     <Figures items={[
-      { value: n(d.tiers.Critical), label: 'Critical warnings', sub: `${n(d.tiers.High)} High · ${n(d.tiers.Medium)} Medium`, dot: 'bg-crit' },
+      { value: n(d.tiers.Critical), label: 'Critical warnings', sub: `+ ${n(d.tiers.Compromise ?? 0)} suspected compromise · ${n(d.tiers.High)} High · ${n(d.tiers.Medium)} Medium`, dot: 'bg-crit' },
       { value: n(tech.filter((t) => t.critical > 0).length), label: 'technologies under attack', sub: `of ${tech.length} in the constituency's inventory` },
       { value: n(tech.reduce((s, t) => s + t.forecast_cves, 0)), label: 'likely to be exploited next', sub: 'flagged on day 0, not yet confirmed', dot: 'bg-accent' },
       { value: real?.median_lead_days != null ? `${real.median_lead_days} d` : '—', label: 'ahead of CISA KEV',
@@ -157,7 +157,7 @@ export function OrgsFigures() {
     <Figures items={[
       { value: d.orgs.length, label: 'organisations watched', sub: `${sectors} critical sectors · ${states} states` },
       { value: langs, label: 'languages', sub: 'every notice in the organisation\'s own language' },
-      { value: n(d.orgs.reduce((s, o) => s + o.critical, 0)), label: 'Critical warnings open', dot: 'bg-crit' },
+      { value: n(d.orgs.reduce((s, o) => s + o.critical, 0)), label: 'warnings need action', sub: `${n(d.tiers.Critical)} Critical + ${n(d.tiers.Compromise ?? 0)} suspected compromise`, dot: 'bg-crit' },
       { value: comp, label: 'suspected compromise', sub: comp ? 'incident response under way' : 'none', dot: comp ? 'bg-comp' : 'bg-ok' },
     ]} />
   )

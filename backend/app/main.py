@@ -594,7 +594,7 @@ def autopilot(limit: int = 200, org_id: str | None = None, kind: str | None = No
 
 
 @app.get("/api/approvals")
-def approvals(status: str = "pending", limit: int = 50) -> list[dict]:
+def approvals(status: str = "pending", limit: int = 1000) -> list[dict]:
     rows = db().execute("""SELECT id, proposed_at, kind, subject, org_id, title, payload, status, decided_by,
                                   decided_at, note FROM approvals WHERE status = ? ORDER BY proposed_at DESC LIMIT ?""",
                         (status, limit)).fetchall()
@@ -882,19 +882,29 @@ async def _start_live() -> None:
     if not DB_PATH.exists():
         return
 
+    def guard_model() -> None:  # the injection guard loads lazily (~10 s); load it before the first brief is opened
+        from .ai.guard import screen
+        screen("warm-up: the advisory says to patch to the fixed release")
+
     def warm() -> None:
-        for fn in (scorecard_view, intel_technologies):
+        for fn in (scorecard_view, intel_technologies, guard_model):
             try:
                 fn()
             except Exception as exc:  # noqa: BLE001 - a failed warm-up only means a slower first visit
                 print(f"warm-up {fn.__name__} failed: {exc!r}", flush=True)
     threading.Thread(target=warm, daemon=True).start()
     from . import shield
-    shield.ENGINE = shield.Shield(db)  # HTTP shield is event-driven (no background loop); always on for the sensor API
+    try:
+        shield.ENGINE = shield.Shield(db)  # HTTP shield is event-driven (no background loop); always on for the sensor API
+    except Exception as exc:  # noqa: BLE001 - the dashboard must come up even if an optional engine cannot
+        print(f"HTTP shield failed to start: {exc!r}", flush=True)
     if os.environ.get("ODYSSEY_LIVE", "1") == "0":
         return
-    live.ENGINE = live.Live(db)
-    live.ENGINE.start()
+    try:
+        live.ENGINE = live.Live(db)
+        live.ENGINE.start()
+    except Exception as exc:  # noqa: BLE001
+        print(f"live engine failed to start: {exc!r}", flush=True)
 
 
 def _engine():
@@ -917,8 +927,11 @@ def live_status() -> dict:
     each stage of the pipeline did in the last hour."""
     import time as _time
     from .engine import soc
-    st = _engine().status()
-    conn, hour = db(), _time.time() - 3600
+    eng = _engine()
+    st = eng.status()
+    # "last hour" means what the running system did: a rebuild writes thousands of events at once, which must not
+    # read as an hour of activity
+    conn, hour = db(), max(_time.time() - 3600, eng.started.timestamp())
     soc.ensure(conn)
     count = lambda q, *a: conn.execute(q, a).fetchone()[0]  # noqa: E731
     st["pipeline"] = {
