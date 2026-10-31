@@ -22,7 +22,7 @@ interface Analysis {
 }
 interface Item { id: string; title: string; severity: string; published: string; provenance: string; note: string; text: string; analysis: Analysis }
 
-const IOC_LABEL = { cves: 'CVE', ips: 'IP', domains: 'Domain', urls: 'URL', sha256: 'SHA-256' } as const
+const IOC_LABEL = { ips: 'IP', domains: 'Domain', urls: 'URL', sha256: 'SHA-256' } as const
 
 function constraintText(c: Analysis['constraints'][number]) {
   const v = c.op === 'range' ? `${c.start} → ${c.version}` : `${c.op === 'lt' ? 'before' : 'up to'} ${c.version}`
@@ -30,7 +30,7 @@ function constraintText(c: Analysis['constraints'][number]) {
 }
 
 function AnalysisView({ a, text }: { a: Analysis; text?: string }) {
-  const iocCount = Object.values(a.iocs).reduce((n, x) => n + x.length, 0)
+  const iocCount = (Object.keys(IOC_LABEL) as (keyof typeof IOC_LABEL)[]).reduce((n, k) => n + a.iocs[k].length, 0)
   const orgs = new Set(a.exposed.map((e) => e.org_id))
   return (
     <div className="space-y-4">
@@ -56,6 +56,7 @@ function AnalysisView({ a, text }: { a: Analysis; text?: string }) {
         {a.exploitation_claim && <Badge tone="crit">exploitation claimed: "{a.exploitation_claim}"</Badge>}
         {a.sectors_targeted.map((s) => <Badge key={s} tone="accent">targets {s}</Badge>)}
         {a.constraints.map((c, i) => <Badge key={i}>{constraintText(c)}</Badge>)}
+        {a.iocs.cves.map((c) => <Badge key={c}>{c}</Badge>)}
         <span className="ml-auto text-mute">analysed in {a.timings.total_ms} ms{a.cached ? ' (cached)' : ''}</span>
       </div>
 

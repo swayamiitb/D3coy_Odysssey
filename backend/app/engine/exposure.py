@@ -150,7 +150,7 @@ def _within(v: Version, c: dict) -> bool:
 def _describe(c: dict) -> str:
     if c["op"] == "range":
         return f"{c['start']} {'through' if c['end_inclusive'] else 'before'} {c['version']}"
-    return f"{c['op']} {c['version']}"
+    return f"{'before' if c['op'] == 'lt' else 'up to'} {c['version']}"
 
 
 def text_vote(asset: dict, description: str) -> Vote | None:

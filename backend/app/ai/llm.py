@@ -111,11 +111,12 @@ def chat(
 
 
 def embed(texts: list[str], *, model: str | None = None, timeout: float = 300.0) -> list[list[float]]:
-    resp = httpx.post(
-        f"{OLLAMA_URL}/api/embed",
-        json={"model": model or resolve("embed"), "input": texts},
-        timeout=timeout,
-    )
+    """Security-domain embeddings. Default: SecureBERT 2.0 bi-encoder on the CPU (backend.app.ai.embed);
+    pass an Ollama embedding model name to use the GPU server instead."""
+    if model is None:
+        from .embed import encode
+        return encode(texts).tolist()
+    resp = httpx.post(f"{OLLAMA_URL}/api/embed", json={"model": model, "input": texts}, timeout=timeout)
     resp.raise_for_status()
     return resp.json()["embeddings"]
 

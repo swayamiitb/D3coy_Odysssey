@@ -299,7 +299,7 @@ def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
 
 
 ADVISORIES = ROOT / "data" / "sim" / "advisories.json"
-ANALYSER_VERSION = "advisory-v1"
+ANALYSER_VERSION = "advisory-v2"
 
 
 def _analyse_advisory(adv: dict) -> dict:
@@ -343,6 +343,21 @@ def analyze_advisory(body: dict) -> dict:
     adv = {"id": "USER-" + hashlib.sha256(text.encode()).hexdigest()[:10], "title": body.get("title") or "Pasted advisory",
            "provenance": "USER", "text": text[:8000]}
     return _analyse_advisory(adv)
+
+
+@app.get("/api/alerts/{org_id}/{cve_id}/related")
+def related_threats(org_id: str, cve_id: str, k: int = 6) -> dict:
+    """Nearest threats by SecureBERT 2.0 embedding of the advisory text, with this organisation's exposure."""
+    from .ai.embed import MODEL_ID, related
+    conn = db()
+    out = []
+    for rid, sim in related(cve_id, k):
+        v = conn.execute("SELECT id, description, kev FROM vulns WHERE id = ?", (rid,)).fetchone()
+        exp = conn.execute("SELECT MAX(risk), MAX(R) FROM assessments WHERE org_id = ? AND cve_id = ?",
+                           (org_id, rid)).fetchone()
+        out.append({"cve_id": rid, "similarity": sim, "kev": bool(v["kev"] and v["kev"] != "null"),
+                    "title": (v["description"] or "")[:140], "org_risk": exp[0], "org_exposed": (exp[1] or 0) >= 0.6})
+    return {"model": MODEL_ID, "related": out}
 
 
 @app.get("/api/campaigns")

@@ -38,7 +38,9 @@ _SECTOR_WORDS = {
     "Government": re.compile(r"\b(government|ministr(y|ies)|e-governance|public sector)\b", re.I),
     "Strategic & Public Enterprises": re.compile(r"\b(defen[cs]e|space|strategic|psu)\b", re.I),
 }
-_NER_STOP = {"the", "a", "an", "organisations", "organizations", "attacker", "attackers", "victims", "banks"}
+_NER_STOP = {"the", "a", "an", "organisations", "organizations", "attacker", "attackers", "victims", "banks",
+             "appliance", "targeted appliance", "privileges", "vulnerability", "vulnerabilities", "remote", "bypass",
+             "multiple vulnerabilities", "network", "operator station"}
 
 
 def defang(s: str) -> str:
