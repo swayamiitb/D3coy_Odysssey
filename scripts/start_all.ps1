@@ -32,6 +32,16 @@ if (-not (Test-Port 8000)) {
 }
 Wait-Port 8000 'API'
 
+# 2a. Demo target app for the HTTP shield (CityPower portal, protected by the Odyssey agent). Enforce mode, so the
+#     dashboard's Monitor/Block toggle works live. Set ODYSSEY_TARGET=0 to skip it.
+if ($env:ODYSSEY_TARGET -ne '0' -and -not (Test-Port 8080)) {
+    $env:TARGET_MODE = 'enforce'
+    Start-Process -WindowStyle Hidden -WorkingDirectory $root -FilePath "$root\.venv\Scripts\python.exe" `
+        -ArgumentList '-m', 'uvicorn', 'target.portal:app', '--host', '127.0.0.1', '--port', '8080' `
+        -RedirectStandardOutput "$logs\target.log" -RedirectStandardError "$logs\target.err.log"
+    try { Wait-Port 8080 'Shield target' 20 } catch { "  warning: shield target did not start ($_)" }
+}
+
 # 2b. Indic translation service (IndicTrans2, own Python 3.14 env)
 if (-not (Test-Port 8010)) {
     $env:HF_HOME = 'D:\hf-cache'; $env:HF_HUB_OFFLINE = '1'

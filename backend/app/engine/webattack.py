@@ -127,7 +127,7 @@ SIGS: list[Sig] = [
     # OS command injection ------------------------------------------------------------------------------------
     Sig("cmdi.sep", "Command injection", "CWE-78", "T1059", "Critical", 3,
         "A shell separator (; | && $() backtick) chains an attacker command onto the request.",
-        _rx(r"(;|\|\||&&|\$\(|`)\s*(cat|ls|id|whoami|wget|curl|nc|bash|sh|powershell|ping|nslookup|uname|cmd)\b")),
+        _rx(r"(;|\|{1,2}|&{1,2}|\$\(|`|\n)\s*(cat|ls|id|whoami|wget|curl|nc|bash|sh|powershell|ping|nslookup|uname|cmd|dir|type)\b")),
     Sig("cmdi.bin", "Command injection", "CWE-78", "T1059", "High", 2,
         "A path to a shell or a reference to a well-known binary used in command injection.",
         _rx(r"(/bin/(ba)?sh|/usr/bin/|%0a\s*(cat|id|ls)|\bIFS\b)")),

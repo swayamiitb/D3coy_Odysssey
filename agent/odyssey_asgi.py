@@ -119,7 +119,7 @@ class OdysseyShield:
         return buffered, replay
 
     async def _forbidden(self, send, event):
-        self._enqueue({**event, "status": 403})
+        # The synchronous ingest that returned "block" already recorded this request; do not re-send it.
         payload = json.dumps({"error": "blocked", "by": "Odyssey HTTP shield",
                               "message": "This request was identified as an attack and blocked."}).encode()
         await send({"type": "http.response.start", "status": 403,

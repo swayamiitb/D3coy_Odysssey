@@ -408,6 +408,51 @@ export interface Soc {
   orgs: { id: string; name: string; sector: string; state: string; critical: number; compromise: number; lang: string }[]
 }
 
+// --- HTTP shield: a real connected app, protected and red-teamed ---------------------------------------------
+export interface ShieldApp {
+  id: string; name: string; base_url: string | null; mode: 'monitor' | 'block'
+  org_id: string | null; framework: string | null; first_seen: string
+  requests: number; attacks: number; blocked: number
+}
+export interface ShieldFinding {
+  family: string; category: string; cwe: string; cwe_name: string; attack: string; attack_name: string
+  severity: Tier; surface: string; param: string; evidence: string; why: string
+}
+export interface ShieldDetection {
+  id: string; ts: string; app: string; source_ip: string; method: string; path: string
+  category: string; severity: Tier; cwe: string; cwe_name: string; attack: string; attack_name: string
+  families: string[]; findings: ShieldFinding[]; decision: string; success: boolean; redteam: string | null
+}
+export interface ShieldAttacker {
+  ip: string; requests: number; attacks: number; worst: Tier | null; families: string[]
+  blocked: boolean; block_reason: string | null; ua: string; first_seen: string
+}
+export interface ShieldEvent {
+  ts: string; app: string; method: string; path: string; status: number | null; source_ip: string
+  ua: string; worst: Tier | null; decision: string; families: string[]; n: number; redteam: string | null
+}
+export interface ShieldStatus {
+  running: boolean; started: string; apps: ShieldApp[]
+  stats: { events: number; attacks: number; blocked: number; sources: number; attackers: number; blocklist: number }
+  events: ShieldEvent[]; findings: ShieldDetection[]; attackers: ShieldAttacker[]
+  blocklist: { ip: string; reason: string; at: string; by: string; auto: boolean }[]
+  families: string[]; ledger: { detections_hour: number; blocks: number }
+}
+export interface RedteamScenario { id: string; title: string; what: string; cases: number }
+export interface RedteamCase {
+  case_id: string; scenario: string; label: string; method: string; path: string; cwe: string | null
+  kind: 'attack' | 'control'; quiet: boolean; http_status: number | null; error: string | null
+  sent_ms: number; detected: boolean; blocked: boolean; severity: Tier | null; category: string | null
+}
+export interface RedteamReport {
+  run_id: string; target: string; scenario: string; attacker_ip: string; user_ip: string
+  started_at: string; finished_at: string; duration_ms: number
+  sent: number; attacks_sent: number; controls_sent: number; detected: number; blocked: number
+  missed: number; false_positives: number
+  detection_rate: number | null; block_rate: number | null; precision: number | null; mean_ttd_ms: number | null
+  scenarios: string[]; cases: RedteamCase[]; missed_cases: string[]; fp_cases: string[]
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(path)
   if (!res.ok) throw new Error(`${res.status} ${path}`)
@@ -453,5 +498,28 @@ export const api = {
     const res = await fetch(`/api/alerts/${orgId}/${cveId}/workflow/${action}`, { method: 'POST' })
     if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
     return res.json() as Promise<Workflow>
+  },
+  shield: () => get<ShieldStatus>('/api/shield'),
+  redteamCatalogue: () => get<{ scenarios: RedteamScenario[] }>('/api/redteam/catalogue'),
+  redteamRun: async (scenario?: string) => {
+    const res = await fetch('/api/redteam/run', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(scenario && scenario !== 'all' ? { scenario } : {}) })
+    if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
+    return res.json() as Promise<RedteamReport>
+  },
+  shieldMode: async (appId: string, mode: 'monitor' | 'block') => {
+    const res = await fetch(`/api/shield/apps/${appId}/mode?mode=${mode}`, { method: 'POST' })
+    if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
+    return res.json() as Promise<ShieldApp>
+  },
+  shieldBlock: async (ip: string) => {
+    const res = await fetch(`/api/shield/block/${encodeURIComponent(ip)}`, { method: 'POST' })
+    if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
+    return res.json()
+  },
+  shieldUnblock: async (ip: string) => {
+    const res = await fetch(`/api/shield/unblock/${encodeURIComponent(ip)}`, { method: 'POST' })
+    if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
+    return res.json()
   },
 }

@@ -134,6 +134,11 @@ def run(target: str, scenario: str | None, shield) -> dict:
     run_id = f"RT-{dt.datetime.now(dt.timezone.utc):%H%M%S}-{uuid.uuid4().hex[:4]}"
     base = target.rstrip("/")
     started = dt.datetime.now(dt.timezone.utc)
+    # The attack and the benign control traffic come from two different simulated sources (documentation-range IPs),
+    # so the shield attributes them separately: the attacker is detected and blocked while the legitimate customer
+    # keeps browsing, and the false-positive count measures the engine, not the attacker's own sweep.
+    attacker_ip = "203.0.113.66"   # TEST-NET-3 (RFC 5737): clearly not a real host
+    user_ip = "198.51.100.23"      # TEST-NET-2: the "legitimate customer"
 
     sent: list[dict] = []
     with httpx.Client(timeout=4.0, follow_redirects=False) as client:
@@ -143,6 +148,7 @@ def run(target: str, scenario: str | None, shield) -> dict:
                 headers = {str(k): str(v) for k, v in (case.get("headers") or {}).items()}
                 headers["x-odyssey-redteam"] = run_id
                 headers["x-odyssey-rt-case"] = case_id
+                headers["x-forwarded-for"] = user_ip if case["kind"] == "control" else attacker_ip
                 headers.setdefault("user-agent", headers.get("User-Agent", "Mozilla/5.0 (odyssey-redteam)"))
                 url = base + case["path"]
                 t0 = time.perf_counter()
@@ -196,6 +202,7 @@ def run(target: str, scenario: str | None, shield) -> dict:
     finished = dt.datetime.now(dt.timezone.utc)
     report = {
         "run_id": run_id, "target": target, "scenario": scenario or "all", "started_at": _iso(started),
+        "attacker_ip": attacker_ip, "user_ip": user_ip,
         "finished_at": _iso(finished), "duration_ms": round((finished - started).total_seconds() * 1000),
         "sent": len(sent), "attacks_sent": len(attacks), "controls_sent": len(controls),
         "detected": detected, "blocked": blocked, "missed": len(attacks) - detected, "false_positives": fp,

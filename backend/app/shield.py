@@ -81,7 +81,8 @@ class Shield:
         self.cooldown: dict[str, float] = {}
         self.n_events = 0
         self.n_attacks = 0
-        self.n_blocked = 0
+        self.n_blocked = 0            # block events (sources added to the list)
+        self.requests_blocked = 0     # requests actually dropped inline
         self.redteam_hits: dict[str, list[dict]] = collections.defaultdict(list)  # run_id -> findings seen
         world_path = ROOT / "data" / "sim" / "world.json"
         world = json.loads(world_path.read_text(encoding="utf-8")) if world_path.exists() else {"orgs": [], "assets": []}
@@ -181,6 +182,10 @@ class Shield:
             elif attack and mode == "block" and (_rank(worst) >= _rank("High") or success):
                 decision = "block"
                 self._block(src_ip, now, reason=f"{findings[0]['category']} ({findings[0]['cwe']})", auto=True)
+
+            if decision == "block":
+                self.requests_blocked += 1
+                app["blocked"] += 1
 
             src.events.append((time.time(), path, status, is_login, attack))
             event_row = {"ts": ts, "app": app_id, "method": event.get("method", "GET"), "path": webattack.redact(path, 120),
@@ -337,7 +342,7 @@ class Shield:
             return {
                 "running": True, "started": _iso(self.started),
                 "apps": list(self.apps.values()),
-                "stats": {"events": self.n_events, "attacks": self.n_attacks, "blocked": self.n_blocked,
+                "stats": {"events": self.n_events, "attacks": self.n_attacks, "blocked": self.requests_blocked,
                           "sources": len(self.sources), "attackers": len(attackers),
                           "blocklist": len(self.blocklist)},
                 "events": list(self.events)[:60],
