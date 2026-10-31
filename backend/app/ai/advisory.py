@@ -101,15 +101,68 @@ def _is_version_context(text: str, start: int) -> bool:
     return bool(_VERSION_WORDS.search(clause))
 
 
+# Vendors, CERTs and standards bodies: links to them in an advisory are references to read, never things to block.
+_REFERENCE_DOMAINS = {
+    "cisa.gov", "nist.gov", "mitre.org", "cve.org", "first.org", "cert-in.org.in", "github.com", "siemens.com",
+    "microsoft.com", "cisco.com", "fortinet.com", "fortiguard.com", "paloaltonetworks.com", "ivanti.com", "citrix.com",
+    "cloud.com", "atlassian.com", "oracle.com", "sap.com", "vmware.com", "broadcom.com", "apache.org", "gitlab.com",
+    "postgresql.org", "openssh.com", "php.net", "adobe.com", "beyondtrust.com", "schneider-electric.com", "se.com",
+    "swift.com", "temenos.com", "f5.com", "nginx.org", "kernel.org", "hitachienergy.com", "mitsubishielectric.com",
+    "nciipc.gov.in", "meity.gov.in",
+}
+_ATTACK_CONTEXT = re.compile(r"\b(c2|command[- ]and[- ]control|malicious|attacker|threat actor|callback|beacon|"
+                             r"hosted on|download(?:ed|s)? from|phishing|lookalike|look-alike|exfiltrat|payload|"
+                             r"indicator|ioc|block)\b", re.I)
+
+
+def _registrable(host: str) -> str:
+    parts = host.lower().replace("[.]", ".").strip(".").split(".")
+    return ".".join(parts[-3:]) if parts[-2:] in (["org", "in"], ["gov", "in"], ["co", "in"]) else ".".join(parts[-2:])
+
+
+def _is_indicator(text: str, start: int, raw: str) -> bool:
+    """A URL or domain is an indicator only if the advisory defanged it, or it sits in an attack context and is not a
+    vendor / CERT / standards reference."""
+    if "[.]" in raw or raw.lower().startswith("hxxp"):
+        return True
+    host = re.sub(r"^[a-z]+://", "", raw, flags=re.I).split("/")[0]
+    if _registrable(host) in _REFERENCE_DOMAINS:
+        return False
+    clause = re.split(r"[.;]\s", text[max(0, start - 120):start])[-1]
+    return bool(_ATTACK_CONTEXT.search(clause))
+
+
 def iocs(text: str) -> dict:
-    urls = sorted(set(_URL.findall(text)))
-    ips = {m.group(0) for m in _IP.finditer(text) if not _is_version_context(text, m.start())}
+    # Version ranges (CISA's machine-readable "vers:intdot/<8.0.0.11") and comparators ("< 8.0.0.11") are not IPs.
+    vers_spans = [m.span() for m in re.finditer(r"vers:\S+", text)]
+    ips = {m.group(0) for m in _IP.finditer(text)
+           if not _is_version_context(text, m.start())
+           and not any(a <= m.start() < b for a, b in vers_spans)
+           and not re.search(r"[<>=]\s*v?$", text[max(0, m.start() - 3):m.start()], re.I)}
+    urls, references = [], set()
+    for m in _URL.finditer(text):
+        u = m.group(0).rstrip(").,")
+        if _is_indicator(text, m.start(), u):
+            urls.append(defang(u))
+        else:
+            references.add(re.sub(r"^hxxp", "http", u, flags=re.I))
+    url_hosts = {re.sub(r"^[a-z]+://", "", u, flags=re.I).split("/")[0].lower() for u in references}
+    domains = set()
+    for m in _DOMAIN.finditer(text):
+        d = m.group(0)
+        if d.lower() in url_hosts:
+            continue  # the host of a reference link is not a separate indicator
+        if _is_indicator(text, m.start(), d):
+            domains.add(defang(d))
+        elif _registrable(d) not in _REFERENCE_DOMAINS:
+            continue  # a plain mention outside an attack context: neither indicator nor reference
     return {
         "cves": sorted(set(_CVE.findall(text))),
         "ips": sorted({defang(x) for x in ips}),
-        "domains": sorted({defang(x) for x in _DOMAIN.findall(text)}),
-        "urls": [defang(u.rstrip(").,")) for u in urls],
+        "domains": sorted(domains),
+        "urls": urls,
         "sha256": sorted(set(_SHA256.findall(text))),
+        "references": sorted(references),
     }
 
 
