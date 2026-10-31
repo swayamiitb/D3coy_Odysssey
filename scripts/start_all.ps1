@@ -5,7 +5,11 @@ $root = Split-Path -Parent $PSScriptRoot
 $logs = Join-Path $root 'data'
 $node = 'D:\tools\node-v26.13.0-win-x64\node.exe'
 
-function Test-Port($port) { [bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) }
+function Test-Port($port) {
+    # A direct TCP connect is reliable; Get-NetTCPConnection intermittently returns nothing on this machine.
+    $c = New-Object System.Net.Sockets.TcpClient
+    try { return $c.ConnectAsync('127.0.0.1', $port).Wait(500) -and $c.Connected } catch { return $false } finally { $c.Dispose() }
+}
 function Wait-Port($port, $name, $seconds = 60) {
     for ($i = 0; $i -lt $seconds; $i++) { if (Test-Port $port) { "  $name ready on :$port"; return }; Start-Sleep 1 }
     throw "$name did not start on :$port (see logs in $logs)"
