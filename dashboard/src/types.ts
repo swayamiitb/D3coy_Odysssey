@@ -392,3 +392,230 @@ export interface Technology {
   campaign: 'ACTIVE' | 'EMERGING' | 'DORMANT' | null
   attack_trend: { port: number; service: string; ratio: number } | null
 }
+
+// Live engine, HTTP shield and red team (the lead's newest backend). Shapes from the lead's backend/app/live.py
+// (Live.status), backend/app/shield.py (Shield.status), backend/app/engine/redteam.py (run) and frontend/src/api.ts,
+// checked against the running API on 1 Nov 2026.
+
+/** One decoy-grid reading per tick (SIM; one tick = one sensor-hour): sessions, robust z, drill traffic or not. */
+export interface LiveTagPoint { s: number; z: number; d: boolean }
+export interface LiveTag { tag: string; label: string; series: LiveTagPoint[]; z: number; sessions: number }
+
+export interface LiveFeed {
+  name: string
+  url: string
+  mode: string
+  status: 'waiting' | 'fresh' | 'offline'
+  last_try: string | null
+  last_ok: string | null
+  items: number | null
+  new: number | null
+  matched: unknown[]
+  ms: number | null
+  detail: string
+  newest?: string
+}
+
+export type LiveDetectionKind = 'surge' | 'beacon' | 'anomaly'
+/** Evidence fields depend on the kind (live.py _act): surge has product, z, z_sources, sensors, sessions, orgs_exposed;
+ *  beacon has asset, org_id, c2, interval_s, cv, connections; anomaly has asset, org_id, score, connections,
+ *  destinations, internal, ports, z, why. */
+export interface LiveDetection {
+  id: string
+  ts: string
+  kind: LiveDetectionKind
+  title: string
+  drill: string | null
+  seconds_to_detect: number | null
+  product?: string
+  asset?: string
+  org_id?: string
+  c2?: string
+  z?: number
+  sensors?: number
+  sessions?: number
+}
+
+export interface Drill {
+  id: string
+  scenario: string
+  title: string
+  what: string
+  status: 'running' | 'passed' | 'missed'
+  started_at: string
+  ended_at?: string
+  seconds?: number
+  tag: string | null
+  sensors: string[]
+  victim: string
+  victim_host: string
+  victim_org: string
+  c2: { ip: string; port: number; malware: string; source: string }
+  expect: LiveDetectionKind[]
+  detected: Partial<Record<LiveDetectionKind, { at: string; seconds: number }>>
+  case: string | null
+  rescored?: number
+}
+
+export interface LiveStatus {
+  running: boolean
+  started_at: string
+  ticks: number
+  tick_s: number
+  last_tick: string | null
+  tick_ms_p50: number | null
+  sensors: number
+  tags: LiveTag[]
+  flows: { per_tick: number[]; hosts: number }
+  detectors: { name: string; how: string }[]
+  detections: LiveDetection[]
+  feeds: LiveFeed[]
+  drill: Drill | null
+  drills: Drill[]
+  catalogue: { id: string; title: string; what: string }[]
+  pipeline: {
+    detections_hour: number; auto_hour: number; proposed_hour: number; human_hour: number
+    pending: number; open_cases: number; live_cases: number; events_hour: number
+  }
+}
+
+/** The modes Odyssey sets. An app's agent can register its own word (the demo portal reports "enforce"), which the
+ *  shield treats like monitor: it blocks attacks only in "block". */
+export type ShieldMode = 'monitor' | 'block'
+
+export interface ShieldApp {
+  id: string
+  name: string
+  base_url: string | null
+  mode: string
+  org_id: string | null
+  framework: string | null
+  first_seen: string
+  requests: number
+  attacks: number
+  blocked: number
+}
+
+export interface ShieldFinding {
+  family: string
+  category: string
+  cwe: string
+  cwe_name: string
+  attack: string
+  attack_name: string
+  severity: Tier
+  surface: string
+  param: string
+  evidence: string
+  why: string
+}
+
+export interface ShieldDetection {
+  id: string
+  ts: string
+  app: string
+  source_ip: string
+  method: string
+  path: string
+  category: string
+  severity: Tier
+  cwe: string
+  cwe_name: string
+  attack: string
+  attack_name: string
+  families: string[]
+  findings: ShieldFinding[]
+  decision: 'allow' | 'block'
+  success: boolean
+  redteam: string | null
+  rt_case?: string | null
+}
+
+export interface ShieldAttacker {
+  ip: string
+  requests: number
+  attacks: number
+  worst: Tier | null
+  families: string[]
+  blocked: boolean
+  block_reason: string | null
+  ua: string
+  first_seen: string
+}
+
+export interface ShieldEvent {
+  ts: string
+  app: string
+  method: string
+  path: string
+  status: number | null
+  source_ip: string
+  ua: string
+  worst: Tier | null
+  decision: 'allow' | 'block'
+  families: string[]
+  n: number
+  redteam: string | null
+}
+
+export interface ShieldBlock { ip: string; reason: string; at: string; by: string; auto: boolean }
+
+export interface ShieldStatus {
+  running: boolean
+  started: string
+  apps: ShieldApp[]
+  stats: { events: number; attacks: number; blocked: number; sources: number; attackers: number; blocklist: number }
+  events: ShieldEvent[]
+  findings: ShieldDetection[]
+  attackers: ShieldAttacker[]
+  blocklist: ShieldBlock[]
+  families: string[]
+  ledger: { detections_hour: number; blocks: number }
+}
+
+/** `cases` counts distinct test cases: repeated probes and login attempts count once. */
+export interface RedteamScenario { id: string; title: string; what: string; cases: number }
+
+export interface RedteamCase {
+  case_id: string
+  scenario: string
+  label: string
+  method: string
+  path: string
+  cwe: string | null
+  kind: 'attack' | 'control'
+  quiet: boolean
+  http_status: number | null
+  error: string | null
+  sent_ms: number
+  detected: boolean
+  blocked: boolean
+  severity: Tier | null
+  category: string | null
+}
+
+export interface RedteamReport {
+  run_id: string
+  target: string
+  scenario: string
+  attacker_ip: string
+  user_ip: string
+  started_at: string
+  finished_at: string
+  duration_ms: number
+  sent: number
+  attacks_sent: number
+  controls_sent: number
+  detected: number
+  blocked: number
+  missed: number
+  false_positives: number
+  detection_rate: number | null
+  block_rate: number | null
+  precision: number | null
+  mean_ttd_ms: number | null
+  scenarios: string[]
+  cases: RedteamCase[]
+  missed_cases: string[]
+  fp_cases: string[]
+}

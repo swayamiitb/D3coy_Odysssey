@@ -57,6 +57,10 @@ const [soc, , , , , alerts] = await Promise.all([
   save('/api/campaigns'),
   save('/api/riskplan'),
   save('/api/forecast'),
+  // Live grid and HTTP shield: one frozen reading each (the screens poll only in live mode).
+  save('/api/live'),
+  save('/api/shield'),
+  save('/api/redteam/catalogue'),
 ])
 
 // Every organisation gets its profile and its own risk plan (org ids from /api/soc).

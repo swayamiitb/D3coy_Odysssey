@@ -5,8 +5,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { SAMPLE } from './sample'
 import type {
-  AlertDetail, AlertRow, Approval, Attacks, AutoEvent, AutopilotSummary, Brief, Campaign, Feed, ForecastView, Health, IntelAdvisory, IntelSource,
-  OrgProfile, Replay, RiskPlan, Soc, Technology, Workflow,
+  AlertDetail, AlertRow, Approval, Attacks, AutoEvent, AutopilotSummary, Brief, Campaign, Drill, Feed, ForecastView, Health, IntelAdvisory, IntelSource,
+  LiveStatus, OrgProfile, RedteamReport, RedteamScenario, Replay, RiskPlan, ShieldApp, ShieldBlock, ShieldMode, ShieldStatus, Soc, Technology,
+  Workflow,
 } from './types'
 
 export type Mode = 'live' | 'snapshot' | 'sample'
@@ -74,12 +75,14 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>
 }
 
-async function post<T>(path: string): Promise<T> {
+/** POST, optionally with a JSON body (the red-team run takes one). */
+async function post<T>(path: string, json?: unknown): Promise<T> {
   if (mode !== 'live') throw new ReadOnlyError('Read-only: connect to the Odyssey backend to act')
-  const res = await fetch(path, { method: 'POST' })
+  const res = await fetch(path, json === undefined ? { method: 'POST' }
+    : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(json) })
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { detail?: string }
-    throw new Error(body.detail ?? res.statusText)
+    const body = (await res.json().catch(() => ({}))) as { detail?: unknown }
+    throw new Error(typeof body.detail === 'string' ? body.detail : res.statusText || `HTTP ${res.status}`)
   }
   return res.json() as Promise<T>
 }
@@ -112,6 +115,17 @@ export const api = {
   forecast: () => get<ForecastView>('/api/forecast'),
   certinUrl: (org: string, cve: string) => `/api/alerts/${org}/${cve}/certin-report`,
   stixUrl: (org: string, cve: string) => `/api/alerts/${org}/${cve}/stix`,
+  // Live engine (simulated decoy grid and flows, real feeds) and attack drills.
+  live: () => get<LiveStatus>('/api/live'),
+  drill: (scenario: string) => post<Drill>(`/api/live/drill/${encodeURIComponent(scenario)}`),
+  // HTTP shield in front of a real app on this machine, and the local red-team runner.
+  shield: () => get<ShieldStatus>('/api/shield'),
+  shieldMode: (appId: string, m: ShieldMode) => post<ShieldApp>(`/api/shield/apps/${encodeURIComponent(appId)}/mode?${qs({ mode: m })}`),
+  shieldBlock: (ip: string, reason: string) => post<ShieldBlock>(`/api/shield/block/${encodeURIComponent(ip)}?${qs({ reason })}`),
+  shieldUnblock: (ip: string) => post<{ ip: string; unblocked: boolean }>(`/api/shield/unblock/${encodeURIComponent(ip)}`),
+  redteamCatalogue: () => get<{ scenarios: RedteamScenario[] }>('/api/redteam/catalogue'),
+  /** Fires real HTTP requests at the registered app and waits for the report (a few seconds). No scenario = all. */
+  redteamRun: (scenario?: string) => post<RedteamReport>('/api/redteam/run', scenario && scenario !== 'all' ? { scenario } : {}),
 }
 
 export interface Loaded<T> { data: T | null; error: string | null; loading: boolean; reload: () => void }
@@ -131,6 +145,37 @@ export function useLoad<T>(load: (() => Promise<T>) | null, key: string): Loaded
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, tick])
+  return { ...state, reload }
+}
+
+export interface Polled<T> extends Loaded<T> { at: number | null }
+
+/** Live screens: fetch on mount, then every `ms` while the tab is visible; stops on unmount. Only the live backend is
+ *  polled (a snapshot never changes). A failed refresh keeps the last good data and reports the error beside it. */
+export function usePoll<T>(load: () => Promise<T>, key: string, ms: number): Polled<T> {
+  const [state, setState] = useState<{ data: T | null; error: string | null; loading: boolean; at: number | null }>({ data: null, error: null, loading: true, at: null })
+  const [tick, setTick] = useState(0)
+  const reload = useCallback(() => setTick((t) => t + 1), [])
+  useEffect(() => {
+    let alive = true
+    let busy = false
+    const pull = (force = false) => {
+      if (busy || (!force && document.visibilityState === 'hidden')) return
+      busy = true
+      load()
+        .then((data) => { if (alive) setState({ data, error: null, loading: false, at: Date.now() }) })
+        .catch((e: unknown) => { if (alive) setState((s) => ({ ...s, error: e instanceof Error ? e.message : String(e), loading: false })) })
+        .finally(() => { busy = false })
+    }
+    setState((s) => (s.data === null ? { ...s, loading: true, error: null } : s))
+    pull(true)
+    if (mode !== 'live') return () => { alive = false }
+    const id = setInterval(() => pull(), ms)
+    const onShow = () => { if (document.visibilityState === 'visible') pull() }
+    document.addEventListener('visibilitychange', onShow)
+    return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', onShow) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, tick, ms])
   return { ...state, reload }
 }
 

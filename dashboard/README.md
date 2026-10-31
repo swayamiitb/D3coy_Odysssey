@@ -29,6 +29,16 @@ node scripts/snapshot.mjs http://HOST:8000
 
 Commit `public/demo/` after a good run. The committed snapshot was taken on 1 Nov at 03:22 IST; re-run it after the backend's final build so the counts and the CERT-In clock match the demo. AI briefs are missing from it until the local model is installed (the backend answers 500 for them).
 
+## Live defence (`#/live`, `#/shield`)
+
+Two console screens for the lead's live system: **Live grid** (the simulated decoy grid and firewall flows, surge detection, and drills you can start) and **HTTP Shield** (a real demo portal behind the Odyssey agent: detections, attackers, the block list, Monitor/Block mode and red-team runs). Start the portal from the backend folder; on this laptop it runs on 8088 because 8080 is taken:
+
+```powershell
+$env:TARGET_PORT='8088'; $env:TARGET_MODE='enforce'; .venv\Scripts\python -m uvicorn target.portal:app --host 127.0.0.1 --port 8088
+```
+
+The portal registers as "enforce", which the Shield treats as Monitor: press **Block** on the Shield screen before a demo so attacks are dropped.
+
 ## Landing story (`#/`)
 
 The site opens on a full-screen scroll story, outside the console (`src/screens/Landing.tsx`): real botnet command servers on a 3D globe (`cobe`) → the globe dives into a flat India state map with the operators, their Critical warnings and a ranked list (`src/geo/IndiaMap.tsx`) → the beacon arc from the compromised gateway to its C2 → the map again with each top state's worst real CVE, the CERT-In clock and the decisions waiting. "Open the console" (header and last step) goes to `#/overview`; Back returns to the same step.

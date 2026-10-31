@@ -1,4 +1,4 @@
-import { Building2, Gavel, LayoutGrid, ListChecks, Menu, Radar, ScrollText, Telescope, TrendingDown, X } from 'lucide-react'
+import { Activity, Building2, Gavel, LayoutGrid, ListChecks, Menu, Radar, ScrollText, ShieldCheck, Telescope, TrendingDown, X } from 'lucide-react'
 import { Component, useEffect, useState, type ReactNode } from 'react'
 import { api, getAnalyst, getMode, getSnapshotTakenAt, setAnalyst, useLoad } from './data'
 import { clock, dateTime } from './format'
@@ -7,11 +7,13 @@ import { Decisions } from './screens/Decisions'
 import { Forecast } from './screens/Forecast'
 import { Incident } from './screens/Incident'
 import { Intel } from './screens/Intel'
+import { Live } from './screens/Live'
 import { Landing } from './screens/Landing'
 import { Organisation, OrgList } from './screens/Orgs'
 import { Overview } from './screens/Overview'
 import { Queue } from './screens/Queue'
 import { RiskPlanScreen } from './screens/RiskPlan'
+import { Shield } from './screens/Shield'
 import { rememberScroll } from './scroll'
 import { useNow } from './ui'
 
@@ -108,6 +110,9 @@ function Console({ route }: { route: string[] }) {
       <NavItem href="#/queue" icon={<ListChecks size={16} />} label="Triage queue" count={needsAction} active={screen === 'queue' || screen === 'incident'} />
       <NavItem href="#/decisions" icon={<Gavel size={16} />} label="Decisions" count={pending} active={screen === 'decisions'} />
       <NavItem href="#/log" icon={<ScrollText size={16} />} label="Audit log" active={screen === 'log'} />
+      <div className="px-2.5 pt-5 pb-1.5 text-[12px] text-faint">Live defence</div>
+      <NavItem href="#/live" icon={<Activity size={16} />} label="Live grid" active={screen === 'live'} />
+      <NavItem href="#/shield" icon={<ShieldCheck size={16} />} label="HTTP Shield" active={screen === 'shield'} />
       <div className="px-2.5 pt-5 pb-1.5 text-[12px] text-faint">Intelligence</div>
       <NavItem href="#/intel" icon={<Radar size={16} />} label="Threat intel" active={screen === 'intel'} />
       <NavItem href="#/orgs" icon={<Building2 size={16} />} label="Organisations" active={screen === 'orgs'} />
@@ -134,6 +139,8 @@ function Console({ route }: { route: string[] }) {
   else if (screen === 'orgs') body = route[1] ? <Organisation key={route[1]} id={route[1]} /> : <OrgList />
   else if (screen === 'risk') body = <RiskPlanScreen org={route[1]} />
   else if (screen === 'ahead') body = <Forecast />
+  else if (screen === 'live') body = <Live />
+  else if (screen === 'shield') body = <Shield />
   else body = <Overview />
 
   return (
