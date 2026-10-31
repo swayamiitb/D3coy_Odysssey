@@ -1,13 +1,14 @@
-import { FileText, ShieldX, TrendingUp } from 'lucide-react'
+import { ArrowRight, FileText, ShieldX, TrendingUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, type Card, type Feed, type ForecastView, type Soc } from './api'
 import { CertInReportModal } from './ExportPanel'
 import { IndiaMap } from './IndiaMap'
 import { ApprovalQueue } from './proactive'
-import { Row, TIER_FILL, TierPill, useToast } from './ui'
+import { Band, Figures, Row, TIER_FILL, TierPill, useToast, WRAP } from './ui'
 
-/* Uber's ride screen, for a national CERT: a task panel on the left (one trip card, one black action, then what is
-   next) and the live map on the right. Details slide in on demand. */
+/* Uber's home page, for a national CERT on duty. Black hero: the one sentence that matters and the trip card (one
+   warning, one countdown, one action). White: the map of India and what is next. Black: what Odyssey did on its own.
+   Soft grey: the decisions only a person can make. */
 
 const JOURNEY = [
   { key: 'new', label: 'Issued' },
@@ -74,7 +75,7 @@ function title(c: Card) {
 }
 
 export function Now({ onOpen, onOrg, onGo, tick }: {
-  onOpen: (c: Card) => void; onOrg: (id: string) => void; onGo: (view: 'intel', tab: 'threats' | 'overview') => void; tick: number
+  onOpen: (c: Card) => void; onOrg: (id: string) => void; onGo: (view: 'soc' | 'intel', tab: string) => void; tick: number
 }) {
   const [feed, setFeed] = useState<Feed>()
   const [soc, setSoc] = useState<Soc>()
@@ -95,91 +96,144 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
       .catch((e) => toast(String(e))).finally(() => setBusy(false))
   }
 
-  if (!feed) return <div className="p-8 text-mute">Loading the national picture…</div>
+  if (!feed) return <div className="bg-band text-band-mute"><div className={`${WRAP} py-24 text-lg`}>Loading the national picture…</div></div>
   const [hero, ...rest] = feed.cards
   const next = hero?.workflow.next_action
+  const auto = soc?.autopilot.by_mode?.auto
+  const lead = soc?.autopilot.lead?.real_signals_only
+  const langs = soc ? new Set(soc.orgs.map((o) => o.lang)).size : undefined
+  const headline = feed.counts.compromise > 0
+    ? `${feed.counts.compromise} suspected compromise needs you now.`
+    : feed.counts.needs_action > 0 ? `${feed.counts.needs_action} warnings need you.` : 'All quiet. Nothing needs you.'
 
   return (
-    <div className="flex min-h-0 flex-1 gap-5">
-      <div className="flex w-[460px] shrink-0 flex-col gap-5 overflow-auto pr-1 [&>*]:shrink-0">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">{feed.counts.needs_action} warnings need you</h2>
-          <p className="mt-1 text-mute">
-            {feed.counts.compromise > 0 && <span className="font-medium text-comp">{feed.counts.compromise} suspected compromise · </span>}
-            {soc?.pending ?? '…'} decisions waiting · {feed.counts.closed} closed
-          </p>
-        </div>
-
-        {hero ? (
-          <article className="rounded-3xl border border-line bg-panel p-5 shadow-[0_8px_30px_rgb(0_0_0/0.08)]">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <TierPill tier={hero.tier} />
-              {hero.kev && <span className="rounded-full bg-panel-2 px-2.5 py-0.5 text-xs font-medium">exploited in the wild</span>}
-              <span className="ml-auto font-mono text-xs text-mute">{hero.cve_id}</span>
-            </div>
-            <h3 className="text-xl font-bold leading-snug">{title(hero)}</h3>
-            <p className="mt-1 text-sm text-mute">{hero.org_name} · {hero.sector} · {hero.assets} asset{hero.assets > 1 ? 's' : ''}</p>
-            <div className="my-5">
-              <Countdown issuedAt={feed.issued_at} hours={hero.deadline_hours} big />
-              <div className="text-sm text-mute">{hero.tier === 'Compromise' ? 'left to report to CERT-In' : 'left to remediate'}</div>
-            </div>
-            <Progress state={hero.workflow.state} />
-            {next && (
-              <button disabled={busy} onClick={() => act(hero, next)}
-                      className="mt-5 w-full rounded-full bg-action py-3.5 text-base font-semibold text-ink hover:opacity-85 disabled:opacity-50">
-                {ACTION_LABEL[next] ?? next}
-              </button>
-            )}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button onClick={() => onOpen(hero)} className="rounded-full bg-panel-2 px-4 py-2 text-sm font-medium hover:bg-line">Why this warning?</button>
-              {hero.tier === 'Compromise' && (
-                <button onClick={() => setReportFor(hero)} className="flex items-center gap-1.5 rounded-full bg-panel-2 px-4 py-2 text-sm font-medium hover:bg-line">
-                  <FileText size={14} /> CERT-In report
-                </button>
-              )}
-              {next && (
-                <button disabled={busy} onClick={() => act(hero, 'false_positive')} className="ml-auto flex items-center gap-1 px-2 py-2 text-sm text-mute hover:text-text">
-                  <ShieldX size={14} /> False positive
-                </button>
-              )}
-            </div>
-          </article>
-        ) : <div className="rounded-3xl bg-panel-2 p-6 text-lg font-semibold text-ok">All clear: no warning needs action.</div>}
-
-        <section>
-          <div className="mb-2 flex items-baseline justify-between">
-            <h3 className="text-lg font-bold">Needs your decision</h3>
-            <button onClick={() => onGo('intel', 'overview')} className="text-sm font-medium text-accent hover:underline">See all {soc?.pending ?? ''}</button>
-          </div>
-          <ApprovalQueue limit={1} onChanged={load} hideMore />
-        </section>
-
-        <section>
-          <h3 className="mb-1 text-lg font-bold">Up next</h3>
+    <>
+      <section className="bg-band text-white">
+        <div className={`${WRAP} grid items-center gap-12 py-14 xl:grid-cols-[1fr_520px]`}>
           <div>
-            {rest.slice(0, 6).map((c) => (
-              <Row key={c.id} onClick={() => onOpen(c)}
-                   lead={<span className="h-3 w-3 rounded-full" style={{ background: TIER_FILL[c.tier] }} />}
-                   title={title(c)} sub={`${c.org_name} · ${c.cve_id}`}
-                   trail={<Countdown issuedAt={feed.issued_at} hours={c.deadline_hours} />} />
-            ))}
+            <p className="text-band-mute">National CERT duty desk · {new Date(feed.issued_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} IST</p>
+            <h1 className="mt-4 max-w-3xl text-6xl font-bold leading-[1.05] tracking-tight">{headline}</h1>
+            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-band-mute">
+              {feed.counts.needs_action} warnings are open across {soc?.orgs.length ?? '…'} critical-infrastructure operators, each told in its own
+              language{langs ? ` (${langs} languages)` : ''}. {soc?.pending ?? '…'} decisions wait for a person; Odyssey handles the rest and logs every step.
+            </p>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <button onClick={() => onGo('soc', 'overview')} className="rounded-full bg-white px-6 py-3.5 text-base font-semibold text-black hover:bg-panel-3">
+                Review {soc?.pending ?? ''} decisions
+              </button>
+              <button onClick={() => onGo('soc', 'cases')} className="rounded-full bg-band-3 px-6 py-3.5 text-base font-semibold text-white hover:bg-white/25">
+                Open cases
+              </button>
+            </div>
           </div>
-        </section>
 
-        {fc && (
-          <section>
-            <h3 className="mb-1 text-lg font-bold">Ahead of the threat</h3>
-            <Row onClick={() => onGo('intel', 'threats')} lead={<TrendingUp size={18} />}
-                 title={`${fc.flagged} new CVEs flagged likely to be exploited`}
-                 sub={`${fc.since_exploited} already confirmed by CISA after Odyssey flagged them`} />
-          </section>
-        )}
-      </div>
+          {hero ? (
+            <article className="rounded-3xl bg-panel p-6 text-text shadow-[0_24px_60px_rgb(0_0_0/0.45)]">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <TierPill tier={hero.tier} />
+                {hero.kev && <span className="rounded-full bg-panel-2 px-2.5 py-0.5 text-xs font-medium">exploited in the wild</span>}
+                <span className="ml-auto font-mono text-xs text-mute">{hero.cve_id}</span>
+              </div>
+              <h3 className="text-xl font-bold leading-snug">{title(hero)}</h3>
+              <p className="mt-1 text-sm text-mute">{hero.org_name} · {hero.sector} · {hero.assets} asset{hero.assets > 1 ? 's' : ''}</p>
+              <div className="my-5">
+                <Countdown issuedAt={feed.issued_at} hours={hero.deadline_hours} big />
+                <div className="text-sm text-mute">{hero.tier === 'Compromise' ? 'left to report to CERT-In' : 'left to remediate'}</div>
+              </div>
+              <Progress state={hero.workflow.state} />
+              {next && (
+                <button disabled={busy} onClick={() => act(hero, next)}
+                        className="mt-5 w-full rounded-full bg-action py-3.5 text-base font-semibold text-ink hover:opacity-85 disabled:opacity-50">
+                  {ACTION_LABEL[next] ?? next}
+                </button>
+              )}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button onClick={() => onOpen(hero)} className="rounded-full bg-panel-2 px-4 py-2 text-sm font-medium hover:bg-panel-3">Why this warning?</button>
+                {hero.tier === 'Compromise' && (
+                  <button onClick={() => setReportFor(hero)} className="flex items-center gap-1.5 rounded-full bg-panel-2 px-4 py-2 text-sm font-medium hover:bg-panel-3">
+                    <FileText size={14} /> CERT-In report
+                  </button>
+                )}
+                {next && (
+                  <button disabled={busy} onClick={() => act(hero, 'false_positive')} className="ml-auto flex items-center gap-1 px-2 py-2 text-sm text-mute hover:text-text">
+                    <ShieldX size={14} /> False positive
+                  </button>
+                )}
+              </div>
+            </article>
+          ) : <div className="rounded-3xl bg-band-2 p-8 text-xl font-semibold text-white">All clear: no warning needs action.</div>}
+        </div>
+      </section>
 
-      <div className="min-w-0 flex-1">
-        {soc ? <IndiaMap orgs={soc.orgs} onOrg={onOrg} /> : <div className="h-full rounded-3xl bg-map" />}
-      </div>
+      <Band>
+        <div className="grid gap-10 xl:grid-cols-[1fr_460px]">
+          <div>
+            <h2 className="mb-1 text-4xl font-bold tracking-tight">Across India</h2>
+            <p className="mb-5 text-mute">Where the warnings are. Red deepens with Critical warnings; purple pulses where an asset is suspected compromised.</p>
+            <div className="h-[560px]">{soc ? <IndiaMap orgs={soc.orgs} onOrg={onOrg} /> : <div className="h-full rounded-3xl bg-map" />}</div>
+          </div>
+          <div>
+            <div className="mb-1 flex items-baseline justify-between">
+              <h2 className="text-4xl font-bold tracking-tight">Up next</h2>
+              <button onClick={() => onGo('soc', 'warnings')} className="text-sm font-medium text-accent hover:underline">All warnings</button>
+            </div>
+            <p className="mb-3 text-mute">In order of deadline.</p>
+            <div>
+              {rest.slice(0, 8).map((c) => (
+                <Row key={c.id} onClick={() => onOpen(c)}
+                     lead={<span className="h-3 w-3 rounded-full" style={{ background: TIER_FILL[c.tier] }} />}
+                     title={title(c)} sub={`${c.org_name} · ${c.cve_id}`}
+                     trail={<Countdown issuedAt={feed.issued_at} hours={c.deadline_hours} />} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </Band>
+
+      <Band tone="black">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="text-4xl font-bold tracking-tight">Odyssey at work</h2>
+            <p className="mt-2 text-lg text-band-mute">Proactive by design: it warns, predicts and notifies on its own, and asks a person before anything consequential.</p>
+          </div>
+          <button onClick={() => onGo('soc', 'log')} className="flex items-center gap-2 rounded-full bg-white px-5 py-3 font-semibold text-black hover:bg-panel-3">
+            See everything it did <ArrowRight size={16} />
+          </button>
+        </div>
+        <Figures items={[
+          { value: auto != null ? auto.toLocaleString('en-IN') : '—', label: 'actions on its own', sub: `since go-live on ${soc?.autopilot.go_live ?? '…'}` },
+          { value: lead?.median_lead_days != null ? `${lead.median_lead_days} d` : '—', label: 'ahead of CISA KEV',
+            sub: lead ? `median on real signals · ${lead.acted_before_kev} CVEs · up to ${lead.max_lead_days} d` : undefined },
+          { value: fc ? fc.flagged.toLocaleString('en-IN') : '—', label: 'flagged before exploitation', sub: fc ? `${fc.since_exploited} since confirmed by CISA` : undefined, dot: 'bg-accent' },
+          { value: '0', label: 'cloud calls', sub: 'every model runs on this laptop', dot: 'bg-ok' },
+        ]} />
+      </Band>
+
+      <Band tone="soft">
+        <div className="grid gap-8 xl:grid-cols-2">
+          <div>
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="text-4xl font-bold tracking-tight">Needs your decision</h2>
+              <button onClick={() => onGo('soc', 'overview')} className="text-sm font-medium text-accent hover:underline">See all {soc?.pending ?? ''}</button>
+            </div>
+            <ApprovalQueue limit={1} onChanged={load} hideMore />
+          </div>
+          <div>
+            <h2 className="mb-4 text-4xl font-bold tracking-tight">Ahead of the threat</h2>
+            <div className="rounded-2xl bg-panel px-5 py-2">
+              {fc && (
+                <Row onClick={() => onGo('intel', 'overview')} lead={<TrendingUp size={18} />}
+                     title={`${fc.flagged} new CVEs flagged likely to be exploited`}
+                     sub={`${fc.since_exploited} already confirmed by CISA after Odyssey flagged them`} />
+              )}
+              <Row onClick={() => onGo('intel', 'risk')} lead={<ArrowRight size={18} />}
+                   title={`${soc?.risk.for_80_pct ?? '…'} changes remove 80% of the national risk`}
+                   sub={`of ${soc?.risk.tickets ?? '…'} change tickets across ${soc?.risk.assets_at_risk ?? '…'} assets at risk`} />
+            </div>
+          </div>
+        </div>
+      </Band>
       {reportFor && <CertInReportModal orgId={reportFor.org_id} cveId={reportFor.cve_id} onClose={() => setReportFor(undefined)} />}
-    </div>
+    </>
   )
 }

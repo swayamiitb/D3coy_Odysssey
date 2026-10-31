@@ -105,17 +105,7 @@ export function Proof() {
   ]
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto [&>*]:shrink-0">
-
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <Tile value={`${d.funnel.noise_reduction_x}×`} label="noise reduction"
-              sub={`${d.funnel.cves_this_month.toLocaleString('en-IN')} CVEs this month → ${d.funnel.critical_or_compromise} critical warnings`} />
-        <Tile value={`${bt.missed_pct.epss_alone}%`} label="of exploited CVEs EPSS alone would miss"
-              sub={`median EPSS of CISA-KEV entries: ${bt.median_epss_of_kev}`} />
-        <Tile value={`${d.briefs.validated}/${d.briefs.total}`} label="AI briefs passed the fact validator"
-              sub={`${d.briefs.first_attempt} on the first attempt · failures are withheld, never shown`} />
-        <Tile value="0" label="cloud calls" sub="all AI runs on-device: security LLM on the GPU, ML on the CPU" />
-      </div>
+    <div className="flex min-w-0 flex-1 flex-col gap-6">
 
       <TestBench />
       <ForecastProof />

@@ -17,6 +17,8 @@ from typing import Any
 
 import httpx
 
+from .. import telemetry
+
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 MODELS_CONFIG = Path(__file__).resolve().parents[3] / "config" / "models.json"
 
@@ -84,6 +86,7 @@ def chat(
             resp = httpx.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=timeout)
         resp.raise_for_status()
     except httpx.HTTPError as exc:
+        telemetry.record_ai(role, payload["model"], time.perf_counter() - started, 0.0, False)
         return LLMResult(content="", seconds=time.perf_counter() - started, error=repr(exc))
 
     body = resp.json()
@@ -109,6 +112,7 @@ def chat(
             result.error = f"invalid json: {exc}"
     elif not result.content and result.error is None:
         result.error = "empty response"
+    telemetry.record_ai(role, payload["model"], result.seconds, result.tokens_per_s, result.error is None)
     return result
 
 

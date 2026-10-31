@@ -22,6 +22,21 @@ TIER_RANK = {"Compromise": 4, "Critical": 3, "High": 2, "Medium": 1, "Watch": 0}
 EXPOSED = 0.6
 
 app = FastAPI(title="Odyssey - National Cyber Threat Early Warning System", version="0.2.0")
+
+
+@app.middleware("http")
+async def _time_requests(request, call_next):
+    """Telemetry: every API request is timed per route (p50 / p95 / errors on the System view)."""
+    import time as _time
+
+    from . import telemetry
+    started = _time.perf_counter()
+    response = await call_next(request)
+    route = request.scope.get("route")
+    path = getattr(route, "path", request.url.path)
+    if path.startswith("/api/") and path != "/api/stream":
+        telemetry.record_api(f"{request.method} {path}", (_time.perf_counter() - started) * 1000, response.status_code)
+    return response
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
                    allow_methods=["*"], allow_headers=["*"])
 
@@ -297,6 +312,9 @@ def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
     except httpx.HTTPError as exc:
         raise HTTPException(503, f"translation service unavailable: {exc}") from exc
     out = r.json()
+    from . import telemetry
+    telemetry.record_ai("translate", out["model"].split("/")[-1], out["seconds"], 0.0,
+                        sum(x["status"] == "validated" for x in out["results"]) / max(1, len(out["results"])))
     res = out["results"]
     n_why = len(b["why_it_matters"])
     body = {"lang": lang, "model": out["model"], "seconds": out["seconds"], "rtl": out.get("rtl", False),
@@ -793,3 +811,91 @@ def copilot(body: dict) -> dict:
         except httpx.HTTPError as exc:
             result["translation"] = {"lang": lang, "error": str(exc)}
     return result
+
+
+@app.get("/api/telemetry")
+def telemetry_view() -> dict:
+    """Live system telemetry: host / GPU / resident models, API latency per route, AI calls per role and model,
+    ledger growth, pipeline stage timings."""
+    from . import telemetry
+    return telemetry.snapshot(db())
+
+
+@app.get("/api/heatmaps")
+def heatmaps_view(org_id: str | None = None) -> dict:
+    """Heatmaps: autopilot actions by type x day, critical exposure by technology x sector, real attack volume by
+    port x day (DShield), decoy-grid sessions by product x day (SIM), notices per organisation x week."""
+    from . import telemetry
+    return telemetry.heatmaps(db(), org_id)
+
+
+# ---------------------------------------------------------------- SOC system: cases, owners, SLAs, playbooks
+def _case_or_404(fn):
+    from .engine import soc
+    try:
+        return fn()
+    except KeyError as exc:
+        raise HTTPException(404, "unknown case") from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.get("/api/cases")
+def soc_cases(status: str | None = "open", owner: str | None = None) -> list[dict]:
+    from .engine import soc
+    return soc.cases(db(), status, owner)
+
+
+@app.get("/api/cases/{case_id}")
+def soc_case(case_id: str) -> dict:
+    from .engine import soc
+    conn = db()
+    c = _case_or_404(lambda: soc.get(conn, case_id))
+    linked = []
+    for alert in c["alerts"]:
+        org_id, cve = alert.split(":", 1)
+        r = conn.execute("""SELECT a.tier, MAX(a.risk) risk, MIN(a.deadline_hours) dl, v.kev != 'null' kev,
+                                   substr(v.description, 1, 160) d FROM assessments a JOIN vulns v ON v.id = a.cve_id
+                            WHERE a.org_id = ? AND a.cve_id = ? AND a.R > 0""", (org_id, cve)).fetchone()
+        linked.append({"id": alert, "org_id": org_id, "cve_id": cve, "tier": r["tier"], "risk": r["risk"],
+                       "deadline_hours": r["dl"], "kev": bool(r["kev"]), "description": r["d"]})
+    return {**c, "linked": linked, "flow": soc.FLOW[c["kind"]], "roster": soc.ROSTER}
+
+
+@app.post("/api/cases/{case_id}/assign")
+def soc_assign(case_id: str, owner: str | None = None, actor: str = "analyst@ncew") -> dict:
+    from .engine import soc
+    return _case_or_404(lambda: soc.assign(db(), case_id, owner, actor))
+
+
+@app.post("/api/cases/{case_id}/advance")
+def soc_advance(case_id: str, to: str | None = None, actor: str = "analyst@ncew") -> dict:
+    from .engine import soc
+    return _case_or_404(lambda: soc.advance(db(), case_id, actor, to))
+
+
+@app.post("/api/cases/{case_id}/step")
+def soc_step(case_id: str, index: int, done: bool = True, actor: str = "analyst@ncew") -> dict:
+    from .engine import soc
+    return _case_or_404(lambda: soc.step(db(), case_id, index, done, actor))
+
+
+@app.post("/api/cases/{case_id}/note")
+def soc_note(case_id: str, body: dict, actor: str = "analyst@ncew") -> dict:
+    from .engine import soc
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "empty note")
+    return _case_or_404(lambda: soc.note(db(), case_id, text, actor))
+
+
+@app.get("/api/soc/metrics")
+def soc_metrics() -> dict:
+    from .engine import soc
+    return soc.metrics(db())
+
+
+@app.get("/api/soc/handover")
+def soc_handover() -> dict:
+    from .engine import soc
+    return soc.handover(db())

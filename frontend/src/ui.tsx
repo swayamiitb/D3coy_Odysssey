@@ -2,9 +2,52 @@ import { ChevronRight } from 'lucide-react'
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
 import type { Tier } from './api'
 
-/* Uber Base-style building blocks. Rules: structure is black, white and grey; the one primary action per screen is a
-   solid black pill; chips and inputs are grey-filled; colour carries meaning only (risk tiers as solid tags, green =
-   done, blue = link). Headings are short, bold, sentence case. */
+/* Uber Base-style building blocks, "Oreo" layering: black bands (nav, Hero, footer, Band tone="black") around a white
+   body with Base greys between. The one primary action per screen is a solid pill (black on white, white on black);
+   chips and inputs are grey-filled; colour carries meaning only (risk tiers as solid tags, green = done, blue = link).
+   Headings are short, bold, sentence case. */
+
+/** Page width: one centred column with generous gutters, like Uber's website. */
+export const WRAP = 'mx-auto w-full max-w-[1680px] px-10'
+
+/** Black band under the nav: big white title, grey line, chips on the right, white figures below. */
+export function Hero({ title, sub, tabs, children }: { title: ReactNode; sub?: ReactNode; tabs?: ReactNode; children?: ReactNode }) {
+  return (
+    <section className="bg-band text-white">
+      <div className={`${WRAP} pt-12 pb-10`}>
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div className="max-w-3xl">
+            <h1 className="text-5xl font-bold tracking-tight">{title}</h1>
+            {sub && <p className="mt-3 text-lg text-band-mute">{sub}</p>}
+          </div>
+          {tabs}
+        </div>
+        {children && <div className="mt-9">{children}</div>}
+      </div>
+    </section>
+  )
+}
+
+/** Figures on a black band: white numbers on raised dark tiles; a coloured dot only where the number means risk. */
+export function Figures({ items }: { items: { value: ReactNode; label: string; sub?: ReactNode; dot?: string }[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-band-3 xl:grid-cols-4">
+      {items.map((k) => (
+        <div key={k.label} className="bg-band-2 px-6 py-5">
+          <div className="text-4xl font-bold tracking-tight tabular-nums text-white">{k.value}</div>
+          <div className="mt-1.5 flex items-center gap-2 font-medium text-white">{k.dot && <span className={`h-2 w-2 rounded-full ${k.dot}`} />}{k.label}</div>
+          {k.sub && <div className="mt-0.5 text-sm text-band-mute">{k.sub}</div>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** A full-width section: white, soft grey or black (the Oreo layers inside a page). */
+export function Band({ tone = 'white', children, className = '' }: { tone?: 'white' | 'soft' | 'black'; children: ReactNode; className?: string }) {
+  const bg = tone === 'black' ? 'bg-band text-white' : tone === 'soft' ? 'bg-soft' : 'bg-ink'
+  return <section className={bg}><div className={`${WRAP} py-12 ${className}`}>{children}</div></section>
+}
 
 export const TIER_STYLE: Record<Tier, string> = {
   Compromise: 'bg-comp text-white',
@@ -48,13 +91,15 @@ export function Prov({ p, label }: { p?: string | null; label?: string }) {
   )
 }
 
-/** Uber chips: one section at a time; grey when idle, black when chosen. */
-export function Tabs<T extends string>({ value, onChange, items }: { value: T; onChange: (v: T) => void; items: [T, string][] }) {
+/** Uber chips: one section at a time. On white: grey idle, black chosen. On a black band: dark idle, white chosen. */
+export function Tabs<T extends string>({ value, onChange, items, dark }: { value: T; onChange: (v: T) => void; items: [T, string][]; dark?: boolean }) {
+  const on = dark ? 'bg-white text-black' : 'bg-action text-ink'
+  const off = dark ? 'bg-band-3 text-white hover:bg-white/25' : 'bg-panel-2 text-text hover:bg-panel-3'
   return (
     <div className="flex flex-wrap gap-2">
       {items.map(([k, label]) => (
         <button key={k} onClick={() => onChange(k)}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${value === k ? 'bg-action text-ink' : 'bg-panel-2 text-text hover:bg-line'}`}>
+                className={`rounded-full px-4 py-2 text-[15px] font-medium transition ${value === k ? on : off}`}>
           {label}
         </button>
       ))}
@@ -66,11 +111,11 @@ export function Tabs<T extends string>({ value, onChange, items }: { value: T; o
 export function Panel({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {
   return (
     <section className="rounded-2xl border border-line bg-panel">
-      <header className="flex items-center justify-between gap-3 px-5 pt-4 pb-2">
-        <h2 className="text-lg font-bold">{title}</h2>
+      <header className="flex items-center justify-between gap-3 px-6 pt-5 pb-3">
+        <h2 className="text-xl font-bold">{title}</h2>
         {right}
       </header>
-      <div className="px-5 pb-5">{children}</div>
+      <div className="px-6 pb-6">{children}</div>
     </section>
   )
 }

@@ -23,7 +23,7 @@ export function Funnel({ s }: { s: Summary }) {
             </div>
             <div className="mt-1 h-1.5 rounded bg-panel-2">
               <div
-                className={`h-1.5 rounded ${i === steps.length - 1 ? 'bg-crit' : 'bg-accent'}`}
+                className={`h-1.5 rounded ${i === steps.length - 1 ? 'bg-crit' : 'bg-action'}`}
                 style={{ width: `${Math.max(2, (100 * Math.log10(st.value + 1)) / Math.log10(max + 1))}%` }}
               />
             </div>

@@ -151,7 +151,7 @@ export function Advisories() {
 
   return (
     <div className="flex min-w-0 flex-1 gap-5">
-      <aside className="flex w-96 shrink-0 flex-col gap-3 overflow-auto">
+      <aside className="sticky top-24 flex max-h-[calc(100vh-7rem)] w-96 shrink-0 flex-col gap-3 self-start overflow-auto pr-1">
         <div className="rounded-2xl border border-line bg-panel p-4">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><ClipboardPaste size={14} /> Paste any advisory</div>
           <textarea value={paste} onChange={(e) => setPaste(e.target.value)} rows={5}
@@ -177,7 +177,7 @@ export function Advisories() {
           </button>
         ))}
       </aside>
-      <section className="min-w-0 flex-1 overflow-auto rounded-2xl border border-line bg-panel p-6">
+      <section className="min-w-0 flex-1 rounded-2xl border border-line bg-panel p-6">
         {err && <div className="mb-3 text-sm text-crit">{err}</div>}
         {pasted ? (
           <>

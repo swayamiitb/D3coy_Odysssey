@@ -72,7 +72,7 @@ export function HowItWorks() {
   ]
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto [&>*]:shrink-0">
+    <div className="flex min-w-0 flex-1 flex-col gap-6">
 
       <section>
         <div className="mb-2 text-sm font-semibold text-text">1 · The pipeline</div>

@@ -80,6 +80,13 @@ def select_candidates(products: set[tuple[str, str]], kev: dict) -> tuple[set[st
 
 def main() -> None:
     started = time.time()
+    stages: list[dict] = []  # telemetry: how long each build stage took (System view)
+    tick = [started]
+
+    def stage(name: str) -> None:
+        now = time.time()
+        stages.append({"stage": name, "seconds": round(now - tick[0], 2)})
+        tick[0] = now
     world = json.loads(WORLD.read_text(encoding="utf-8"))
     orgs = {o["id"]: o for o in world["orgs"]}
     reach = tier1_reachability(world)
@@ -88,13 +95,16 @@ def main() -> None:
     epss, epss_header = load_epss()
 
     ids, month_counts = select_candidates(products, kev)
+    stage("feeds + candidate selection")
     nvd = load_nvd(ids)
+    stage("NVD records")
     print(f"{len(ids)} candidate CVEs ({sum(1 for i in ids if i in kev)} in KEV); NVD records for {len(nvd)}")
     # Day-0 exploitation forecast, only where it is out-of-sample (published after the model was frozen).
     model = forecast.load()
     fresh = [forecast.day0_fields(nvd[c]) for c in sorted(ids) if c in nvd and model
              and nvd[c]["published"][:10] > model["frozen"]]
     forecasts = dict(zip((f["id"] for f in fresh), forecast.predict(fresh)))
+    stage("day-0 forecast")
     print(f"forecast: {len(forecasts)} CVEs published after {model['frozen'] if model else '-'}, "
           f"{sum(f['flag'] for f in forecasts.values())} flagged likely-to-be-exploited")
 
@@ -173,6 +183,7 @@ def main() -> None:
             sig["ioc_sighting"] = sightings[asset["id"]]
         return sig
 
+    stage("telemetry detectors (decoy, beacons)")
     n_assess = 0
     recs: dict[str, dict] = {}
     product_cves: dict[str, set[str]] = {}
@@ -227,9 +238,12 @@ def main() -> None:
                             a.decision, a.deadline_hours, json.dumps(detail)))
                 n_assess += 1
 
+    stage("exposure + scoring")
     stats = run_sentinel(db, ledger, recs, orgs, {a["id"]: {**a, "tier1_reachable": reach[a["id"]]}
                                                   for a in world["assets"]}, surge_runs, product_cves, sightings)
+    stage("sentinel autopilot")
     meta = {"snapshot_date": SNAPSHOT_DATE.isoformat(), "epss_header": epss_header, "sentinel": json.dumps(stats),
+            "build_stages": json.dumps(stages),
             "nvd_month_counts": json.dumps(month_counts), "built_at": dt.datetime.now().isoformat(timespec="seconds"),
             "candidates": str(len(ids))}
     db.executemany("INSERT INTO meta VALUES (?,?)", meta.items())

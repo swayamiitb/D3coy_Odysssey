@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, type OrgProfile, type RiskPlan, type Soc } from './api'
 import { AutopilotFeed, useLanguages } from './proactive'
+import { Heatmap, type HeatData } from './Heatmap'
 import { Spark } from './Soc'
 import { Badge, deadlineText, Panel, Prov, Stat, Tabs, TIER_FILL, TierPill } from './ui'
 
@@ -55,6 +56,23 @@ export function RiskPlanView({ r, compact, limit }: { r: RiskPlan; compact?: boo
   )
 }
 
+function OrgInbox({ orgId }: { orgId: string }) {
+  const [heat, setHeat] = useState<HeatData>()
+  useEffect(() => { fetch(`/api/heatmaps?org_id=${orgId}`).then((r) => r.json()).then((h) => setHeat(h.autopilot)).catch(() => undefined) }, [orgId])
+  return (
+    <>
+      {heat && (
+        <Panel title="What Odyssey sent, day by day" right={<span className="text-xs text-mute">notices, digests, advisories and warnings for this organisation</span>}>
+          <Heatmap data={heat} hue="accent" unit="messages" labelW={180} />
+        </Panel>
+      )}
+      <Panel title="Inbox" right={<span className="text-xs text-mute">simulated delivery · in the organisation's language</span>}>
+        <AutopilotFeed orgId={orgId} limit={120} height="max-h-[50vh]" />
+      </Panel>
+    </>
+  )
+}
+
 function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId: string) => void }) {
   const langs = useLanguages()
   const lang = langs[p.language]
@@ -77,7 +95,7 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
     </Panel>
   )
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto [&>*]:shrink-0">
+    <div className="flex min-w-0 flex-1 flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -108,11 +126,7 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
         </div>
       )}
       {tab === 'risk' && <Panel title="Risk plan: what to fix, in order"><RiskPlanView r={p.risk} /></Panel>}
-      {tab === 'inbox' && (
-        <Panel title="Inbox: what Odyssey sent, unprompted" right={<span className="text-xs text-mute">simulated delivery</span>}>
-          <AutopilotFeed orgId={p.org.id} limit={120} height="max-h-[60vh]" />
-        </Panel>
-      )}
+      {tab === 'inbox' && <OrgInbox orgId={p.org.id} />}
 
       {tab === 'osint' && <div className="grid gap-4 xl:grid-cols-3">
         <Panel title="OSINT: what an outsider sees" right={<Globe size={14} className="text-mute" />}>
@@ -184,7 +198,7 @@ export function Orgs({ selected, onSelect, onAlert }: { selected?: string; onSel
   }, [id])
   return (
     <>
-      <aside className="flex w-72 shrink-0 flex-col gap-1 overflow-auto">
+      <aside className="sticky top-24 flex max-h-[calc(100vh-7rem)] w-80 shrink-0 flex-col gap-1 self-start overflow-auto pr-1">
         <div className="mb-1 text-sm font-semibold text-text">Organisations · {list.length}</div>
         {list.map((o) => (
           <button key={o.id} onClick={() => onSelect(o.id)}

@@ -12,21 +12,21 @@ interface Props {
 
 export function AlertQueue({ rows, tier, onTier, selected, onSelect }: Props) {
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-line bg-panel">
-      <header className="flex items-center justify-between border-b border-line px-4 py-2">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-text">
-          <ShieldAlert size={14} /> Early-warning queue · ranked by risk
+    <section className="flex min-w-0 flex-1 flex-col self-start rounded-2xl border border-line bg-panel">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6 py-4">
+        <h2 className="flex items-center gap-2 text-xl font-bold text-text">
+          <ShieldAlert size={18} /> Every warning, ranked by risk
         </h2>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-2">
           {[undefined, ...TIERS.filter((t) => t !== 'Watch')].map((t) => (
             <button key={t ?? 'all'} onClick={() => onTier(t as Tier | undefined)}
-                    className={`rounded px-2 py-0.5 text-xs ${tier === t ? 'bg-accent/20 text-accent' : 'text-mute hover:text-text'}`}>
+                    className={`rounded-full px-3.5 py-1.5 text-sm font-medium ${tier === t ? 'bg-action text-ink' : 'bg-panel-2 text-text hover:bg-panel-3'}`}>
               {t ?? 'All'}
             </button>
           ))}
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="max-h-[calc(100vh-10rem)] overflow-auto">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-panel text-left text-xs text-mute">
             <tr>

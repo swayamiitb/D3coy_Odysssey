@@ -1,20 +1,19 @@
 import { ExternalLink, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { api, type Attacks, type Campaign, type IntelAdvisory, type IntelSource, type PortTrend, type Soc as SocData, type Technology, type RiskPlan } from './api'
+import { api, type Campaign, type IntelAdvisory, type IntelSource, type Soc as SocData, type Technology, type RiskPlan } from './api'
+import { Heatmap, type HeatData } from './Heatmap'
 import { RiskPlanView } from './Orgs'
-import { ApprovalQueue, AutopilotFeed, ForecastPanel } from './proactive'
-import { Rewind } from './Rewind'
-import { Badge, Panel, Prov, Stat } from './ui'
+import { ForecastPanel } from './proactive'
+import { Badge, Panel, Prov } from './ui'
 
 const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString('en-IN'))
 
-const Kpi = Stat // Uber-style figure: big bold number on soft grey
 
 /** Single-series sparkline; optional shaded bands (e.g. detected surges). Text stays in text tokens. */
-export function Spark({ values, bands = [], color = 'var(--color-accent)', h = 36 }: { values: number[]; bands?: [number, number][]; color?: string; h?: number }) {
+export function Spark({ values, bands = [], color = 'var(--color-accent)', h = 36, max: top }: { values: number[]; bands?: [number, number][]; color?: string; h?: number; max?: number }) {
   if (values.length < 2) return null
   const w = 160
-  const max = Math.max(...values) || 1
+  const max = top ?? (Math.max(...values) || 1)
   const x = (i: number) => (i / (values.length - 1)) * w
   const y = (v: number) => h - 2 - (v / max) * (h - 4)
   return (
@@ -25,19 +24,6 @@ export function Spark({ values, bands = [], color = 'var(--color-accent)', h = 3
   )
 }
 
-function PortCard({ t }: { t: PortTrend }) {
-  const pct = Math.round((t.ratio - 1) * 100)
-  return (
-    <div className="rounded-lg border border-line bg-panel-2/50 p-2" title={`${t.service} (port ${t.port}): last 7 days averaged ${fmt(t.last7_mean)} attack records/day vs a 28-day median of ${fmt(t.baseline_median)}; ${fmt(t.sources_last7)} distinct sources/day`}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-xs">{t.service}</span>
-        <span className={`font-mono text-xs ${t.elevated ? 'text-crit' : 'text-mute'}`}>{pct >= 0 ? '+' : ''}{pct}%</span>
-      </div>
-      <Spark values={t.series.map((s) => s.records)} color={t.elevated ? 'var(--color-crit)' : 'var(--color-accent)'} />
-      <div className="text-[10px] text-mute">:{t.port} · {fmt(t.last7_mean)}/day</div>
-    </div>
-  )
-}
 
 function Technologies({ rows }: { rows: Technology[] }) {
   return (
@@ -145,120 +131,78 @@ function Advisories({ rows }: { rows: IntelAdvisory[] }) {
   )
 }
 
-export type SocSection = 'overview' | 'threats' | 'risk' | 'log'
+export type SocSection = 'overview' | 'threats' | 'risk'
 
 export function Soc({ section, tick }: { section: SocSection; tick: number }) {
   const [d, setD] = useState<SocData>()
   const [sources, setSources] = useState<IntelSource[]>([])
   const [adv, setAdv] = useState<IntelAdvisory[]>([])
-  const [atk, setAtk] = useState<Attacks>()
   const [tech, setTech] = useState<Technology[]>([])
   const [camps, setCamps] = useState<Campaign[]>([])
-  const [stamp, setStamp] = useState(0)
+  const [heat, setHeat] = useState<Record<string, HeatData>>()
   const [plan, setPlan] = useState<RiskPlan>()
-  useEffect(() => { api.soc().then(setD).catch(() => undefined) }, [tick, stamp])
+  useEffect(() => { api.soc().then(setD).catch(() => undefined) }, [tick])
   useEffect(() => {
     api.intelSources().then(setSources).catch(() => undefined)
     api.intelAdvisories().then(setAdv).catch(() => undefined)
-    api.attacks().then(setAtk).catch(() => undefined)
     api.technologies().then(setTech).catch(() => undefined)
     api.campaigns().then(setCamps).catch(() => undefined)
     api.riskplan().then(setPlan).catch(() => undefined)
+    fetch('/api/heatmaps').then((r) => r.json()).then(setHeat).catch(() => undefined)
   }, [])
-  if (!d) return <div className="p-8 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Assembling the operations picture…</div>
+  if (!d) return <div className="p-8 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Assembling the threat picture…</div>
 
-  const lead = d.autopilot.lead
-  const real = lead?.real_signals_only
-  const auto = d.autopilot.by_mode?.auto ?? 0
-  const decoyTags = ['ivanti_cs', 'confluence', 'fortios', 'panos']
-  const daily = atk?.decoy.daily ?? []
-  const dates = [...new Set(daily.map((r) => r.date))]
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto [&>*]:shrink-0">
+    <div className="flex min-w-0 flex-1 flex-col gap-6">
       {section === 'overview' && (
         <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <Kpi value={fmt(d.tiers.Compromise ?? 0)} label="suspected compromise" sub="Bayesian decision model" tone="text-comp" />
-            <Kpi value={fmt(d.tiers.Critical ?? 0)} label="Critical warnings" sub={`${fmt(d.tiers.High ?? 0)} High · ${fmt(d.tiers.Medium ?? 0)} Medium`} tone="text-crit" />
-            <Kpi value={fmt(d.pending)} label="await your decision" sub="predictions and escalations need a human" tone="text-accent" />
-            <Kpi value={real?.median_lead_days != null ? `${real.median_lead_days} d` : '—'} label="ahead of CISA KEV"
-                 sub={real ? `median on real signals · ${real.acted_before_kev} CVEs · up to ${real.max_lead_days} d` : undefined} />
-          </div>
-          <p className="text-sm text-mute">
-            Since {d.autopilot.go_live} Odyssey acted <b className="text-text">{fmt(auto)}</b> times on its own, in {d.autopilot.languages?.length ?? 0} Indian
-            languages. <b className="text-text">{fmt(d.risk.for_50_pct)}</b> changes would remove half of the national risk.
-          </p>
-          <div className="grid gap-4 xl:grid-cols-3">
-            <div className="xl:col-span-2">
-              <Panel title="Open warnings, day by day" right={<span className="text-xs text-mute">press replay to watch Odyssey work</span>}>
-                <Rewind d={d} />
-              </Panel>
-            </div>
-            <Panel title={`Needs your decision · ${d.pending}`}>
-              <div className="max-h-[22rem] overflow-auto pr-1"><ApprovalQueue limit={2} onChanged={() => setStamp((s) => s + 1)} /></div>
+          {heat && (
+            <Panel title="Where the critical exposure is" right={<span className="text-xs text-mute">Critical warnings by technology and sector</span>}>
+              <Heatmap data={heat.exposure} hue="crit" unit="Critical warnings" labelW={230} cellH={22} dateCols={false} />
             </Panel>
-          </div>
+          )}
           <Panel title="Active threats by technology" right={<span className="text-xs text-mute">what is under attack, and where we run it</span>}>
             <Technologies rows={tech} />
+          </Panel>
+          <Panel title="Likely to be exploited next · day-0 forecast" right={<span className="text-xs text-mute">new CVEs on exposed assets, before CISA confirms</span>}>
+            <ForecastPanel limit={8} />
           </Panel>
         </>
       )}
 
       {section === 'threats' && (
         <>
-          <Panel title="Likely to be exploited next · day-0 forecast" right={<span className="text-xs text-mute">new CVEs on exposed assets, before CISA confirms</span>}>
-            <ForecastPanel limit={10} />
-          </Panel>
+          {heat && (
+            <Panel title="Real attacks on the services we run" right={<Prov p="REAL" label="REAL · SANS ISC DShield" />}>
+              <p className="mb-3 text-sm text-mute">Daily attack records seen by a global honeypot network on the ports our internet-facing products listen on, since go-live. Each row runs from its own quietest day (light) to its busiest (dark).</p>
+              <Heatmap data={heat.attacks} hue="accent" unit="attack records" labelW={200} />
+            </Panel>
+          )}
+          {heat && (
+            <Panel title="National decoy grid" right={<Prov p="SIM" label="SIM" />}>
+              <p className="mb-3 text-sm text-mute">Sessions per product per day across 24 decoy sensors, each row from its own quietest day to its busiest. Outlined days are scanning surges the detector raised: the Ivanti ones preceded a real CVE, the Confluence one was stood down.</p>
+              <Heatmap data={heat.decoy} hue="accent" unit="sessions" labelW={200} />
+            </Panel>
+          )}
           <div className="grid gap-4 xl:grid-cols-3">
             <Panel title="Campaigns · correlated threats" right={<span className="text-xs text-mute">CVEs, chains, decoy surges</span>}>
               <Campaigns rows={camps} />
             </Panel>
             <div className="xl:col-span-2">
-              <Panel title="Real attacks on the services we run" right={<Prov p="REAL" label="REAL · SANS ISC DShield" />}>
-                <p className="mb-2 text-xs text-mute">Daily attack records against the ports our constituency's internet-facing products listen on, last 7 days vs the 28-day median.</p>
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                  {(atk?.dshield.trends ?? []).map((t) => <PortCard key={t.port} t={t} />)}
-                </div>
-                <div className="mt-3 border-t border-line pt-3">
-                  <div className="mb-2 flex items-center gap-2 text-xs"><Prov p="SIM" label="SIM" /><span className="text-mute">National decoy grid, sessions per day (shaded: detected scanning surge)</span></div>
-                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                    {decoyTags.map((tag) => {
-                      const series = dates.map((dt) => daily.filter((r) => r.date === dt && r.tag === tag).reduce((s, r) => s + r.sessions, 0))
-                      const bands = (atk?.decoy.surges ?? []).filter((s) => s.tag === tag)
-                        .map((s) => [dates.indexOf(s.first), dates.indexOf(s.last)] as [number, number])
-                      return (
-                        <div key={tag} className="rounded-lg border border-line bg-panel-2/50 p-2">
-                          <div className="text-xs">{tag}</div>
-                          <Spark values={series} bands={bands} color="var(--color-mute)" />
-                          <div className="text-[10px] text-mute">{bands.length ? `${bands.length} surge${bands.length > 1 ? 's' : ''}` : 'no surge'}</div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
+              <Panel title="Real advisories, matched to our inventory" right={<Prov p="REAL" label="REAL · CISA" />}>
+                <Advisories rows={adv} />
               </Panel>
             </div>
           </div>
-          <div className="grid gap-4 xl:grid-cols-2">
-            <Panel title="Real advisories, matched to our inventory" right={<Prov p="REAL" label="REAL · CISA" />}>
-              <Advisories rows={adv} />
-            </Panel>
-            <Panel title="Where the intelligence comes from" right={<span className="text-xs text-mute">hover a row for its funnel</span>}>
-              <Sources rows={sources} />
-            </Panel>
-          </div>
+          <Panel title="Where the intelligence comes from" right={<span className="text-xs text-mute">hover a row for its funnel</span>}>
+            <Sources rows={sources} />
+          </Panel>
         </>
       )}
 
       {section === 'risk' && (
         <Panel title="National risk plan: the fewest changes that remove the most risk" right={<span className="text-xs text-mute">urgency first, then risk removed per unit of effort</span>}>
           {plan ? <RiskPlanView r={plan} limit={15} /> : <div className="text-xs text-mute"><Loader2 size={12} className="mr-1 inline animate-spin" />Ranking change tickets…</div>}
-        </Panel>
-      )}
-
-      {section === 'log' && (
-        <Panel title="Everything Odyssey did on its own, and every human decision" right={<span className="text-xs text-mute">hash-chained audit trail</span>}>
-          <AutopilotFeed limit={600} tick={tick + stamp} height="max-h-[70vh]" />
         </Panel>
       )}
     </div>
