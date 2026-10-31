@@ -4,11 +4,11 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Too
 import { api, type OrgProfile, type RiskPlan, type Soc } from './api'
 import { AutopilotFeed, useLanguages } from './proactive'
 import { Spark } from './Soc'
-import { Badge, deadlineText, Panel, TIER_FILL, TierPill } from './ui'
+import { Badge, deadlineText, Panel, Prov, Tabs, TIER_FILL, TierPill } from './ui'
 
 const WORST = ['—', 'Medium', 'High', 'Critical', 'Compromise'] as const
 
-export function RiskPlanView({ r, compact }: { r: RiskPlan; compact?: boolean }) {
+export function RiskPlanView({ r, compact, limit }: { r: RiskPlan; compact?: boolean; limit?: number }) {
   return (
     <div>
       <p className="mb-2 text-xs text-mute">
@@ -23,6 +23,7 @@ export function RiskPlanView({ r, compact }: { r: RiskPlan; compact?: boolean })
               <XAxis dataKey="k" tick={{ fill: '#8b98a9', fontSize: 11 }} label={{ value: 'changes made', fill: '#8b98a9', fontSize: 11, position: 'insideBottomRight', offset: -2 }} />
               <YAxis domain={[0, 100]} tick={{ fill: '#8b98a9', fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
               <Tooltip contentStyle={{ background: '#0b0f14', border: '1px solid #243041', fontSize: 12 }} formatter={(v) => [`${v}% of risk removed`, '']} labelFormatter={(k) => `after ${k} change(s)`} />
+              <ReferenceLine y={50} stroke="#8b98a9" strokeDasharray="3 3" />
               <ReferenceLine y={80} stroke="#8b98a9" strokeDasharray="3 3" />
               <Line type="monotone" dataKey="cum_pct" stroke="#22c55e" strokeWidth={2} dot={false} />
             </LineChart>
@@ -30,13 +31,13 @@ export function RiskPlanView({ r, compact }: { r: RiskPlan; compact?: boolean })
         </div>
       )}
       <ol className="space-y-1.5">
-        {r.plan.slice(0, compact ? 5 : 8).map((t) => (
+        {r.plan.slice(0, limit ?? (compact ? 5 : 8)).map((t) => (
           <li key={t.rank} className="flex items-center gap-3 rounded-lg bg-panel-2 px-3 py-2">
             <span className="w-5 shrink-0 text-right font-mono text-xs text-mute">{t.rank}</span>
             <span className="h-8 w-1 shrink-0 rounded" style={{ background: TIER_FILL[t.top_tier] }} />
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm">
-                Upgrade {t.label} {t.version}{t.target_version ? <> → <span className="font-mono text-ok">{t.target_version}</span></> : ' (vendor advisory)'}
+                Upgrade {t.label} {t.version}{t.target_version ? <> → <span className="font-mono text-text">{t.target_version}</span></> : ' (vendor advisory)'}
               </div>
               <div className="truncate text-[11px] text-mute">
                 {r.scope === 'national' && <>{t.org_id} · </>}{t.n_assets} host{t.n_assets === 1 ? '' : 's'} · {t.n_cves} CVE{t.n_cves === 1 ? '' : 's'}
@@ -58,17 +59,37 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
   const langs = useLanguages()
   const lang = langs[p.language]
   const imp = p.impersonation
+  const [tab, setTab] = useState<'overview' | 'risk' | 'osint' | 'inbox'>('overview')
+  const warnings = (
+    <Panel title="Open warnings">
+      <ol className="space-y-1.5">
+        {p.alerts.map((a) => (
+          <li key={a.id}>
+            <button onClick={() => onAlert(a.org_id, a.cve_id)} className="flex w-full items-center gap-3 rounded-lg bg-panel-2 px-3 py-2 text-left hover:ring-1 hover:ring-accent/40">
+              <TierPill tier={a.tier} />
+              <span className="font-mono text-sm">{a.cve_id}</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-mute">{a.title}</span>
+              <span className="text-xs text-mute">due {deadlineText(a.deadline_hours)}</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </Panel>
+  )
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto">
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-3xl font-semibold">{p.org.name}</h2>
-          {!!p.org.cii && <Badge tone="crit">Critical Information Infrastructure</Badge>}
+    <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto [&>*]:shrink-0">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-3xl font-semibold">{p.org.name}</h2>
+            {!!p.org.cii && <Badge>Critical Information Infrastructure</Badge>}
+          </div>
+          <p className="text-sm text-mute">
+            {p.org.sector} · {p.org.state} · <span className="font-mono">{p.org.domain}</span> · alerts in {lang ? `${lang.native} (${lang.name})` : p.language} ·
+            sector CSIRT {p.csirt}
+          </p>
         </div>
-        <p className="text-mute">
-          {p.org.sector} · {p.org.state} · <span className="font-mono">{p.org.domain}</span> · alerts in {lang ? `${lang.native} (${lang.name})` : p.language} ·
-          sector CSIRT {p.csirt}
-        </p>
+        <Tabs value={tab} onChange={setTab} items={[['overview', 'Overview'], ['risk', 'Risk plan'], ['osint', 'OSINT'], ['inbox', 'Inbox']]} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -86,14 +107,20 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Risk plan: what to fix, in order"><RiskPlanView r={p.risk} /></Panel>
+      {tab === 'overview' && (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {warnings}
+          <Panel title="Fix first"><RiskPlanView r={p.risk} compact /></Panel>
+        </div>
+      )}
+      {tab === 'risk' && <Panel title="Risk plan: what to fix, in order"><RiskPlanView r={p.risk} /></Panel>}
+      {tab === 'inbox' && (
         <Panel title="Inbox: what Odyssey sent, unprompted" right={<span className="text-xs text-mute">simulated delivery</span>}>
-          <AutopilotFeed orgId={p.org.id} limit={60} height="max-h-[26rem]" />
+          <AutopilotFeed orgId={p.org.id} limit={120} height="max-h-[60vh]" />
         </Panel>
-      </div>
+      )}
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      {tab === 'osint' && <div className="grid gap-4 xl:grid-cols-3">
         <Panel title="OSINT: what an outsider sees" right={<Globe size={14} className="text-mute" />}>
           <table className="w-full text-xs">
             <thead className="text-left text-mute"><tr><th className="pb-1 font-normal">Service</th><th className="pb-1 font-normal">Zone</th><th className="pb-1 text-right font-normal">Worst</th></tr></thead>
@@ -108,7 +135,7 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
             </tbody>
           </table>
         </Panel>
-        <Panel title="Attacks on these services worldwide" right={<Badge tone="ok">REAL · DShield</Badge>}>
+        <Panel title="Attacks on these services worldwide" right={<Prov p="REAL" label="REAL · DShield" />}>
           <div className="space-y-2">
             {p.attack_activity.map((t) => (
               <div key={t.port} className="rounded-lg bg-panel-2 p-2">
@@ -145,22 +172,7 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
             </div>
           </div>
         </Panel>
-      </div>
-
-      <Panel title="Open warnings">
-        <ol className="space-y-1.5">
-          {p.alerts.map((a) => (
-            <li key={a.id}>
-              <button onClick={() => onAlert(a.org_id, a.cve_id)} className="flex w-full items-center gap-3 rounded-lg bg-panel-2 px-3 py-2 text-left hover:ring-1 hover:ring-accent/40">
-                <TierPill tier={a.tier} />
-                <span className="font-mono text-sm">{a.cve_id}</span>
-                <span className="min-w-0 flex-1 truncate text-xs text-mute">{a.title}</span>
-                <span className="text-xs text-mute">due {deadlineText(a.deadline_hours)}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
-      </Panel>
+      </div>}
     </div>
   )
 }

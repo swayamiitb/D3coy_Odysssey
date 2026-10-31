@@ -192,6 +192,7 @@ export interface LeadStats { acted_before_kev: number; median_lead_days: number 
 export interface Lead extends LeadStats {
   kev_after_go_live: number
   acted_same_day: number
+  known_at_go_live?: number
   not_acted: number
   real_signals_only: LeadStats
   rows: LeadRow[]

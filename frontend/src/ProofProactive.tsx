@@ -1,7 +1,7 @@
 import { CircleCheck, CircleX, FlaskConical, Loader2, Play } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, type ForecastEval, type ForecastView, type Soc } from './api'
-import { Badge } from './ui'
+import { Badge, Prov } from './ui'
 
 /** Same alert budget, different policy: share of later-exploited CVEs each would have caught on day 0. */
 function Budget({ e }: { e: ForecastEval }) {
@@ -35,7 +35,7 @@ export function ForecastProof() {
     <section className="rounded-2xl border border-line bg-panel p-6">
       <div className="mb-1 flex items-center gap-2">
         <h3 className="text-lg font-semibold">Predicting exploitation on day 0</h3>
-        <Badge tone="ok">REAL data · out-of-time</Badge>
+        <Prov p="REAL" label="REAL data · out-of-time" />
       </div>
       <p className="mb-4 text-sm text-mute">
         Trained on NVD 2021–2025, frozen on 31 Jul 2026, then scored every CVE published Aug–Oct 2026 ({live.cves.toLocaleString('en-IN')} CVEs, {live.exploited} later
@@ -74,16 +74,19 @@ export function LeadProof() {
   const lead = s?.autopilot.lead
   if (!s || !lead) return null
   const mode = s.autopilot.by_mode
-  const rows = lead.rows.filter((r) => r.lead_days != null).sort((a, b) => (b.lead_days ?? 0) - (a.lead_days ?? 0))
+  const atGoLive = (r: { basis: string | null }) => (r.basis ?? '').startsWith('go-live')
+  // live early warnings first (the claim), then exposures already known when monitoring began, then same-day reactions
+  const rank = (r: typeof lead.rows[number]) => (atGoLive(r) ? 1 : (r.lead_days ?? 0) >= 1 ? 0 : 2)
+  const rows = lead.rows.filter((r) => r.lead_days != null).sort((a, b) => rank(a) - rank(b) || (b.lead_days ?? 0) - (a.lead_days ?? 0))
   return (
     <section className="rounded-2xl border border-line bg-panel p-6">
       <div className="mb-1 flex items-center gap-2">
         <h3 className="text-lg font-semibold">Ahead of CISA, on our own constituency</h3>
-        <Badge tone="ok">REAL CVEs</Badge><Badge tone="accent">REAL + SIM signals, attributed</Badge>
+        <Prov p="REAL" label="REAL CVEs" /><Prov p="REAL" label="REAL + SIM signals, attributed" />
       </div>
       <p className="mb-4 text-sm text-mute">
         Since go-live ({s.autopilot.go_live}) CISA added {lead.kev_after_go_live} CVEs that hit exposed assets here. Odyssey acted on {lead.acted_before_kev} of
-        them a day or more before the listing (median {lead.median_lead_days} d), {lead.acted_same_day} within the same day, and {lead.not_acted} needed no notice.
+        them a day or more before the listing (median {lead.median_lead_days} d) and {lead.acted_same_day} within the same day{lead.known_at_go_live ? `; ${lead.known_at_go_live} were already known when monitoring began (reported apart, not counted as lead)` : ''}.
         On REAL public signals alone: <b className="text-text">{lead.real_signals_only.acted_before_kev} CVEs, median {lead.real_signals_only.median_lead_days} d, up to {lead.real_signals_only.max_lead_days} d</b>.
       </p>
       <table className="w-full text-sm">
@@ -93,8 +96,8 @@ export function LeadProof() {
             <tr key={r.cve} className="border-t border-line/60">
               <td className="py-2 font-mono">{r.cve}</td>
               <td className="py-2 text-mute">{r.first_action?.slice(0, 10)}</td>
-              <td className="py-2"><Badge tone={r.provenance === 'REAL' ? 'ok' : 'accent'}>{r.provenance}</Badge> <span className="text-xs text-mute">{(r.basis ?? '').slice(0, 64)}</span></td>
-              <td className={`py-2 text-right font-mono ${(r.lead_days ?? 0) >= 1 ? 'text-ok' : 'text-mute'}`}>{(r.lead_days ?? 0) >= 1 ? `${r.lead_days} d` : 'same day'}</td>
+              <td className="py-2"><Prov p={r.provenance} /> <span className="text-xs text-mute">{(r.basis ?? '').slice(0, 64)}</span></td>
+              <td className={`py-2 text-right font-mono ${(r.lead_days ?? 0) >= 1 && !atGoLive(r) ? 'text-ok' : 'text-mute'}`}>{atGoLive(r) ? 'known at go-live' : (r.lead_days ?? 0) >= 1 ? `${r.lead_days} d` : 'same day'}</td>
             </tr>
           ))}
         </tbody>

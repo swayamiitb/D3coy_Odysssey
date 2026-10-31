@@ -25,14 +25,42 @@ export function TierPill({ tier }: { tier: Tier }) {
   )
 }
 
+/* Colour rules (one system, Uber-like): structure and text are neutral; the accent is reserved for actions and
+   selection; tier colours appear only on risk; green only means done / verified; red only means failed or critical. */
 export function Badge({ children, tone = 'mute' }: { children: ReactNode; tone?: 'mute' | 'ok' | 'crit' | 'accent' }) {
   const tones = {
     mute: 'bg-panel-2 text-mute ring-line',
     ok: 'bg-ok/10 text-ok ring-ok/30',
     crit: 'bg-crit/10 text-crit ring-crit/30',
-    accent: 'bg-accent/10 text-accent ring-accent/30',
+    accent: 'bg-transparent text-text ring-line',
   }
   return <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ring-1 ${tones[tone]}`}>{children}</span>
+}
+
+/** Where a fact comes from: a quiet outlined tag, not a colour (REAL public data or SIM simulated sensor). */
+export function Prov({ p, label }: { p?: string | null; label?: string }) {
+  if (!p) return null
+  const real = p === 'REAL'
+  return (
+    <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-mute ring-1 ring-line"
+          title={real ? 'public, real-world data' : p === 'SIM' ? 'simulated sensor data, labelled as such' : p}>
+      <span className={`h-1.5 w-1.5 rounded-full ${real ? 'bg-ok' : 'ring-1 ring-mute'}`} />{label ?? p}
+    </span>
+  )
+}
+
+/** Segmented control: one section at a time, everything one tap away. */
+export function Tabs<T extends string>({ value, onChange, items }: { value: T; onChange: (v: T) => void; items: [T, string][] }) {
+  return (
+    <div className="inline-flex flex-wrap rounded-full bg-panel p-1 ring-1 ring-line">
+      {items.map(([k, label]) => (
+        <button key={k} onClick={() => onChange(k)}
+                className={`rounded-full px-3.5 py-1 text-sm ${value === k ? 'bg-text font-semibold text-ink' : 'text-mute hover:text-text'}`}>
+          {label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 export function Panel({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {

@@ -2,7 +2,7 @@ import { Pause, Play, RotateCcw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, type Replay } from './api'
-import { Badge, deadlineText, fmtDate, Panel, TIER_FILL, TierPill } from './ui'
+import { Badge, deadlineText, fmtDate, Panel, Prov, TIER_FILL, TierPill } from './ui'
 
 export function ReplayPanel({ orgId, cveId }: { orgId: string; cveId: string }) {
   const [data, setData] = useState<Replay>()
@@ -85,7 +85,7 @@ export function ReplayPanel({ orgId, cveId }: { orgId: string; cveId: string }) 
         {visible.map((s, i) => (
           <li key={i} className={`flex items-start gap-2 ${i === visible.length - 1 && cursor >= 0 ? 'rounded bg-accent/10 p-1' : ''}`}>
             <span className="w-24 shrink-0 font-mono text-mute">{fmtDate(s.ts).slice(5)}</span>
-            <Badge tone={s.provenance === 'REAL' ? 'ok' : 'accent'}>{s.provenance}</Badge>
+            <Prov p={s.provenance} />
             <span className="flex-1">{s.event}</span>
             <TierPill tier={s.tier} />
           </li>

@@ -122,7 +122,7 @@ def plan(conn: sqlite3.Connection, org_id: str | None = None, limit: int = 25) -
     for i, x in enumerate(out, 1):
         cum += x["pct"]
         x["rank"], x["cum_pct"] = i, round(min(cum, 100.0), 1)
-        if i <= 60:
+        if i <= 400:
             curve.append({"k": i, "cum_pct": x["cum_pct"]})
 
     def needed(share: float) -> int | None:

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ForecastProof, LeadProof, TestBench } from './ProofProactive'
-import { Badge } from './ui'
+import { Badge, Prov } from './ui'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Scorecard = any
@@ -111,15 +111,11 @@ export function Proof() {
   ]
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto">
-      <div>
-        <h2 className="text-3xl font-semibold">Proof, not promises</h2>
-        <p className="text-mute">Every number below is computed on this laptop from public 2026 data or local test runs.</p>
-      </div>
+    <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto [&>*]:shrink-0">
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <Tile value={`${d.funnel.noise_reduction_x}×`} label="noise reduction"
-              sub={`${d.funnel.cves_this_month.toLocaleString('en-IN')} CVEs this month → ${d.funnel.critical_or_compromise} critical warnings`} accent />
+              sub={`${d.funnel.cves_this_month.toLocaleString('en-IN')} CVEs this month → ${d.funnel.critical_or_compromise} critical warnings`} />
         <Tile value={`${bt.missed_pct.epss_alone}%`} label="of exploited CVEs EPSS alone would miss"
               sub={`median EPSS of CISA-KEV entries: ${bt.median_epss_of_kev}`} />
         <Tile value={`${d.briefs.validated}/${d.briefs.total}`} label="AI briefs passed the fact validator"
@@ -134,7 +130,7 @@ export function Proof() {
       <section className="rounded-2xl border border-line bg-panel p-6">
         <div className="mb-1 flex items-center gap-2">
           <h3 className="text-lg font-semibold">Which triage policy misses real attacks?</h3>
-          <Badge tone="ok">REAL data</Badge>
+          <Prov p="REAL" label="REAL data" />
         </div>
         <p className="mb-5 text-sm text-mute">
           {bt.kev_entries} CVEs that CISA confirmed exploited in the wild ({bt.window[0]} → {bt.window[1]}).

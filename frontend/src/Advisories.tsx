@@ -1,6 +1,6 @@
 import { ClipboardPaste, Loader2, ScanText, ShieldCheck, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Badge, deadlineText, TierPill } from './ui'
+import { Badge, deadlineText, Prov, TierPill } from './ui'
 import type { Tier } from './api'
 
 interface Exposure {
@@ -156,7 +156,7 @@ export function Advisories() {
           <button key={it.id} onClick={() => { setSel(i); setPasted(undefined) }}
                   className={`rounded-xl border p-3 text-left ${i === sel && !pasted ? 'border-accent bg-panel-2' : 'border-line bg-panel hover:bg-panel-2'}`}>
             <div className="flex items-center gap-2">
-              <Badge tone={it.provenance === "REAL" ? "ok" : "accent"}>{it.provenance}</Badge>
+              <Prov p={it.provenance} />
               <span className="font-mono text-xs text-mute">{it.id}</span>
             </div>
             <div className="mt-1 text-sm font-medium">{it.title}</div>
@@ -175,7 +175,7 @@ export function Advisories() {
           </>
         ) : (
           <>
-            <div className="mb-1 flex items-center gap-2"><Badge tone={current.provenance === "REAL" ? "ok" : "accent"}>{current.provenance}</Badge><span className="font-mono text-xs text-mute">{current.id} · {current.published?.slice(0, 10)}</span></div>
+            <div className="mb-1 flex items-center gap-2"><Prov p={current.provenance} /><span className="font-mono text-xs text-mute">{current.id} · {current.published?.slice(0, 10)}</span></div>
             <h2 className="mb-1 text-2xl font-semibold">{current.title}</h2>
             <p className="mb-4 text-xs text-mute">{current.note}</p>
             <AnalysisView a={current.analysis} text={current.text} />

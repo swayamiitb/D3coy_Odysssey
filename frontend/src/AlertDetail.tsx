@@ -8,7 +8,7 @@ import { DecisionPanel } from './DecisionPanel'
 import { ExportPanel } from './ExportPanel'
 import { RelatedPanel } from './RelatedPanel'
 import { ReplayPanel } from './ReplayPanel'
-import { Badge, deadlineText, fmtDate, Panel, TierPill } from './ui'
+import { Badge, deadlineText, fmtDate, Panel, Prov, TierPill } from './ui'
 
 const CRIT_LABEL = ['', 'context', 'corroborating', 'strong', 'confirmed']
 const VERDICT_TONE: Record<string, 'crit' | 'ok' | 'mute'> = { affected: 'crit', not_affected: 'ok', unknown: 'mute' }
@@ -167,7 +167,7 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
             {d.timeline.map((e) => (
               <li key={e.seq} className="flex items-center gap-2">
                 <span className="w-32 font-mono text-mute">{fmtDate(e.ts)}</span>
-                <Badge tone={e.provenance === 'REAL' ? 'ok' : 'accent'}>{e.provenance}</Badge>
+                <Prov p={e.provenance} />
                 <span>{e.kind}</span>
                 <span className="text-mute">· {e.source}</span>
                 <span className="ml-auto flex items-center gap-0.5 font-mono text-mute"><Link2 size={10} />{e.hash.slice(0, 8)}</span>

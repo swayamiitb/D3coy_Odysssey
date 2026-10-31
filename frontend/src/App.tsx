@@ -1,4 +1,4 @@
-import { BookOpen, Bot, Building2, Cpu, FileSearch, FlaskConical, LayoutDashboard, LayoutList, Radar, ShieldCheck, WifiOff, Zap } from 'lucide-react'
+import { Building2, FlaskConical, Radar, Search, ShieldCheck, Telescope, Zap } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
@@ -12,12 +12,42 @@ import { Funnel, SectorHeatmap } from './Overview'
 import { Proof } from './Proof'
 import { Pulse } from './Pulse'
 import { Soc } from './Soc'
-import { Badge } from './ui'
+import { Tabs } from './ui'
 
-type View = 'now' | 'soc' | 'orgs' | 'advisories' | 'explore' | 'proof' | 'how'
+/* Four destinations, one question each (Uber-like): what needs me now, what is happening, who is at risk, why
+   should I trust it. Everything else is a tab inside one of them, or a sheet that slides in. */
+type View = 'now' | 'intel' | 'orgs' | 'proof'
+type IntelTab = 'overview' | 'threats' | 'risk' | 'advisories' | 'warnings' | 'log'
+type ProofTab = 'evidence' | 'how'
+
+const LEGACY: Record<string, [View, string?]> = {
+  soc: ['intel', 'overview'], advisories: ['intel', 'advisories'], explore: ['intel', 'warnings'], how: ['proof', 'how'],
+}
+
+function initial(): { view: View; tab?: string } {
+  const q = new URLSearchParams(window.location.search)
+  const v = q.get('view') ?? 'now'
+  if (LEGACY[v]) return { view: LEGACY[v][0], tab: q.get('tab') ?? LEGACY[v][1] }
+  return { view: (['now', 'intel', 'orgs', 'proof'].includes(v) ? v : 'now') as View, tab: q.get('tab') ?? undefined }
+}
+
+function PageHead({ title, sub, children }: { title: string; sub: string; children?: React.ReactNode }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 className="text-3xl font-semibold">{title}</h2>
+        <p className="text-sm text-mute">{sub}</p>
+      </div>
+      {children}
+    </div>
+  )
+}
 
 export default function App() {
-  const [view, setView] = useState<View>(() => (new URLSearchParams(window.location.search).get('view') as View) || 'now')
+  const start = initial()
+  const [view, setView] = useState<View>(start.view)
+  const [intelTab, setIntelTab] = useState<IntelTab>((start.view === 'intel' && start.tab as IntelTab) || 'overview')
+  const [proofTab, setProofTab] = useState<ProofTab>((start.view === 'proof' && start.tab as ProofTab) || 'evidence')
   const [summary, setSummary] = useState<Summary>()
   const [health, setHealth] = useState<Health>()
   const [rows, setRows] = useState<AlertRow[]>([])
@@ -32,6 +62,7 @@ export default function App() {
   const [connected, setConnected] = useState(false)
   const [copilot, setCopilot] = useState(false)
   const esRef = useRef<EventSource | null>(null)
+  const staticMode = new URLSearchParams(window.location.search).has('nolive')
 
   useEffect(() => {
     api.summary().then(setSummary).catch((e) => setError(String(e)))
@@ -45,7 +76,7 @@ export default function App() {
 
   // Live: every new ledger entry (analyst action, AI brief, telemetry) is pushed here and refreshes the views.
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).has('nolive')) return // static mode for screenshots/printing
+    if (staticMode) return // static mode for screenshots/printing
     const es = new EventSource('/api/stream')
     esRef.current = es
     es.onopen = () => setConnected(true)
@@ -56,80 +87,94 @@ export default function App() {
       setTick((t) => t + 1)
     })
     return () => es.close()
-  }, [])
+  }, [staticMode])
 
   useEffect(() => {
-    if (view !== 'explore') return
+    if (view !== 'intel' || intelTab !== 'warnings') return
     api.alerts({ tier, sector }).then((all) => setRows(all.filter((r) => r.tier !== 'Watch'))).catch((e) => setError(String(e)))
-  }, [tier, sector, view, tick])
+  }, [tier, sector, view, intelTab, tick])
 
   useEffect(() => {
     if (!selected) return setDetail(undefined)
     api.alert(selected.org_id, selected.cve_id).then(setDetail).catch((e) => setError(String(e)))
   }, [selected])
 
+  const openAlert = (o: string, c: string) => setSelected({ id: `${o}:${c}`, org_id: o, cve_id: c })
+  const status = connected ? 'live' : staticMode ? 'static' : 'offline'
+
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-line px-6 py-3">
-        <div className="flex items-center gap-3">
-          <Radar className="text-accent" />
-          <div>
-            <h1 className="text-base font-semibold tracking-wide">ODYSSEY <span className="font-normal text-mute">· National Cyber Early Warning</span></h1>
-            <p className="text-xs text-mute">Know first. Act first. Every warning explained.</p>
+      <header className="flex items-center gap-4 border-b border-line px-6 py-3">
+        <div className="flex items-center gap-2.5">
+          <Radar className="text-accent" size={22} />
+          <div className="leading-tight">
+            <div className="text-base font-semibold tracking-wide">ODYSSEY</div>
+            <div className="text-[11px] text-mute">National Cyber Early Warning</div>
           </div>
-          <nav className="ml-6 flex rounded-full bg-panel p-1">
-            {([['now', 'Now', Zap], ['soc', 'SOC', LayoutDashboard], ['orgs', 'Organisations', Building2], ['advisories', 'Advisories', FileSearch], ['explore', 'All warnings', LayoutList], ['proof', 'Proof', FlaskConical], ['how', 'How it works', BookOpen]] as const).map(([k, label, Icon]) => (
-              <button key={k} onClick={() => setView(k)}
-                      className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm ${view === k ? 'bg-accent text-ink font-semibold' : 'text-mute hover:text-text'}`}>
-                <Icon size={14} /> {label}
-              </button>
-            ))}
-          </nav>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setCopilot(true)}
-                  className="flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-sm text-accent ring-1 ring-accent/40 hover:bg-accent/25">
-            <Bot size={14} /> Ask Odyssey
-          </button>
-          <Badge tone={connected ? 'ok' : 'crit'}>
-            <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'animate-pulse bg-ok' : 'bg-crit'}`} /> {connected ? 'live' : new URLSearchParams(window.location.search).has('nolive') ? 'static' : 'offline'}
-          </Badge>
-          {health && (
-            <Badge tone={health.ledger_intact ? 'ok' : 'crit'}>
-              <ShieldCheck size={12} /> audit trail {health.ledger_intact ? 'intact' : 'TAMPERED'}
-            </Badge>
-          )}
-          {health && <Badge tone="accent"><Cpu size={12} /> on-device AI · {health.models.narrate}</Badge>}
-          <Badge><WifiOff size={12} /> 0 cloud calls</Badge>
+        <nav className="ml-4 flex rounded-full bg-panel p-1 ring-1 ring-line">
+          {([['now', 'Now', Zap], ['intel', 'Intel', Telescope], ['orgs', 'Organisations', Building2], ['proof', 'Proof', FlaskConical]] as const).map(([k, label, Icon]) => (
+            <button key={k} onClick={() => setView(k)}
+                    className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm ${view === k ? 'bg-text font-semibold text-ink' : 'text-mute hover:text-text'}`}>
+              <Icon size={14} /> {label}
+            </button>
+          ))}
+        </nav>
+        <button onClick={() => setCopilot(true)}
+                className="ml-auto flex w-80 max-w-[30vw] items-center gap-2 rounded-full bg-panel px-4 py-2 text-left text-sm text-mute ring-1 ring-line hover:ring-accent/60">
+          <Search size={15} /> <span className="truncate">Ask Odyssey anything…</span>
+        </button>
+        <div className="flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-mute ring-1 ring-line"
+             title={health ? `audit trail ${health.ledger_intact ? 'intact' : 'TAMPERED'} · models: ${health.models.narrate} (GPU) + CPU encoders · no cloud calls` : undefined}>
+          <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'animate-pulse bg-ok' : status === 'static' ? 'bg-mute' : 'bg-crit'}`} />
+          {status}
+          <span className="text-line">|</span>
+          <ShieldCheck size={12} className={health?.ledger_intact === false ? 'text-crit' : ''} /> audit {health?.ledger_intact === false ? 'TAMPERED' : 'intact'}
+          <span className="text-line">|</span>
+          on-device · 0 cloud
         </div>
       </header>
 
       {error && <div className="bg-crit/10 px-6 py-2 text-sm text-crit">Cannot reach the engine ({error}). Start the API on :8000.</div>}
 
       <main className="flex min-h-0 flex-1 gap-5 p-5">
-        {view === 'proof' ? (
-          <Proof />
-        ) : view === 'how' ? (
-          <HowItWorks />
-        ) : view === 'soc' ? (
-          <Soc tick={tick} onOrg={(id) => { setOrg(id); setView('orgs') }} />
-        ) : view === 'orgs' ? (
-          <Orgs selected={org} onSelect={setOrg} onAlert={(o, c) => setSelected({ id: `${o}:${c}`, org_id: o, cve_id: c })} />
-        ) : view === 'advisories' ? (
-          <Advisories />
-        ) : view === 'now' ? (
+        {view === 'now' && (
           <>
             <Now onOpen={(c) => setSelected(c)} tick={tick} />
             <Pulse summary={summary} live={live} />
           </>
-        ) : (
-          <>
-            <div className="flex w-80 shrink-0 flex-col gap-4 overflow-auto">
-              {summary && <Funnel s={summary} />}
-              {summary && <SectorHeatmap s={summary} active={sector} onPick={setSector} />}
+        )}
+
+        {view === 'intel' && (
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <PageHead title="Intel" sub="What is happening across the constituency: threats, sources, advisories, and what Odyssey did about them.">
+              <Tabs value={intelTab} onChange={setIntelTab}
+                    items={[['overview', 'Overview'], ['threats', 'Threats & sources'], ['risk', 'Risk plan'], ['advisories', 'Advisories'], ['warnings', 'All warnings'], ['log', 'Autopilot log']]} />
+            </PageHead>
+            <div className="flex min-h-0 flex-1 gap-5">
+              {intelTab === 'advisories' ? <Advisories />
+                : intelTab === 'warnings' ? (
+                  <>
+                    <div className="flex w-80 shrink-0 flex-col gap-4 overflow-auto">
+                      {summary && <Funnel s={summary} />}
+                      {summary && <SectorHeatmap s={summary} active={sector} onPick={setSector} />}
+                    </div>
+                    <AlertQueue rows={rows} tier={tier} onTier={setTier} selected={selected?.id} onSelect={setSelected} />
+                  </>
+                ) : <Soc section={intelTab} tick={tick} />}
             </div>
-            <AlertQueue rows={rows} tier={tier} onTier={setTier} selected={selected?.id} onSelect={setSelected} />
-          </>
+          </div>
+        )}
+
+        {view === 'orgs' && <Orgs selected={org} onSelect={setOrg} onAlert={openAlert} />}
+
+        {view === 'proof' && (
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <PageHead title="Proof" sub="Why to trust it: measured on this laptop, re-runnable on demand, and explained end to end.">
+              <Tabs value={proofTab} onChange={setProofTab} items={[['evidence', 'Evidence'], ['how', 'How it works']]} />
+            </PageHead>
+            <div className="flex min-h-0 flex-1">{proofTab === 'evidence' ? <Proof /> : <HowItWorks />}</div>
+          </div>
         )}
       </main>
 

@@ -104,7 +104,7 @@ export function Now({ onOpen, tick }: { onOpen: (c: Card) => void; tick: number 
     return <div className="flex flex-1 items-center justify-center text-xl text-ok">All clear — no warnings need action.</div>
   }
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto">
+    <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto [&>*]:shrink-0">
       <div className="flex items-baseline gap-3">
         <h2 className="text-3xl font-semibold">{feed.counts.needs_action} warnings need action</h2>
         {feed.counts.compromise > 0 && (
@@ -151,10 +151,10 @@ export function Now({ onOpen, tick }: { onOpen: (c: Card) => void; tick: number 
 
       <div className="grid gap-4 2xl:grid-cols-2">
         <Panel title="Needs your decision" right={<span className="text-xs text-mute">Odyssey proposes, you decide</span>}>
-          <ApprovalQueue limit={2} onChanged={load} />
+          <ApprovalQueue limit={1} onChanged={load} />
         </Panel>
         <Panel title="Ahead of the threat · day-0 exploitation forecast" right={<span className="text-xs text-mute">before CISA confirms</span>}>
-          <ForecastPanel limit={5} />
+          <ForecastPanel limit={3} compact />
         </Panel>
       </div>
 

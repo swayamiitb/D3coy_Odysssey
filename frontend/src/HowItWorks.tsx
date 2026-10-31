@@ -72,11 +72,7 @@ export function HowItWorks() {
   ]
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto">
-      <div>
-        <h2 className="text-3xl font-semibold">How Odyssey works</h2>
-        <p className="text-mute">From raw threat intelligence to an early warning, a ranked risk and a mitigation someone is accountable for. All on this laptop.</p>
-      </div>
+    <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto [&>*]:shrink-0">
 
       <section>
         <div className="mb-2 text-xs uppercase tracking-wider text-mute">1 · The pipeline</div>

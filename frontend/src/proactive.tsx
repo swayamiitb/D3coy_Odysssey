@@ -4,27 +4,27 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, type Approval, type AutoEvent, type ForecastView, type Language } from './api'
-import { Badge } from './ui'
+import { Badge, Prov } from './ui'
 
 /* ------------------------------------------------------------------ shared vocabulary */
 
 export const KIND: Record<string, { label: string; icon: LucideIcon; tone: string }> = {
-  'auto.forecast': { label: 'Pre-emptive advisory', icon: TrendingUp, tone: 'text-accent' },
-  'auto.warn': { label: 'Early warning', icon: Radar, tone: 'text-accent' },
-  'auto.confirm': { label: 'Warning confirmed', icon: CircleCheck, tone: 'text-ok' },
+  'auto.forecast': { label: 'Pre-emptive advisory', icon: TrendingUp, tone: 'text-mute' },
+  'auto.warn': { label: 'Early warning', icon: Radar, tone: 'text-mute' },
+  'auto.confirm': { label: 'Warning confirmed', icon: CircleCheck, tone: 'text-mute' },
   'auto.stand_down': { label: 'Stand-down', icon: CircleSlash, tone: 'text-mute' },
-  'auto.notify': { label: 'Notice sent', icon: Send, tone: 'text-high' },
-  'auto.advisory': { label: 'Advisory notice', icon: Send, tone: 'text-accent' },
+  'auto.notify': { label: 'Notice sent', icon: Send, tone: 'text-mute' },
+  'auto.advisory': { label: 'Advisory notice', icon: Send, tone: 'text-mute' },
   'auto.digest': { label: 'Daily digest', icon: Mail, tone: 'text-mute' },
   'auto.baseline': { label: 'Go-live baseline', icon: ClipboardList, tone: 'text-mute' },
   'auto.escalate': { label: 'Reported to regulator', icon: ShieldAlert, tone: 'text-fuchsia-300' },
   'auto.escalate_sla': { label: 'SLA escalation', icon: Timer, tone: 'text-crit' },
   'auto.report': { label: 'Report drafted', icon: FileText, tone: 'text-fuchsia-300' },
-  'auto.hunt': { label: 'Threat hunt', icon: Crosshair, tone: 'text-ok' },
+  'auto.hunt': { label: 'Threat hunt', icon: Crosshair, tone: 'text-mute' },
   'auto.proposed': { label: 'Proposed', icon: Hand, tone: 'text-high' },
   'auto.withdrawn': { label: 'Withdrawn', icon: Undo2, tone: 'text-mute' },
   'analyst.approve': { label: 'Approved', icon: UserCheck, tone: 'text-ok' },
-  'analyst.reject': { label: 'Rejected', icon: UserX, tone: 'text-crit' },
+  'analyst.reject': { label: 'Rejected', icon: UserX, tone: 'text-mute' },
 }
 
 let LANGS: Promise<Record<string, Language>> | undefined
@@ -43,7 +43,7 @@ export function istTime(ts: string): string {
 
 export function ProvBadge({ p }: { p?: string | null }) {
   if (!p) return null
-  return <Badge tone={p === 'REAL' ? 'ok' : p === 'SIM' ? 'accent' : 'mute'}>{p}</Badge>
+  return <Prov p={p} />
 }
 
 /** Who acted: the autopilot on its own, a (simulated) duty officer, or a named analyst. */
@@ -51,7 +51,7 @@ export function Autonomy({ e }: { e: AutoEvent }) {
   const by = e.payload.approved_by as string | undefined
   if (e.kind.startsWith('analyst.')) {
     const actor = e.payload.actor as string
-    return <Badge tone={e.provenance === 'SIM' ? 'accent' : 'ok'}><UserCheck size={11} /> {actor}</Badge>
+    return <Badge><UserCheck size={11} /> {actor}</Badge>
   }
   if (e.kind === 'auto.proposed') return <Badge tone="crit"><Hand size={11} /> needs a human</Badge>
   if (by) return <Badge tone={by.includes('SIM') ? 'accent' : 'ok'}><BadgeCheck size={11} /> approved · {by}</Badge>
@@ -204,7 +204,7 @@ export function AutopilotFeed({ orgId, limit = 120, tick, height = 'max-h-[28rem
 
 /* ------------------------------------------------------------------ ahead of the threat */
 
-export function ForecastPanel({ limit = 8 }: { limit?: number }) {
+export function ForecastPanel({ limit = 8, compact }: { limit?: number; compact?: boolean }) {
   const [f, setF] = useState<ForecastView>()
   useEffect(() => { api.forecast().then(setF).catch(() => undefined) }, [])
   if (!f) return <div className="text-xs text-mute"><Loader2 size={12} className="mr-1 inline animate-spin" />Scoring new CVEs…</div>
@@ -212,18 +212,20 @@ export function ForecastPanel({ limit = 8 }: { limit?: number }) {
   const base = live.base_rate_pct / 100
   return (
     <div>
-      <p className="mb-3 text-xs leading-relaxed text-mute">
+      {compact ? (
+        <p className="mb-3 text-xs text-mute">Flags {live.odyssey.flag_rate_pct}% of new CVEs on day 0; caught {live.odyssey.recall_pct}% of those CISA later confirmed exploited (out-of-time test).</p>
+      ) : <p className="mb-3 text-xs leading-relaxed text-mute">
         On the day a CVE is published, before anyone exploits it, Odyssey's model asks: will this one be weaponised?
         Frozen on 31 Jul and never tuned since: in Aug–Oct it flagged <b className="text-text">{live.odyssey.flag_rate_pct}%</b> of new CVEs and caught
         {' '}<b className="text-text">{live.odyssey.recall_pct}%</b> of the ones CISA later confirmed exploited. CVSS ≥ 9 at the same alert budget caught {live.same_budget_recall_pct.cvss}%.
-      </p>
+      </p>}
       <ol className="space-y-1.5">
         {f.items.slice(0, limit).map((i) => {
           const lead = i.kev_added ? Math.round((new Date(i.kev_added).getTime() - new Date(i.published).getTime()) / 86400_000) : null
           return (
             <li key={i.cve} className="flex items-center gap-3 rounded-lg bg-panel-2 px-3 py-2">
               <div className="w-12 shrink-0 text-right">
-                <div className="font-mono text-sm font-semibold text-accent">{Math.round(i.p / base)}×</div>
+                <div className="font-mono text-sm font-semibold">{Math.round(i.p / base)}×</div>
                 <div className="text-[10px] text-mute">base rate</div>
               </div>
               <div className="min-w-0 flex-1">
@@ -239,7 +241,7 @@ export function ForecastPanel({ limit = 8 }: { limit?: number }) {
                 {i.kev_added ? (
                   <span className="text-crit">CISA KEV {lead != null && lead > 0 ? `${lead} d later` : 'same day'}</span>
                 ) : (
-                  <span className="text-mute">{i.median_days_to_exploit != null ? `vendor norm: exploited ≤${i.median_days_to_exploit} d` : 'not exploited yet'}</span>
+                  <span className="text-mute">not exploited yet{i.median_days_to_exploit != null ? ` · vendor median ${i.median_days_to_exploit} d to exploitation` : ''}</span>
                 )}
               </div>
             </li>
