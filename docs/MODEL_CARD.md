@@ -95,3 +95,33 @@ Otherwise the English line is shown with a "translation withheld" badge.
   - Bengali and Manipuri: 5/6.
   - Santali: 3/6. The model mixes Devanagari and Urdu words into Ol Chiki. These are withheld, not shown.
   - Speed: about 20–50 s per language on the CPU. Results are cached.
+
+## Day-0 exploitation forecast (standard ML, CPU)
+
+- **Question:** the day a CVE is published, will it be exploited in the wild?
+- **Inputs:** only what is known that day:
+  - the description (TF-IDF, 1–2 grams);
+  - the CNA's CVSS metrics and CWE;
+  - the vendor;
+  - the vendor's and product's CISA KEV history, counted strictly *before* publication.
+- **Never used**, because each arrives later and would leak the answer: KEV/`cisa*` fields, SSVC, EPSS, NVD reference tags.
+- **Model:** logistic regression, C chosen on 2025, threshold chosen to maximise F2 on 2025 (`scripts/train_exploit_forecast.py`, `docs/eval_exploit_forecast.json`).
+- **Jan–Jul 2026 test** (model trained on 2021–2025):
+  - flags 4.4% of CVEs and catches 49.2% of later-KEV ones;
+  - CVSS ≥ 9 at the same budget catches 25.8%;
+  - median lead 5 days, 46% a week or more ahead;
+  - ROC AUC 0.913.
+- **Aug–Oct 2026 live period** (model frozen 31 Jul, never tuned since):
+  - flags 2.0% and catches 61.1% (44/72);
+  - CVSS ≥ 9 at the same budget catches 16.7%;
+  - ROC AUC 0.926.
+- **Calibrated:** forecast 26.7% → observed 26.7%.
+- **Low precision (5%):** exploitation is rare (base rate 0.16%), so forecasts become *proposals* for an analyst.
+- **Use:** it feeds the Bayesian decision model as its prior, P(attack) = p·P(attack | exploited) + (1−p)·P(attack | not exploited).
+
+## Analyst copilot (MiST 8B)
+
+- **Tool choice:** the model only chooses one read-only tool from a closed enum (JSON-schema constrained).
+- **Entities:** CVE ids, organisations, sectors, tiers, products and "exploited" are resolved deterministically. In testing, an 8B model filled these arguments unreliably, e.g. "power-sector" became the BFSI sector.
+- **Answers:** must cite numbered facts and pass the same grounding validator as the briefs; there is one repair round, then the answer is withheld.
+- **Count facts:** every tool's facts start with an explicit count. Without it, the model once answered "none" while its facts listed 8 proposals, which a token validator cannot catch.
