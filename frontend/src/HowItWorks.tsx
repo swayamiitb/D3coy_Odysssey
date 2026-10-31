@@ -39,7 +39,11 @@ export function HowItWorks() {
   const [src, setSrc] = useState<IntelSource[]>([])
   const [soc, setSoc] = useState<Soc>()
   useEffect(() => {
-    api.alert('PWR-01', 'CVE-2026-104935').then(setEx).catch(() => undefined)
+    // a live High-tier warning whose factors are not all 1, so the arithmetic is visible
+    api.alerts({ tier: 'High' }).then((rows) => {
+      const r = rows.find((x) => x.risk >= 45 && x.risk <= 85) ?? rows[0]
+      if (r) api.alert(r.org_id, r.cve_id).then(setEx).catch(() => undefined)
+    }).catch(() => undefined)
     fetch('/api/scorecard').then((r) => r.json()).then(setCard).catch(() => undefined)
     api.forecast().then(setFc).catch(() => undefined)
     api.intelSources().then(setSrc).catch(() => undefined)
@@ -138,7 +142,9 @@ export function HowItWorks() {
             </div>
             <div className="mt-2 text-xs text-mute">
               The tier comes from the decision path, not the number: {a.decision_path.join(' → ')}. Deadline {a.deadline_hours} h ({a.deadline_basis}).
-              {a.bayes && <> The Bayesian model puts P(compromise) at {(a.bayes.p_compromise * 100).toFixed(1)}%, which turns the tier into Compromise and starts CERT-In's 6-hour clock.</>}
+              {a.bayes && (a.tier === 'Compromise'
+                ? <> The Bayesian model puts P(compromise) at {(a.bayes.p_compromise * 100).toFixed(1)}%, which turns the tier into Compromise and starts CERT-In's 6-hour clock.</>
+                : <> The Bayesian model puts P(compromise) at {(a.bayes.p_compromise * 100).toFixed(2)}%: at 20% Odyssey would order a threat hunt, at 50% it would declare a suspected compromise and start CERT-In's 6-hour clock (as it did for the Ivanti VPN at Vidyut Grid, 98.7%).</>)}
             </div>
           </div>
         )}

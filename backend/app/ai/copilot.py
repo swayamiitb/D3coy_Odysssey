@@ -1,7 +1,8 @@
 """Analyst copilot: ask in plain language, get an answer grounded in Odyssey's own data.
 
-  1. Route   the local security model maps the question to one read-only tool from a closed set, with arguments
-             (organisation names are resolved to ids from a list it is given; it cannot invent a tool);
+  1. Route   the local security model picks one read-only tool from a closed set (it cannot invent one); the
+             arguments (CVE ids, organisations, sectors, tiers, products, "exploited") are resolved deterministically
+             from the question, because small models choose tools well but fill entities unreliably;
   2. Query   the tool runs deterministically against the database (no model involved);
   3. Facts   results become numbered facts F1..Fn;
   4. Answer  the model answers using only those facts, citing them; the same validator as the analyst brief rejects
@@ -31,19 +32,20 @@ TOOLS = {
 SECTORS = ["Power & Energy", "BFSI", "Telecom", "Transport", "Government", "Strategic & Public Enterprises"]
 TIERS = ["Compromise", "Critical", "High", "Medium"]
 
-ROUTE_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "tool": {"type": "string", "enum": list(TOOLS)},
-        "org_id": {"type": "string"},
-        "sector": {"type": "string", "enum": [""] + SECTORS},
-        "product": {"type": "string"},
-        "cve": {"type": "string"},
-        "tier": {"type": "string", "enum": [""] + TIERS},
-        "exploited_only": {"type": "boolean"},
-    },
-    "required": ["tool", "org_id", "sector", "product", "cve", "tier", "exploited_only"],
-}
+ROUTE_SCHEMA = {"type": "object", "properties": {"tool": {"type": "string", "enum": list(TOOLS)}},
+                "required": ["tool"]}
+_SECTOR_WORDS = {"Power & Energy": r"power|energy|electric|grid|utilit", "BFSI": r"bank|bfsi|financ|insur|payment",
+                 "Telecom": r"telecom|telco|\bisp\b|fibre|fiber", "Transport": r"transport|rail|metro|\bports?\b|airport|aviation",
+                 "Government": r"government|govt|ministry|treasury|public service",
+                 "Strategic & Public Enterprises": r"strategic|defen[cs]e|space|\bpsu|public enterprise"}
+_GENERIC_PRODUCT = {"power", "server", "secure", "data", "center", "remote", "support", "email", "gateway",
+                    "firewall", "http", "database", "commerce", "alliance", "access", "application", "delivery",
+                    "controller", "transact", "core", "banking", "management", "connect", "operation", "scada", "hmi",
+                    "multiple", "products", "the", "and", "kernel"}
+_GENERIC = {"corporation", "limited", "services", "service", "finance", "insurance", "energy", "power", "networks",
+            "airports", "telecom", "directorate", "centre", "center", "computing", "treasury", "state", "precision",
+            "defence", "works", "space", "components", "thermal", "hydro", "digital", "fibre", "metro", "authority",
+            "operative", "west", "rail", "bank", "link", "grid", "port", "corp"}
 ANSWER_SCHEMA = {
     "type": "object",
     "properties": {
@@ -62,19 +64,31 @@ ANSWER_SYSTEM = (
 )
 
 
-def _route(question: str, orgs: list[tuple[str, str]]) -> dict:
+def _entities(question: str, orgs: list[tuple[str, str]], products: list[str]) -> dict:
+    """Deterministic argument resolution: exact ids, distinctive organisation and product names, keyword sectors."""
+    q = question.lower()
+    cve = re.search(r"cve-\d{4}-\d{4,}", q)
+    org = next((oid for oid, name in orgs if oid.lower() in q or any(
+        w.lower() in q for w in re.findall(r"[A-Za-z]{4,}", name) if w.lower() not in _GENERIC)), "")
+    sector = "" if org else next((s for s, rx in _SECTOR_WORDS.items() if re.search(rx, q)), "")
+    tier = next((t for t in TIERS if t.lower() in q), "")
+    product = next((p for p in products if any(re.search(rf"\b{w.lower()}", q) for w in re.findall(r"[A-Za-z]{3,}", p)
+                                                if w.lower() not in _GENERIC_PRODUCT)), "")
+    return {"cve": cve.group(0).upper() if cve else "", "org_id": org, "sector": sector, "tier": tier,
+            "product": product, "exploited_only": bool(re.search(r"exploit|\bkev\b|in the wild|actively|attacked", q))}
+
+
+def _route(question: str, orgs: list[tuple[str, str]], products: list[str]) -> dict:
     tools = "\n".join(f"- {k}: {v}" for k, v in TOOLS.items())
-    org_list = "\n".join(f"- {oid}: {name}" for oid, name in orgs)
-    system = ("Map the analyst's question to exactly one tool and its arguments. Tools:\n" + tools +
-              "\nOrganisations (use the id in org_id, or \"\" if none is named):\n" + org_list +
-              "\nUse \"\" for arguments that do not apply and false for exploited_only unless the question asks "
-              "about exploited / KEV / actively attacked issues.")
+    system = "Choose the one tool that best answers the analyst's question. Tools:\n" + tools
     r = chat([{"role": "system", "content": system}, {"role": "user", "content": question}], role="copilot",
-             schema=ROUTE_SCHEMA, max_tokens=200, temperature=0.0, timeout=120)
-    route = r.data if isinstance(r.data, dict) else {}
-    route["_seconds"] = r.seconds
-    if route.get("org_id") not in {o for o, _ in orgs}:
-        route["org_id"] = ""
+             schema=ROUTE_SCHEMA, max_tokens=40, temperature=0.0, timeout=120)
+    tool = r.data.get("tool") if isinstance(r.data, dict) else None
+    route = {"tool": tool if tool in TOOLS else "alerts", "_seconds": r.seconds, **_entities(question, orgs, products)}
+    if (route["tool"] == "org" and not route["org_id"]) or (route["tool"] == "cve" and not route["cve"]):
+        route["tool"] = "alerts"  # nothing specific named: answer across the constituency
+    if route["tool"] == "org" and route["product"]:
+        route["tool"] = "alerts"  # "is <org> exposed to <product>?" is a filtered warning list
     return route
 
 
@@ -97,6 +111,8 @@ def _facts(conn: sqlite3.Connection, route: dict, api) -> tuple[list[str], list[
             where.append("v.kev != 'null'")
         if route.get("product"):
             where.append("LOWER(s.label) LIKE ?"), args.append(f"%{route['product'].lower()}%")
+        if route.get("cve"):
+            where.append("a.cve_id = ?"), args.append(route["cve"])
         q = f"""SELECT a.org_id, o.name, a.cve_id, a.tier, ROUND(MAX(a.risk)) risk, s.label, MIN(a.deadline_hours) dl,
                        COUNT(*) n, v.kev != 'null' AS kev
                 FROM assessments a JOIN assets s ON s.id = a.asset_id JOIN orgs o ON o.id = a.org_id
@@ -106,7 +122,15 @@ def _facts(conn: sqlite3.Connection, route: dict, api) -> tuple[list[str], list[
         total = conn.execute(f"""SELECT COUNT(DISTINCT a.org_id || a.cve_id) FROM assessments a JOIN assets s ON
                                  s.id = a.asset_id JOIN orgs o ON o.id = a.org_id JOIN vulns v ON v.id = a.cve_id
                                  WHERE a.R > 0 AND {' AND '.join(where)}""", args).fetchone()[0]
-        facts.append(f"{total} open warning(s) match the question; the {len(rows)} highest-risk follow.")
+        scope = ", ".join(f"{k}={v}" for k, v in route.items() if k in ("org_id", "sector", "tier", "product", "cve")
+                          and v) or "whole constituency"
+        orgs_all = [r[0] for r in conn.execute(f"""SELECT o.name FROM assessments a JOIN assets s ON s.id = a.asset_id
+                       JOIN orgs o ON o.id = a.org_id JOIN vulns v ON v.id = a.cve_id
+                       WHERE a.R > 0 AND {' AND '.join(where)} GROUP BY o.name ORDER BY MAX(a.risk) DESC""",
+                                                args).fetchall()]
+        facts.append(f"{total} open warning(s) match ({scope}"
+                     + (", known-exploited only" if route.get("exploited_only") else "") + f") at {len(orgs_all)} "
+                     f"organisation(s): {', '.join(orgs_all)}. The {len(rows)} highest-risk warnings follow.")
         facts += [f"{r['cve_id']} at {r['name']} ({r['org_id']}): tier {r['tier']}, risk {int(r['risk'])}, product "
                   f"{r['label']}, {r['n']} asset(s), {'known exploited (CISA KEV)' if r['kev'] else 'not in KEV'}, "
                   f"deadline {r['dl']} hours." for r in rows]
@@ -146,11 +170,16 @@ def _facts(conn: sqlite3.Connection, route: dict, api) -> tuple[list[str], list[
             facts.append(f"{cve} is not among the CVEs that affect this constituency.")
     elif tool == "forecast":
         f = api.forecast_view()
+        pending = [i for i in f["items"] if not i["kev_added"]]
+        done = [i for i in f["items"] if i["kev_added"]]
         facts.append(f"{f['flagged']} recent CVEs on exposed assets are flagged likely-to-be-exploited; "
-                     f"{f['since_exploited']} have since been added to CISA KEV.")
-        facts += [f"{i['cve']} ({i['product']}): forecast probability {i['p']}, {i['orgs']} organisation(s), "
-                  + (f"added to CISA KEV {i['kev_added']}." if i["kev_added"] else "not exploited yet.")
-                  for i in f["items"][:8]]
+                     f"{f['since_exploited']} have since been confirmed exploited (added to CISA KEV), "
+                     f"{f['flagged'] - f['since_exploited']} not yet.")
+        facts += [f"Not yet exploited: {i['cve']} ({i['product']}), forecast probability {i['p']}, "
+                  f"{i['orgs']} organisation(s), {i['assets']} asset(s)." for i in
+                  sorted(pending, key=lambda i: -i["p"])[:6]]
+        facts += [f"Already confirmed: {i['cve']} ({i['product']}) was flagged on day 0 and added to CISA KEV on "
+                  f"{i['kev_added']}." for i in done[:3]]
     elif tool == "plan":
         p = api.riskplan(org, 6)
         facts.append(f"Scope {p['scope']}: {p['tickets']} change tickets; {p['for_50_pct']} remove 50% of the risk and "
@@ -175,9 +204,9 @@ def _facts(conn: sqlite3.Connection, route: dict, api) -> tuple[list[str], list[
         facts += [f"{e['ts'][:16]}: {e['payload'].get('title', e['kind'])}" for e in a["events"][:8]
                   if e["payload"].get("title")]
     elif tool == "pending":
-        facts += [f"Proposal {p['id']}: {p['title']} ({len(p['orgs'])} organisation(s))." for p in api.approvals()[:8]]
-        if not facts:
-            facts.append("No proposals are waiting for a decision.")
+        waiting = api.approvals()
+        facts.append(f"{len(waiting)} proposal(s) are waiting for an analyst's decision (approve or reject).")
+        facts += [f"Waiting: {p['title']} ({len(p['orgs'])} organisation(s))." for p in waiting[:8]]
     if not facts:
         facts.append("The question could not be mapped to Odyssey's data; try naming an organisation, sector, product or CVE.")
     return facts, rows
@@ -200,7 +229,8 @@ def _validate(out: dict, facts: dict[str, str]) -> list[str]:
 
 def ask(conn: sqlite3.Connection, question: str, api) -> dict:
     orgs = [(r[0], r[1]) for r in conn.execute("SELECT id, name FROM orgs ORDER BY id").fetchall()]
-    route = _route(question, orgs)
+    products = [r[0] for r in conn.execute("SELECT DISTINCT label FROM assets ORDER BY label").fetchall()]
+    route = _route(question, orgs, products)
     fact_list, rows = _facts(conn, route, api)
     facts = {f"F{i}": f for i, f in enumerate(fact_list, 1)}
     messages = [{"role": "system", "content": ANSWER_SYSTEM},

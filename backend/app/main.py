@@ -747,6 +747,9 @@ def tests_last() -> dict:
     return _TESTS.get("last") or {"ran_at": None, "results": []}
 
 
+COPILOT_VERSION = "copilot-v4"  # v3: model picks the tool; entities resolved deterministically (distinctive names only)
+
+
 @app.post("/api/copilot")
 def copilot(body: dict) -> dict:
     """Analyst copilot: plain-language question -> one read-only tool -> numbered facts -> grounded, validated answer
@@ -764,7 +767,7 @@ def copilot(body: dict) -> dict:
         raise HTTPException(400, "ask a question")
     conn = db()
     built = conn.execute("SELECT value FROM meta WHERE key = 'built_at'").fetchone()[0]
-    key = cache.key_of("copilot", built, question)
+    key = cache.key_of("copilot", COPILOT_VERSION, built, question)
     result = cache.get("copilot", key)
     if result:
         result = {**result, "cached": True}

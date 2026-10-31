@@ -8,6 +8,8 @@ sits in the ledger and the assessment tables:
   - advisories that name the product or its CVEs
   - the organisations, sectors and assets currently exposed
 Status: ACTIVE when exploitation evidence is <= 30 days old, EMERGING when only scanning/advisories exist.
+A scanning surge counts as the campaign's early signal only if a disclosure for the product followed within the
+autopilot's stand-down window (the same rule the Sentinel applies); stood-down surges stay listed, marked as such.
 """
 
 from __future__ import annotations
@@ -29,13 +31,15 @@ def build(conn: sqlite3.Connection, today: dt.date) -> list[dict]:
 
     # exploited CVEs per product: CVEs with KEV/active evidence that hit assets of that product
     exploited: dict[str, dict[str, dict]] = defaultdict(dict)
+    from .scoring import config
+    window = config()[0]["sentinel"]["surge_stand_down_days"]
     for r in conn.execute("""SELECT s.product_key, v.id, v.kev, v.ssvc, v.published, v.description
                              FROM assessments a JOIN assets s ON s.id = a.asset_id JOIN vulns v ON v.id = a.cve_id
                              WHERE v.kev != 'null' OR v.ssvc LIKE '%active%' GROUP BY s.product_key, v.id"""):
         kev = json.loads(r["kev"]) if r["kev"] and r["kev"] != "null" else None
         when = (kev or {}).get("dateAdded") or (r["published"] or "")[:10]
         if when >= since:
-            exploited[r["product_key"]][r["id"]] = {"cve": r["id"], "date": when,
+            exploited[r["product_key"]][r["id"]] = {"cve": r["id"], "date": when, "published": (r["published"] or "")[:10],
                                                     "name": (kev or {}).get("vulnerabilityName") or r["description"][:90]}
     surges: dict[str, list[dict]] = defaultdict(list)
     for r in conn.execute("SELECT * FROM decoy_surges"):
@@ -56,7 +60,10 @@ def build(conn: sqlite3.Connection, today: dt.date) -> list[dict]:
             per_asset[e["asset_id"]].add(e["cve_id"])
         chains = sorted([{"asset_id": a, "cves": sorted(c)} for a, c in per_asset.items() if len(c) >= 2],
                         key=lambda x: -len(x["cves"]))
-        first_signal = min([s["first"] for s in surges.get(key, [])] + [c["date"] for c in cves] or [None])
+        tagged = [{**sv, "confirmed": any(c["published"] and 0 <= (dt.date.fromisoformat(c["published"])
+                                                                   - dt.date.fromisoformat(sv["first"])).days <= window
+                                          for c in cves)} for sv in surges.get(key, [])]
+        first_signal = min([sv["first"] for sv in tagged if sv["confirmed"]] + [c["date"] for c in cves] or [None])
         last_exploit = cves[-1]["date"] if cves else None
         status = ("ACTIVE" if last_exploit and (today - dt.date.fromisoformat(last_exploit)).days <= ACTIVE_DAYS
                   else "EMERGING" if surges.get(key) else "DORMANT")
@@ -69,7 +76,7 @@ def build(conn: sqlite3.Connection, today: dt.date) -> list[dict]:
                                                               f"{p['label']}",
             "status": status, "first_signal": first_signal, "last_exploit": last_exploit,
             "early_warning_days": lead if lead and lead > 0 else 0,
-            "cves": cves, "decoy_surges": surges.get(key, []), "chains": chains,
+            "cves": cves, "decoy_surges": tagged, "chains": chains,
             "orgs_exposed": sorted({e["org_id"] for e in exposure_rows}),
             "sectors_exposed": sorted({e["sector"] for e in exposure_rows}),
             "assets_exposed": len(per_asset), "max_risk": max([e["risk"] for e in exposure_rows] or [0]),
