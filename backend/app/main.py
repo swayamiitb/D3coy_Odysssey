@@ -311,7 +311,7 @@ def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
 
 
 ADVISORIES = ROOT / "data" / "sim" / "advisories.json"
-ANALYSER_VERSION = "advisory-v3"  # v3: VERS ranges in CISA CSAF advisories
+ANALYSER_VERSION = "advisory-v4"  # v4: versions and vendor links are never indicators
 
 
 def _analyse_advisory(adv: dict) -> dict:

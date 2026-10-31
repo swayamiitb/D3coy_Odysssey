@@ -54,3 +54,14 @@ def test_vers_ranges_from_cisa_csaf_advisories():
     assert text_vote({**asset, "version": "7.5_sp2"}, text).verdict == "affected"   # whole line affected, no fix
     assert text_vote({**asset, "version": "8.0"}, text).verdict == "affected"
     assert text_vote({**asset, "version": "8.1.7"}, text).verdict == "not_affected"  # the fixed release itself
+
+
+def test_versions_and_vendor_links_are_not_indicators():
+    text = ("SIMATIC WinCC V8.0 vers:intdot/<8.0.0.11 is affected. Update to V8.0 Update 11. See "
+            "https://www.siemens.com/cert/advisories for details. The campaign's C2 is hosted on 203.0.113.9 and "
+            "payloads download from hxxp://evil-cdn[.]example/x.bin")
+    found = iocs(text)
+    assert found["ips"] == ["203[.]0[.]113[.]9"]                      # not the version bound 8.0.0.11
+    assert found["urls"] == ["hxxp://evil-cdn[.]example/x.bin"]          # defanged in the source: an indicator
+    assert found["references"] == ["https://www.siemens.com/cert/advisories"]  # vendor guidance: never blocked
+    assert all("siemens" not in d for d in found["domains"])

@@ -9,7 +9,7 @@ interface Exposure {
 }
 interface Analysis {
   id: string; title: string; provenance: string
-  iocs: Record<'cves' | 'ips' | 'domains' | 'urls' | 'sha256', string[]>
+  iocs: Record<'cves' | 'ips' | 'domains' | 'urls' | 'sha256', string[]> & { references?: string[] }
   entities: { type: string; text: string; score: number }[]
   product: { id: string | null; label: string | null; method: string; evidence: string | null }
   constraints: { op: string; version: string; polarity: string; start?: string }[]
@@ -97,6 +97,17 @@ function AnalysisView({ a, text }: { a: Analysis; text?: string }) {
                 <code className="truncate rounded bg-ink px-2 py-0.5">{v}</code>
               </div>
             )))}
+          </div>
+        </section>
+      )}
+
+      {(a.iocs.references?.length ?? 0) > 0 && (
+        <section>
+          <div className="mb-2 text-xs uppercase tracking-wider text-mute">Reference links (vendor / CERT guidance, not indicators)</div>
+          <div className="space-y-1">
+            {a.iocs.references!.map((u) => (
+              <a key={u} href={u} target="_blank" rel="noreferrer" className="block truncate text-xs text-accent hover:underline">{u}</a>
+            ))}
           </div>
         </section>
       )}
