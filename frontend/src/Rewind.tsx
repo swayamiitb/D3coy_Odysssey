@@ -69,7 +69,7 @@ export function Rewind({ d }: { d: Soc }) {
             <CartesianGrid stroke="var(--color-line)" strokeDasharray="2 4" vertical={false} />
             <XAxis dataKey="date" tick={{ fill: 'var(--color-mute)', fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} minTickGap={24} />
             <YAxis tick={{ fill: 'var(--color-mute)', fontSize: 11 }} allowDecimals={false} />
-            <Tooltip contentStyle={{ background: 'var(--color-panel)', border: '1px solid #243041', fontSize: 12 }} labelStyle={{ color: 'var(--color-text)' }} />
+            <Tooltip contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line-2)', borderRadius: 10, fontSize: 12 }} labelStyle={{ color: 'var(--color-text)' }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <ReferenceLine x={d.autopilot.go_live} stroke="var(--color-mute)" strokeDasharray="3 3" label={{ value: 'go-live', fill: 'var(--color-mute)', fontSize: 11, position: 'insideTopLeft' }} />
             {day && <ReferenceLine x={day} stroke="var(--color-accent)" strokeWidth={2} />}

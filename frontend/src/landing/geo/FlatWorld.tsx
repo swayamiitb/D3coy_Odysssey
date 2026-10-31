@@ -23,7 +23,7 @@ const INDIA_POLY: LatLng[] = [
   [12.8, 74.8], [15.6, 73.8], [19.0, 72.8], [21.0, 72.6], [22.3, 69.0], [23.6, 68.2], [24.3, 70.5], [27.9, 70.0], [30.1, 73.4],
   [32.5, 74.6], [33.8, 74.0],
 ]
-function inIndia([lat, lng]: LatLng): boolean {
+export function inIndia([lat, lng]: LatLng): boolean {
   let inside = false
   for (let i = 0, j = INDIA_POLY.length - 1; i < INDIA_POLY.length; j = i++) {
     const [yi, xi] = INDIA_POLY[i], [yj, xj] = INDIA_POLY[j]

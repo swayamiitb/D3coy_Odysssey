@@ -22,7 +22,7 @@ function MissBars({ rows }: { rows: { name: string; value: number; ours?: boolea
           <div role="cell" className="relative h-6">
             <div className="absolute inset-y-2 left-0 right-0 rounded-sm bg-panel-2" />
             <div className="absolute inset-y-1 left-0 rounded-r-[4px] transition-all"
-                 style={{ width: `${Math.max(r.value, 0.6)}%`, background: r.ours ? 'var(--color-accent)' : '#64748b' }} />
+                 style={{ width: `${Math.max(r.value, 0.6)}%`, background: r.ours ? 'var(--color-accent)' : 'var(--color-faint)' }} />
             {hover === i && (
               <div className="absolute -top-9 left-0 z-10 rounded-md border border-line bg-ink px-2 py-1 text-xs shadow-lg">
                 {r.name}: misses <b>{r.value}%</b> · {r.note}

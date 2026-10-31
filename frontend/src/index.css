@@ -199,3 +199,49 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .globe-label-left { left: auto; right: anchor(left); top: anchor(center); bottom: auto; translate: -10px -50%; position-try-fallbacks: flip-inline; }
 .globe-label-alert { background: var(--color-compromise); color: var(--color-ground); font-weight: 500; }
 @supports not (anchor-name: --a) { .globe-label { display: none; } }
+
+/* ===== Console (ui-07): SOC black. The console keeps the lead's token names; html.soc (set by main.tsx on console
+   URLs only) re-points them to one dark theme: Uber black and white, red for threat, small colours for the risk tiers.
+   Elevation is lightness alone (no shadows, no glow); colour sits on data and status, never on chrome; figures, IDs,
+   IPs and clocks are mono so digits stack. From the soc-skill-pack playbook (true-black-flat), ui-ux-pro-max (data-
+   dense, real-time monitoring) and hallmark (hairline panels cut from one surface; tokens only; focus-visible). */
+@theme {
+  --color-crit-ink: #ff6b66; --color-high-ink: #ff9d6b; --color-med-ink: #f7d26b; --color-comp-ink: #b49cff;
+  --color-ok-ink: #4fd486; --color-line-2: #2e2e33; --color-panel-4: #141416;
+}
+html.soc {
+  --color-ink: #000000; --color-panel: #0e0e10; --color-soft: #060607; --color-panel-2: #1a1a1d; --color-panel-3: #26262a;
+  --color-panel-4: #141416; --color-line: #222225; --color-line-2: #2e2e33;
+  --color-mute: #a1a1a8; --color-faint: #76767d; --color-text: #f4f4f5; --color-action: #ffffff;
+  --color-band: #000000; --color-band-2: #111113; --color-band-3: #222225; --color-band-mute: #a1a1a8;
+  --color-accent: #4f8cf7; --color-map: #0e0e10;
+  --color-crit: #e5383b; --color-high: #ff7a3d; --color-med: #f5c242; --color-watch: #8e8e93; --color-ok: #22b45f; --color-comp: #8a63e8;
+  --color-crit-ink: #ff6b66; --color-high-ink: #ff9d6b; --color-med-ink: #f7d26b; --color-comp-ink: #b49cff; --color-ok-ink: #4fd486;
+  --font-sans: "Inter Variable", "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, ui-monospace, monospace;
+  color-scheme: dark; overflow-x: clip;
+}
+html.soc body { overflow-x: clip; letter-spacing: -0.006em; font-optical-sizing: auto; }
+html.soc h1, html.soc h2, html.soc h3 { letter-spacing: -0.022em; }
+html.soc ::selection { background: color-mix(in oklab, var(--color-accent) 45%, transparent); color: var(--color-text); }
+html.soc :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+html.soc ::-webkit-scrollbar-thumb { background: #2c2c31; background-clip: padding-box; }
+html.soc ::-webkit-scrollbar-track { background: transparent; }
+html.soc .tabular-nums { font-variant-numeric: tabular-nums slashed-zero; }
+html.soc .font-mono { font-variant-numeric: tabular-nums slashed-zero; letter-spacing: 0; }
+
+/* SOC card: one surface, one hairline, 16px radius. Seams: a group of cells cut from one surface by 1px rules. */
+.soc-card { border: 1px solid var(--color-line); background: var(--color-panel); border-radius: 1rem; }
+/* Each cell draws its own 1px ring into the gap, so a short last row leaves panel, not a grey block. */
+.soc-seams { display: grid; gap: 1px; background: var(--color-panel); border: 1px solid var(--color-line); border-radius: 1rem; overflow: hidden; }
+.soc-seams > * { background: var(--color-panel); box-shadow: 0 0 0 1px var(--color-line); }
+/* The one ambient motion allowed on a working screen: a slow breath on a live dot. */
+@keyframes soc-breath { 50% { opacity: 0.35; } }
+.soc-live { animation: soc-breath 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .soc-live, .pulse-comp, html.soc .animate-pulse { animation: none; }
+}
+/* A suspected compromise breathes: one ring that grows and fades. */
+@keyframes soc-ring { from { transform: scale(0.95); opacity: 0.6; } to { transform: scale(1.35); opacity: 0; } }
+.soc-ring { transform-box: fill-box; transform-origin: center; animation: soc-ring 2.4s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .soc-ring { animation: none; opacity: 0.35; } }

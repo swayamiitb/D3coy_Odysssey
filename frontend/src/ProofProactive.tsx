@@ -17,7 +17,7 @@ function Budget({ e }: { e: ForecastEval }) {
           <div className={`text-sm ${r.ours ? 'font-semibold' : 'text-mute'}`}>{r.name}</div>
           <div className="relative h-5">
             <div className="absolute inset-y-2 left-0 right-0 rounded-sm bg-panel-2" />
-            <div className="absolute inset-y-1 left-0 rounded-r-[4px]" style={{ width: `${r.v}%`, background: r.ours ? 'var(--color-accent)' : '#64748b' }} />
+            <div className="absolute inset-y-1 left-0 rounded-r-[4px]" style={{ width: `${r.v}%`, background: r.ours ? 'var(--color-accent)' : 'var(--color-faint)' }} />
           </div>
           <div className="text-right font-mono text-sm">{r.v}%</div>
         </div>

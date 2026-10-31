@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react'
 import { api, type Health, type Soc, type Technology } from './api'
 import { Figures, WRAP } from './ui'
 
-/* The Oreo frame around every page: black nav on top, black footer at the bottom, the page's own black hero band in
-   between, and a white body. */
+/* The frame around every page: the top bar (pill navigation, live status, the decisions count, the analyst), the
+   page's own header with its figures, and the footer. SOC black throughout (ui-07). */
 
 export type View = 'now' | 'live' | 'soc' | 'intel' | 'orgs' | 'proof'
 export type Go = (view: View, tab?: string) => void
@@ -15,41 +15,59 @@ export function TopNav({ view, go, pending, connected, status, health }: {
   view: View; go: Go; pending?: number; connected: boolean; status: string; health?: Health
 }) {
   const [menu, setMenu] = useState(false)
+  const dot = connected ? 'soc-live bg-ok' : status === 'static' ? 'bg-watch' : 'bg-crit'
   return (
-    <header className="sticky top-0 z-30 bg-band text-white">
-      <div className={`${WRAP} flex h-16 items-center gap-5`}>
-        <button onClick={() => go('now')} className="mr-3 text-2xl font-bold tracking-tight">Odyssey</button>
-        <nav className="flex items-center gap-1">
-          {NAV.map(([k, label]) => (
-            <button key={k} onClick={() => go(k)}
-                    className={`flex items-center gap-2 rounded-full px-3.5 py-2 text-[15px] font-medium transition ${view === k ? 'bg-band-3 text-white' : 'text-white hover:bg-band-3'}`}>
-              {k === 'live' && <span className={`h-2 w-2 rounded-full ${connected ? 'animate-pulse bg-ok' : 'bg-watch'}`} />}
-              {label}
-            </button>
-          ))}
-        </nav>
-        <button onClick={() => go('soc', 'overview')} className="ml-auto rounded-full bg-white px-4 py-2 text-[15px] font-medium text-black hover:bg-panel-3">
-          {pending != null ? `${pending} decisions` : 'Decisions'}
+    <header className="sticky top-0 z-30 border-b border-line bg-band text-text">
+      <div className={`${WRAP} flex h-16 items-center gap-3 sm:gap-5`}>
+        <button onClick={() => go('now')} className="flex shrink-0 items-center gap-2.5 rounded-lg" aria-label="Odyssey: Now">
+          <img src="/mark.svg" alt="" className="h-8 w-8" />
+          <span className="hidden text-[18px] font-semibold tracking-tight sm:inline">Odyssey</span>
         </button>
-        <div className="relative">
-          <button onClick={() => setMenu(!menu)} title="Analyst menu"
-                  className="relative flex h-10 w-10 items-center justify-center rounded-full bg-band-3 text-sm font-bold hover:bg-white/25">
-            AN
-            <span className={`absolute right-0 top-0 h-2.5 w-2.5 rounded-full ring-2 ring-band ${connected ? 'bg-ok' : status === 'static' ? 'bg-watch' : 'bg-crit'}`} />
+        <nav aria-label="Console" className="min-w-0 overflow-x-auto [scrollbar-width:none]">
+          <div className="flex w-max items-center gap-1 rounded-full border border-line bg-panel p-1">
+            {NAV.map(([k, label]) => (
+              <button key={k} onClick={() => go(k)} aria-current={view === k ? 'page' : undefined}
+                      className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[14px] font-medium transition-colors ${view === k ? 'bg-white text-black' : 'text-mute hover:bg-panel-2 hover:text-text'}`}>
+                {k === 'live' && <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'soc-live bg-ok' : 'bg-watch'}`} />}
+                {label}
+              </button>
+            ))}
+          </div>
+        </nav>
+        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+          <span className="hidden items-center gap-2 rounded-full border border-line px-3 py-1.5 text-[13px] text-mute lg:flex">
+            <span className={`h-2 w-2 rounded-full ${dot}`} />
+            {status === 'live' ? 'Live' : status === 'static' ? 'Static view' : 'Offline'}
+          </span>
+          <button onClick={() => go('soc', 'overview')} className="rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-black transition-colors hover:bg-white/85">
+            {pending != null ? <><span className="tabular-nums">{pending}</span> decisions</> : 'Decisions'}
           </button>
-          {menu && (
-            <div className="absolute right-0 top-12 z-40 w-72 rounded-2xl bg-panel p-2 text-text shadow-2xl ring-1 ring-line" onMouseLeave={() => setMenu(false)}>
-              <div className="px-3 py-2">
-                <div className="font-bold">Analyst on duty</div>
-                <div className="text-sm text-mute">analyst@ncew · National CERT desk</div>
+          <div className="relative">
+            <button onClick={() => setMenu(!menu)} title="Analyst menu" aria-expanded={menu}
+                    className="flex items-center gap-2.5 rounded-full p-1 transition-colors hover:bg-panel-2 xl:pr-3">
+              <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-panel-3 text-[12px] font-semibold">
+                AN
+                <span className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-band ${dot}`} />
+              </span>
+              <span className="hidden text-left leading-tight xl:block">
+                <span className="block text-[13px] font-medium">Analyst on duty</span>
+                <span className="block text-[12px] text-faint">SOC analyst</span>
+              </span>
+            </button>
+            {menu && (
+              <div className="absolute right-0 top-12 z-40 w-72 rounded-2xl border border-line-2 bg-panel p-2 text-text" onMouseLeave={() => setMenu(false)}>
+                <div className="px-3 py-2">
+                  <div className="font-semibold">Analyst on duty</div>
+                  <div className="text-sm text-mute">analyst@ncew · National CERT desk</div>
+                </div>
+                <div className="mt-1 space-y-1.5 border-t border-line px-3 pt-2.5 pb-1.5 text-sm text-mute">
+                  <div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${connected ? 'bg-ok' : 'bg-watch'}`} /> {status === 'live' ? 'Live updates on' : status === 'static' ? 'Static view' : 'Offline'}</div>
+                  <div className="flex items-center gap-2"><ShieldCheck size={14} className={health?.ledger_intact === false ? 'text-crit' : 'text-ok'} /> Audit trail {health?.ledger_intact === false ? 'TAMPERED' : 'intact'}</div>
+                  <div>AI on this laptop: {health?.models.narrate ?? '…'} (GPU) + CPU models · 0 cloud calls</div>
+                </div>
               </div>
-              <div className="mt-1 space-y-1.5 border-t border-line px-3 pt-2.5 pb-1.5 text-sm text-mute">
-                <div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${connected ? 'bg-ok' : 'bg-watch'}`} /> {status === 'live' ? 'Live updates on' : status === 'static' ? 'Static view' : 'Offline'}</div>
-                <div className="flex items-center gap-2"><ShieldCheck size={14} className={health?.ledger_intact === false ? 'text-crit' : 'text-ok'} /> Audit trail {health?.ledger_intact === false ? 'TAMPERED' : 'intact'}</div>
-                <div>AI on this laptop: {health?.models.narrate ?? '…'} (GPU) + CPU models · 0 cloud calls</div>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </header>
@@ -64,34 +82,34 @@ const FOOT: [string, [string, View, string?][]][] = [
 
 export function Footer({ go, health }: { go: Go; health?: Health }) {
   return (
-    <footer className="bg-band text-white">
-      <div className={`${WRAP} pt-14 pb-10`}>
-        <div className="text-2xl font-bold tracking-tight">Odyssey</div>
-        <p className="mt-2 max-w-md text-band-mute">National cyber threat early warning for India's critical infrastructure, running entirely on this laptop.</p>
+    <footer className="border-t border-line bg-band text-text">
+      <div className={`${WRAP} pt-12 pb-10`}>
+        <div className="flex items-center gap-2.5"><img src="/mark.svg" alt="" className="h-7 w-7" /><span className="text-[20px] font-semibold tracking-tight">Odyssey</span></div>
+        <p className="mt-3 max-w-md text-band-mute">National cyber threat early warning for India's critical infrastructure, running entirely on this laptop.</p>
         <div className="mt-10 grid gap-10 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.6fr]">
           {FOOT.map(([head, links]) => (
             <div key={head}>
-              <h4 className="mb-3 font-bold">{head}</h4>
+              <h4 className="mb-3 text-[14px] font-semibold">{head}</h4>
               <ul className="space-y-2.5">
                 {links.map(([label, v, t]) => (
-                  <li key={label}><button onClick={() => { go(v, t); window.scrollTo({ top: 0 }) }} className="text-band-mute hover:text-white">{label}</button></li>
+                  <li key={label}><button onClick={() => { go(v, t); window.scrollTo({ top: 0 }) }} className="text-[14px] text-band-mute transition-colors hover:text-text">{label}</button></li>
                 ))}
               </ul>
             </div>
           ))}
           <div>
-            <h4 className="mb-3 font-bold">Data</h4>
-            <p className="leading-relaxed text-band-mute">
-              <span className="text-white">Real, public:</span> NVD, CISA KEV, CISA Vulnrichment (SSVC), FIRST EPSS, CISA advisories,
+            <h4 className="mb-3 text-[14px] font-semibold">Data</h4>
+            <p className="text-[14px] leading-relaxed text-band-mute">
+              <span className="text-text">Real, public:</span> NVD, CISA KEV, CISA Vulnrichment (SSVC), FIRST EPSS, CISA advisories,
               SANS ISC DShield, abuse.ch Feodo Tracker, OpenPhish, MITRE ATT&CK.
             </p>
-            <p className="mt-2 leading-relaxed text-band-mute">
-              <span className="text-white">Simulated, labelled SIM wherever shown:</span> national decoy grid, enterprise firewall logs,
+            <p className="mt-2 text-[14px] leading-relaxed text-band-mute">
+              <span className="text-text">Simulated, labelled SIM wherever shown:</span> national decoy grid, enterprise firewall logs,
               CERT-In style advisories.
             </p>
           </div>
         </div>
-        <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-band-3 pt-6 text-sm text-band-mute">
+        <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-line pt-6 text-sm text-band-mute">
           <span>© 2026 Team Odyssey · D3COY 1.0 · PS-01 AI-Based National Cyber Threat Early Warning System</span>
           <span className="flex items-center gap-2">
             <ShieldCheck size={14} className={health?.ledger_intact === false ? 'text-crit' : 'text-ok'} />

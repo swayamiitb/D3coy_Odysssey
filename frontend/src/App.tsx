@@ -10,6 +10,8 @@ import { Proof } from './Proof'
 import { Footer, IntelFigures, OrgsFigures, ProofFigures, SocFigures, TopNav, type Go, type View } from './Shell'
 import { Soc } from './Soc'
 import { CaseBoard, OpsLog, OpsOverview, SystemView, WarningList } from './SocOps'
+import { AttackTelemetry, CaseLoad, Throughput } from './soc/extras'
+import { IntelSources } from './soc/panels'
 import { Hero, Tabs, ToastProvider, WRAP } from './ui'
 
 /* Five destinations, one question each (Uber-like): what needs me now, how operations run, what is happening, who
@@ -38,7 +40,10 @@ function LivePage({ go }: { go: Go }) {
       <Hero title="Live" sub="Odyssey running right now: sensors, real feeds, detectors and the autopilot, refreshed every few seconds.">
         <LiveFigures s={s} />
       </Hero>
-      <main className={`${WRAP} flex flex-1 py-12`}><Live s={s} onGo={(v, t) => go(v, t)} /></main>
+      <main className={`${WRAP} flex flex-1 flex-col gap-10 py-10`}>
+        <Throughput s={s} />
+        <Live s={s} onGo={(v, t) => go(v, t)} />
+      </main>
     </>
   )
 }
@@ -120,7 +125,12 @@ export default function App() {
             <SocFigures tick={tick} />
           </Hero>
           <main className={`${WRAP} flex flex-1 py-12`}>
-            {socTab === 'overview' ? <OpsOverview tick={tick} onCases={() => setSocTab('cases')} onWarnings={() => setSocTab('warnings')} />
+            {socTab === 'overview' ? (
+              <div className="w-full min-w-0 space-y-10">
+                <CaseLoad tick={tick} />
+                <OpsOverview tick={tick} onCases={() => setSocTab('cases')} onWarnings={() => setSocTab('warnings')} />
+              </div>
+            )
               : socTab === 'cases' ? <CaseBoard tick={tick} onAlert={openAlert} />
               : socTab === 'log' ? <OpsLog tick={tick} />
               : socTab === 'system' ? <SystemView />
@@ -137,7 +147,12 @@ export default function App() {
             <IntelFigures tick={tick} />
           </Hero>
           <main className={`${WRAP} flex flex-1 gap-6 py-12`}>
-            {intelTab === 'advisories' ? <Advisories /> : <Soc section={intelTab} tick={tick} />}
+            {intelTab === 'advisories' ? <Advisories /> : intelTab === 'overview' ? (
+              <div className="w-full min-w-0 space-y-10">
+                <div className="grid gap-6 xl:grid-cols-2"><IntelSources /><AttackTelemetry /></div>
+                <Soc section={intelTab} tick={tick} />
+              </div>
+            ) : <Soc section={intelTab} tick={tick} />}
           </main>
         </>
       )}
