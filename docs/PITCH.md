@@ -31,7 +31,7 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
 5. **Intel (60 s).** What is under attack and the exposure heatmap; *Risk plan*: 93 changes remove half of the
    national risk, 205 remove 80%; *Advisories*: the real CISA Siemens WinCC advisory, 13 assets at 7 operators,
    version ranges parsed; then the hostile advisory, blocked by the guard with the deterministic layer still working.
-6. **Organisations (30 s).** Vidyut Grid West Corp: what outsiders see, its suppliers, its Marathi inbox.
+6. **Organisations (45 s).** Vidyut Grid West Corp opens on its threat map: hover the VPN gateway (compromised, calling a real QakBot C2), the HTTPS port under real attack pressure, the Ivanti scanning surge; then what outsiders see, its suppliers, its Marathi inbox. "Country threat maps draw arcs between nations; this is the same idea per operator, every line with its source."
 7. **Proof (60 s).** Eight claims, each with its evidence; press *Run them now* (103 checks, about two minutes,
    let it run while you take questions); *How it works*: six steps, the model table, the open formula.
 8. **Close (20 s).** "Real data, measured claims, a human in the loop, zero cloud calls, and it runs on this laptop."
@@ -42,8 +42,9 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
    read; an SSVC decision path; AI only writes briefs, and every sentence is fact-checked or withheld.
 2. **Ahead of the threat, measured honestly.** Day-0 forecast tested out-of-time (61% of later-exploited CVEs caught
    while flagging 2%); lead over CISA KEV reported on real signals only (median 20.5 days, up to 42).
-3. **It runs.** Detectors every 5 seconds, real feeds every 15 minutes, new CVEs taken in live, attack drills anyone
-   can start, live re-scoring, cases that open themselves.
+3. **It runs, and it adapts.** Detectors every 5 seconds, real feeds every 15 minutes (5 when something is happening), new
+   CVEs taken in live, attack drills anyone can start, live re-scoring, cases that open themselves, and thresholds that
+   re-derive themselves from analysts' decisions, within bounds, with every change audited.
 4. **Built for India.** CERT-In Blueprint deadlines, the 6-hour incident clock, RBI DAKSH, SEBI CSCRF, DPDP, NCIIPC
    and sector CSIRT routing, supplier fan-out, 22 Indian languages with validated translation.
 5. **Trust by construction.** Hash-chained audit trail, REAL/SIM labels everywhere, a test bench you can re-run on

@@ -985,6 +985,24 @@ def _shield():
     return shield.ENGINE
 
 
+@app.get("/api/orgs/{org_id}/threatmap")
+def org_threatmap_view(org_id: str) -> dict:
+    """The organisation's threat map: assets by zone, the recorded threats against them and their provenance."""
+    from . import live
+    from .engine.threatmap import org_threatmap
+    try:
+        return org_threatmap(db(), org_id, live.ENGINE.status() if live.ENGINE else None)
+    except KeyError as exc:
+        raise HTTPException(404, "unknown organisation") from exc
+
+
+@app.get("/api/adaptive")
+def adaptive_view() -> dict:
+    """How the live detectors have tuned themselves from people's decisions, and where the engine is focusing."""
+    import datetime as _dt
+    return _engine().adaptive.status(_dt.datetime.now(_dt.timezone.utc))
+
+
 @app.get("/api/sitrep")
 def sitrep() -> dict:
     """National cyber threat situation report, written from the live state (Markdown; every figure is on a screen)."""

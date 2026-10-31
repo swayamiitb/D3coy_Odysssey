@@ -107,6 +107,7 @@ inventory (SIM) ─────┘    data/ews.db       ├─ SOC      cases, d
 - **Attack drills** (scan, implant, full intrusion, new CVE), started from the Live page or `POST /api/live/drill/{scan|beacon|chain|cve}`. Traffic is labelled DRILL, and time to detect is measured.
   - Full intrusion, measured: caught in order in about 26 s, with the incident case opened automatically.
   - 720 quiet ticks give 0 detections.
+- **Adaptive telemetry** (`engine/adaptive.py`, `GET /api/adaptive`): the detectors tune themselves from the record, within bounds, every minute: surge threshold per product (4.0 z, +0.5 per false alarm, −0.25 per confirmed surge, 3.5–7.0), anomaly gate per organisation (6.0 z, +1.0 per false positive it closed, up to 10), beacon evidence (30 connections, 20 where a suspected compromise is open), feed cadence (15 min, 5 min for an hour after a Critical intake, a live compromise or a drill). Every change is a `live.adapt` ledger event with its reason; the SOC overview shows the current settings next to the defaults.
 - **`GET /api/live`** returns the stream state plus what each pipeline stage did in the last hour. That counts only since the engine started, so a rebuild does not inflate it.
 
 ## 6. AI models (`config/models.json`, `docs/MODEL_CARD.md`)
@@ -148,7 +149,7 @@ by content hash (`data/cache.db`); a rebuild keeps still-valid outputs.
   - **Threats:** real DShield attacks heatmap (port × day), plus the decoy grid, campaigns, CISA advisories and sources as sheets.
   - **Risk plan:** 93 changes remove 50% of national risk, 205 remove 80%, out of 344 tickets.
   - **Advisories:** inbox plus paste-any-advisory; who must act, what to block, how it was read.
-- **Organisations:** 15 operators. Each has an overview, risk plan, "What outsiders see" (OSINT: exposed services, C2 in traffic, look-alike domains, DShield on its ports, advisories naming its products) and an inbox in its own language.
+- **Organisations:** 15 operators. Each opens on its **threat map** (`engine/threatmap.py`, `GET /api/orgs/{id}/threatmap`): assets laid out by zone (internet-facing, DMZ, internal, crown jewels; at most ~10 per column drawn individually, the rest folded into one circle with its counts), threats on the left (attack pressure per listening port from DShield with its 28-day trend, decoy-grid scanning of its products, exploited CVEs, phishing look-alikes, its suppliers), implants calling out to C2 on the right, blast-radius lines to the crown jewels; every node and line carries REAL/SIM provenance; hover shows the record behind it, click opens the warning; refreshes every 10 s so live detections appear. Then risk plan, "What outsiders see" (OSINT: exposed services, C2 in traffic, look-alike domains, DShield on its ports, advisories naming its products, suppliers) and an inbox in its own language.
 - **Proof:**
   - 8 claim cards, each opening its evidence: test bench, lead over KEV, day-0 forecast, EPSS comparison, 22 languages, exposure precision, briefs, model comparison.
   - "How it works" covers the 6-step pipeline, the model table, the open scoring formula with a live worked example, and who does what.
@@ -176,10 +177,10 @@ were already known when monitoring began are reported apart and not counted as l
 
 | Check | How | Result |
 |---|---|---|
-| Engine tests | `.venv\Scripts\python -m pytest -q` | 95/95: 64 core plus 31 from the shield thread. Includes a regression test proving concurrent writers no longer fork the audit chain, and tests for decay, the clocks, supplier fan-out and the hostile advisory. |
-| Test bench | Proof → *Run them now* (`POST /api/tests/run`) | 106/106: 5 attack drills on a data copy, 5 detection checks with negative controls, the audit-trail chain, and the engine tests. |
-| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 15/15 on a private DB copy: every screen loads; approve and reject; a warning from issued to closed; a SOC case from new to closed; advisory analysis; compliance clocks, supplier fan-out and the hostile advisory; three live drills with live re-scoring; the audit trail. |
-| Interface | `python scripts\ui_audit.py` (Playwright drives the installed Edge) | 17/17 click-through steps on a copy API at :8001, with 0 page or console errors and 0 HTTP 5xx. |
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 98/98: 67 core plus 31 from the shield thread. Includes a regression test proving concurrent writers no longer fork the audit chain, and tests for decay, the clocks, supplier fan-out and the hostile advisory. |
+| Test bench | Proof → *Run them now* (`POST /api/tests/run`) | 109/109: 5 attack drills on a data copy, 5 detection checks with negative controls, the audit-trail chain, and the engine tests. |
+| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 16/16 on a private DB copy: the organisation threat map (consistent, provenance on every edge), the adaptive layer (focus and learned thresholds), every screen loads; approve and reject; a warning from issued to closed; a SOC case from new to closed; advisory analysis; compliance clocks, supplier fan-out and the hostile advisory; three live drills with live re-scoring; the audit trail. |
+| Interface | `python scripts\ui_audit.py` (Playwright drives the installed Edge) | 18/18 click-through steps on a copy API at :8001 (threat map drawn and hovered, adaptive section), with 0 page or console errors and 0 HTTP 5xx. |
 | Production build | `cd frontend && npm run build` | OK (one large-chunk warning only). |
 
 Headline measurements, also recomputed on the Proof page:

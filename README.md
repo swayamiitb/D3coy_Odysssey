@@ -23,9 +23,9 @@ Everything runs locally on an RTX 4070 Laptop (8 GB VRAM), with **0 cloud calls*
 
 - **Now:** what needs you right now. The incident card with its CERT-In clock, the map of India, what's next, and the decisions waiting for you.
 - **Live:** the system running. The pipeline stage by stage, sensor streams with z-scores, detections, real-feed freshness, and **real CVEs taken in from NVD** as they appear (matched to installed versions, forecast and acted on within seconds). **Attack drills** let anyone inject a scan, an implant, a full intrusion or a newly published CVE and watch Odyssey respond, with the time to detect.
-- **SOC:** cases with owners, SLAs and playbooks; every warning; everything the autopilot did; and the laptop's live vital signs.
+- **SOC:** cases with owners, SLAs and playbooks; the decision queue; every warning; everything the autopilot did; **adaptive detectors** (thresholds re-derived every minute from analysts' decisions, shown with their reasons); and the laptop's live vital signs.
 - **Intel:** what is under attack, where the exposure is (heatmaps), what will be exploited next, the risk plan, advisories, and a one-click **national situation report** (Markdown, for CERT-In, NCIIPC and the sector CSIRTs).
-- **Organisations:** each operator's exposure, fixes, what outsiders see (OSINT), and its inbox in its own language.
+- **Organisations:** each operator's **threat map** (the national picture cut down to one organisation: attack pressure on its ports, decoy-grid scanning of its products, exploited CVEs, implants calling out, phishing look-alikes, suppliers and blast radius, laid out from the internet-facing perimeter to the crown jewels, with provenance on every line), its exposure, fixes, what outsiders see (OSINT), and its inbox in its own language.
 - **Proof:** every claim measured on this laptop, each with its evidence, and a test bench you can re-run.
 
 ## Run it
@@ -42,10 +42,10 @@ Open http://127.0.0.1:5173. `start_all.ps1` also launches the protected demo app
 
 | Check | Command | What it proves |
 |---|---|---|
-| Engine tests | `.venv\Scripts\python -m pytest -q` | 95 tests: exposure, scoring, the proactive layer, SOC, advisories, the audit trail under concurrent writers, and the HTTP shield (signature engine on encoded/evaded payloads, block list, red-team safety). |
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 98 tests: exposure, scoring, the proactive layer, SOC, advisories, the audit trail under concurrent writers, and the HTTP shield (signature engine on encoded/evaded payloads, block list, red-team safety). |
 | HTTP shield red-team | Live → *Red-team the shield* → *Run all attacks* (or `POST /api/redteam/run`) | Fires real SQLi/XSS/traversal/cmdi/SSTI/SSRF/Log4Shell/scanning/brute-force requests at the protected app over the wire and measures detection rate, block rate, precision and time-to-detect. Loopback/private targets only. |
-| Test bench | Proof → *Run them now* | 106 checks: 5 attack drills on a copy of the data, detectors with negative controls, the audit-trail chain, and the engine tests. |
-| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 15 flows through the API on a private copy: approve and reject, a warning from issued to closed, a SOC case from new to closed, advisory analysis, three live drills, and the audit trail. |
+| Test bench | Proof → *Run them now* | 109 checks: 5 attack drills on a copy of the data, detectors with negative controls, the audit-trail chain, and the engine tests. |
+| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 16 flows through the API on a private copy: approve and reject, a warning from issued to closed, a SOC case from new to closed, advisory analysis, three live drills, and the audit trail. |
 | Interface | `python scripts\ui_audit.py` | A real browser clicks through every screen, sheet and button on another copy, and reports any page error, console error or failed request. |
 
 ## Honesty

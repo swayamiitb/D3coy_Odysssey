@@ -150,6 +150,13 @@ def main() -> int:
                 page.keyboard.press("Escape")
             soc_decisions(page)
 
+            @step("SOC overview: detectors adapting section renders")
+            def adaptive(page):
+                go("soc", "overview")
+                page.get_by_text("Detectors adapting to your decisions").wait_for()
+                page.get_by_text("surge thresholds tuned").wait_for()
+            adaptive(page)
+
             @step("SOC overview: replay sheet plays")
             def replay(page):
                 page.get_by_role("button", name="Replay").first.click()
@@ -257,6 +264,13 @@ def main() -> int:
             def orgs(page):
                 page.goto(f"{UI}/?view=orgs&org=PWR-01&nolive", wait_until="domcontentloaded")
                 page.get_by_role("heading", level=1).first.wait_for()
+                svg = page.locator("svg[data-threatmap]")
+                svg.wait_for(timeout=30000)
+                assert svg.locator("circle").count() > 10, "threat map has no asset nodes"
+                assert svg.locator("path").count() > 5, "threat map has no edges"
+                svg.locator("g").filter(has_text="vpn-gw01").first.hover()
+                page.get_by_text("calling C2", exact=False).first.wait_for()
+                shot("org-threatmap")
                 page.locator("main").get_by_role("button", name="What outsiders see", exact=True).click()
                 page.get_by_text("Its suppliers").wait_for()
                 go("orgs")

@@ -198,6 +198,17 @@ def main_() -> int:
                     f"hostile advisory blocked by the guard")
         check("compliance clocks, supplier fan-out, prompt-injection advisory", overlays)
 
+        def threatmap():
+            m = get("/api/orgs/PWR-01/threatmap")
+            ids = {n["id"] for n in m["nodes"]} | {t["id"] for t in m["threats"]} | {c["id"] for c in m["c2"]}                 | {x["id"] for x in m["suppliers"]} | {"org", "crown"}
+            assert m["nodes"] and all(e["from"] in ids and e["to"] in ids for e in m["edges"]), "dangling edge"
+            assert all(e["provenance"] in ("REAL", "SIM") for e in m["edges"]), "edge without provenance"
+            kinds = {e["kind"] for e in m["edges"]}
+            assert {"attack", "exploited", "beacon"} <= kinds, kinds
+            return (f"{m['summary']['shown']}/{m['summary']['assets']} assets, {len(m['threats'])} threats, {len(m['edges'])} edges "
+                    f"({', '.join(sorted(kinds))}); worst {m['summary']['worst']}")
+        check("organisation threat map: consistent, provenance on every edge", threatmap)
+
         def live_drills():
             from backend.app import live
             live.ENGINE = eng = live.Live(main.db)
@@ -229,6 +240,11 @@ def main_() -> int:
             get("/api/alerts/" + listed[0]["org_id"] + "/CVE-2026-999100")  # its evidence sheet opens
             assert any(t["cve"] == "CVE-2026-999100" for t in get("/api/live")["intakes"]), "intake not on the Live page"
             seen.append(f"intake: {taken[0]['exposed']} exposed at {len(taken[0]['orgs'])} orgs, {taken[0]['worst']}, {taken[0]['action']}")
+            ad = get("/api/adaptive")
+            assert ad["feed"]["current_s"] == 300 and ad["feed"]["focus_why"], "engine did not focus after the drills"
+            assert any(s["z"] != s["base"] for s in ad["surge"]), "no threshold learned from the record"
+            seen.append(f"adaptive: feed every {ad['feed']['current_s'] // 60} min ({ad['feed']['focus_why']}), "
+                        f"{sum(1 for s in ad['surge'] if s['z'] != s['base'])} surge thresholds tuned")
             grew = len(get("/api/approvals")) - pending
             opened = get("/api/soc/metrics")["open"] - cases
             assert grew >= 3 and opened == 2, f"{grew} new proposals, {opened} new cases"

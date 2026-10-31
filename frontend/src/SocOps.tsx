@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api, type AlertRow, type Soc, type Tier } from './api'
 import { Heatmap, type HeatData } from './Heatmap'
 import { Countdown } from './Now'
+import { AdaptiveSection } from './Adaptive'
 import { ApprovalQueue, AutopilotFeed, istTime } from './proactive'
 import { Rewind } from './Rewind'
 import { SystemView } from './SystemView'
@@ -71,6 +72,8 @@ export function OpsOverview({ tick, onCases, onWarnings }: { tick: number; onCas
           <Heatmap data={heat.autopilot} hue="accent" unit="actions" labelW={180} />
         </Section>
       )}
+
+      <AdaptiveSection />
 
       <div className="grid gap-4 md:grid-cols-3">
         <Tile value={openNow} title="Replay the last 90 days" sub="open warnings day by day, and when each was raised" cta="Replay" onClick={() => setSheet('replay')} />

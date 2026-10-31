@@ -136,6 +136,11 @@ Measured on this laptop (test bench, attack-drill layer, private copy of the dat
 - **Implant drill:** beacon caught within 1 tick; an incident case opens and the regulator report is proposed.
 - **Full intrusion drill:** scan, implant and lateral movement caught in that order, within 6 ticks.
 
+Adaptive thresholds (`engine/adaptive.py`): surge z per product = 4.0 + 0.5·false alarms − 0.25·confirmed surges over 45 days,
+bounded to [3.5, 7.0]; anomaly gate per organisation = 6.0 + 1.0·false positives closed in 30 days, up to 10; beacon
+evidence 30 connections, 20 while the organisation has an open suspected compromise. Re-derived every minute from the
+ledger and the workflow, never from a model; each change is logged with its reason.
+
 Live CVE intake (`engine/intake.py`): every 15 minutes the NVD API is read for CVEs published or changed since the
 last check; those naming a constituency product are built into records, version-reconciled, scored and forecast on
 day 0, and acted on by the same policy. Measured in the test bench and e2e with an NVD-format CVE: matched, scored

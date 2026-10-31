@@ -121,6 +121,9 @@ class Live:
         self._feed_thread: threading.Thread | None = None
         self.drill: dict | None = None
         self.drills: collections.deque = collections.deque(maxlen=12)
+        from .engine.adaptive import Adaptive
+        self.adaptive = Adaptive(list(simtel.TAGS), list(self.orgs))
+        self.ip_org = {a["ip"]: a["org_id"] for a in self.assets.values()}
         self.forest = None
         self._task: asyncio.Task | None = None
         self.sensor_clock = dt.datetime(2026, 11, 1, 0, 0, tzinfo=dt.timezone.utc)
@@ -237,11 +240,14 @@ class Live:
         telemetry.host()
         found: list[dict] = []
         for tag, r in readings.items():
-            if r["z"] >= 4 and r["zi"] >= 3 and r["hot"] >= 3 and self.cooldown.get(f"surge:{tag}", -99) < self.ticks - 24:
+            gate = self.adaptive.surge_z(tag)
+            if r["z"] >= gate and r["zi"] >= 3 and r["hot"] >= 3 and self.cooldown.get(f"surge:{tag}", -99) < self.ticks - 24:
                 self.cooldown[f"surge:{tag}"] = self.ticks
-                found.append({"kind": "surge", "tag": tag, **r})
-        for b in detectors.detect_beacons(window, min_conns=30, max_cv=0.2):
+                found.append({"kind": "surge", "tag": tag, "threshold": gate, **r})
+        for b in detectors.detect_beacons(window, min_conns=20, max_cv=0.2):
             key = f"beacon:{b['src']}>{b['dst']}"
+            if b["connections"] < self.adaptive.beacon_min(self.ip_org.get(b["src"])):
+                continue  # 30 connections, or 20 where the organisation already has a suspected compromise
             if self.cooldown.get(key, -99) < self.ticks - 60:
                 self.cooldown[key] = self.ticks
                 found.append({"kind": "beacon", **b})
@@ -255,10 +261,12 @@ class Live:
                 scores = self.forest.decision_function([feats[s] for s in srcs])
                 for s, sc in zip(srcs, scores):
                     z, why = self._reason(feats[s])
-                    if sc < self.forest_threshold and z >= 6 and self.cooldown.get(f"anomaly:{s}", -99) < self.ticks - 60:
+                    gate = self.adaptive.anomaly_z(self.ip_org.get(s))
+                    if sc < self.forest_threshold and z >= gate and self.cooldown.get(f"anomaly:{s}", -99) < self.ticks - 60:
                         self.cooldown[f"anomaly:{s}"] = self.ticks
                         f = feats[s]
                         found.append({"kind": "anomaly", "src": s, "score": round(float(sc), 3), "z": round(z, 1), "why": why,
+                                      "threshold": gate,
                                       "connections": int(round(math.expm1(f[0]))), "destinations": int(f[1]),
                                       "internal": int(f[2]), "ports": int(f[3])})
         if found:
@@ -270,8 +278,16 @@ class Live:
                 conn.close()
         with self.lock:
             self._advance_drill(now)
+        if self.ticks == 1 or self.ticks % 12 == 0:  # re-learn thresholds from the record every minute
+            conn = self.connect()
+            try:
+                self.adaptive.learn(conn, now)
+            except Exception as exc:  # noqa: BLE001 - learning must never stop detection
+                print(f"live: adaptive learn failed: {exc!r}", flush=True)
+            finally:
+                conn.close()
         if time.time() >= self.next_feed and not (self._feed_thread and self._feed_thread.is_alive()):
-            self.next_feed = time.time() + FEED_EVERY_S
+            self.next_feed = time.time() + self.adaptive.feed_interval(now)
             self._feed_thread = threading.Thread(target=self._check_feeds, args=(now,), daemon=True)
             self._feed_thread.start()
         self.last_tick = _iso(now)
@@ -305,8 +321,8 @@ class Live:
             running = [a for a in self.assets.values() if a["product_key"] == tag]
             orgs = sorted({a["org_id"] for a in running})
             self._detected(conn, now, "surge", f"product:{tag}",
-                           f"Scanning surge against {label} on {f['hot']} decoy sensors (z = {f['z']})",
-                           {"product": label, "z": f["z"], "z_sources": f["zi"], "sensors": f["hot"],
+                           f"Scanning surge against {label} on {f['hot']} decoy sensors (z = {f['z']}, threshold {f['threshold']})",
+                           {"product": label, "z": f["z"], "threshold": f["threshold"], "z_sources": f["zi"], "sensors": f["hot"],
                             "sessions": f["sessions"], "orgs_exposed": len(orgs)}, drill)
             pilot = self._pilot(conn, now)
             group = f"live-warn:{tag}:{_iso(now)}"
@@ -356,6 +372,7 @@ class Live:
                        title=f"Escalated to {', '.join(to)}: suspected compromise of {asset['hostname']} (live C2 "
                              f"beacon to {c2}).")
             pilot.flush()
+            self.adaptive.focus(now, f"suspected compromise at {org['name']}")
             rescored = self._rescore(conn, asset, f, now, drill)
             from .engine import soc
             case = soc.open_case(conn, "incident", f"Suspected compromise of {asset['hostname']} ({asset['label']})",
@@ -461,6 +478,7 @@ class Live:
                                                                      "cve": ["intake"]}[scenario]}
             if scenario == "cve":  # a fresh id every time, so the drill works again after a restart or on a copy
                 self.drill["cve"] = f"CVE-2026-9{now:%H%M%S}"
+            self.adaptive.focus(now, f"{spec['title']} drill running", hours=0.5)
             from .engine.ledger import Ledger
             conn = self.connect()
             try:
@@ -580,6 +598,8 @@ class Live:
         with self.lock:
             for t in taken:
                 self.intakes.appendleft(t)
+                if t["worst"] in ("Critical", "Compromise"):
+                    self.adaptive.focus(now or dt.datetime.now(dt.timezone.utc), f"Critical CVE {t['cve']} taken in")
         return taken
 
     def _read_feed(self, name: str, r, snap: Path) -> dict:
@@ -663,6 +683,7 @@ class Live:
                 "detections": list(self.detections)[:30],
                 "feeds": list(self.feeds.values()),
                 "intakes": list(self.intakes),
+                "adaptive": self.adaptive.status(dt.datetime.now(dt.timezone.utc)),
                 "drill": drill, "drills": list(self.drills),
                 "catalogue": [{"id": k, **{x: v[x] for x in ("title", "what")}} for k, v in DRILLS.items()],
             }

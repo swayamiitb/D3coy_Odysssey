@@ -4,6 +4,7 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Too
 import { api, type OrgProfile, type RiskPlan, type Soc } from './api'
 import { AutopilotFeed, useLanguages } from './proactive'
 import { Heatmap, type HeatData } from './Heatmap'
+import { OrgThreatMap } from './OrgThreatMap'
 import { Spark } from './Soc'
 import { Badge, deadlineText, Pill, Prov, Row, Section, Stat, Tabs, TIER_FILL, TierPill } from './ui'
 
@@ -103,6 +104,9 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
               { v: `${p.inbox.length}`, l: 'notices from Odyssey', s: lang ? `in ${lang.native}` : undefined },
             ].map((k) => <Stat key={k.l} value={k.v} label={k.l} sub={k.s} />)}
           </div>
+          <Section title="Threat map" sub="What is recorded against this organisation, from the outside world through its internet-facing services to its crown jewels. A subset of the national picture; every line carries its source.">
+            <OrgThreatMap orgId={p.org.id} onAlert={onAlert} />
+          </Section>
           <div className="grid gap-12 xl:grid-cols-2">
             <Section title="Open warnings" sub="Highest risk first." action={p.alerts.length > 6 ? <Pill onClick={() => setAll(!all)}>{all ? 'Show fewer' : `See all ${p.alerts.length}`}</Pill> : undefined}>
               {p.alerts.slice(0, all ? undefined : 6).map((a) => (
