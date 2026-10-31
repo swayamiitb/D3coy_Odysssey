@@ -407,8 +407,10 @@ def summary(conn: sqlite3.Connection) -> dict:
     meta = conn.execute("SELECT value FROM meta WHERE key = 'sentinel'").fetchone()
     out = {"counts": dict(rows), **(json.loads(meta[0]) if meta else {})}
     row = conn.execute("SELECT value FROM meta WHERE key = 'built_at'").fetchone()
-    built = (dt.datetime.fromisoformat(row[0]).replace(tzinfo=dt.timezone(dt.timedelta(hours=5, minutes=30))).timestamp()
-             if row else None)  # built_at is IST wall-clock; ledger 'ingested' is epoch seconds
+    # built_at (IST wall-clock, whole seconds) is stamped as the build finishes writing; the build's own last events land
+    # within a second of it and the API starts well after, so anything ingested 5 s later is the running system's work
+    built = (dt.datetime.fromisoformat(row[0]).replace(tzinfo=dt.timezone(dt.timedelta(hours=5, minutes=30))).timestamp() + 5
+             if row else None)
     if built is not None and out.get("by_mode"):
         since = conn.execute("""SELECT json_extract(payload, '$.autonomy'), COUNT(*) FROM ledger
                                 WHERE ingested > ? AND kind LIKE 'auto.%'

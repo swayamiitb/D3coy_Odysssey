@@ -66,7 +66,13 @@ def _iso(t: dt.datetime) -> str:
 def ensure(conn: sqlite3.Connection) -> None:
     conn.execute(SCHEMA)
     if conn.execute("SELECT COUNT(*) FROM soc_cases").fetchone()[0] == 0:
-        seed(conn)
+        # The first requests after a rebuild arrive together (the UI opens several at once): take the write lock,
+        # then re-check, so only one of them seeds and the others wait and find the cases already there.
+        if not conn.in_transaction:
+            conn.execute("BEGIN IMMEDIATE")
+        if conn.execute("SELECT COUNT(*) FROM soc_cases").fetchone()[0] == 0:
+            seed(conn)
+        conn.commit()
 
 
 def seed(conn: sqlite3.Connection) -> None:
@@ -95,8 +101,8 @@ def seed(conn: sqlite3.Connection) -> None:
                      t["org_id"], "Critical", "new", owner, _iso(created), _iso(due), alerts, t["label"], t["assets"]))
     for cid, kind, title, org_id, sev, status, owner, c_at, due, alerts, product, assets in rows:
         playbook = [{"step": s, "done": False, "by": None, "at": None} for s in PLAYBOOKS[kind]]
-        conn.execute("INSERT INTO soc_cases (id, kind, title, org_id, severity, status, owner, created_at, due_at, "
-                     "alerts, playbook, notes, product, assets) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        conn.execute("INSERT OR IGNORE INTO soc_cases (id, kind, title, org_id, severity, status, owner, created_at, "
+                     "due_at, alerts, playbook, notes, product, assets) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                      (cid, kind, title, org_id, sev, status, owner, c_at, due, json.dumps(alerts),
                       json.dumps(playbook), json.dumps([{"ts": c_at, "by": "Odyssey", "text":
                                                          "Case opened automatically from Odyssey's warnings."}]),
@@ -269,6 +275,8 @@ def open_case(conn: sqlite3.Connection, kind: str, title: str, org_id: str, seve
     """A case opened while the system runs (live detection, drill), not at build time. Audited like every other
     case action, so the SOC's metrics include it."""
     ensure(conn)
+    if not conn.in_transaction:  # the id is chosen and used under one write lock (live engine and shield both open cases)
+        conn.execute("BEGIN IMMEDIATE")
     n = conn.execute("SELECT COUNT(*) FROM soc_cases").fetchone()[0] + 1
     while conn.execute("SELECT 1 FROM soc_cases WHERE id = ?", (f"CASE-{n:04d}",)).fetchone():
         n += 1

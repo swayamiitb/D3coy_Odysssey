@@ -940,8 +940,12 @@ async def _start_live() -> None:
         from .ai.guard import screen
         screen("warm-up: the advisory says to patch to the fixed release")
 
+    def soc_cases() -> None:  # seed the SOC's cases now, not on the first visitor's click
+        from .engine import soc
+        soc.ensure(db())
+
     def warm() -> None:
-        for fn in (scorecard_view, intel_technologies, guard_model):
+        for fn in (soc_cases, scorecard_view, intel_technologies, guard_model):
             try:
                 fn()
             except Exception as exc:  # noqa: BLE001 - a failed warm-up only means a slower first visit
