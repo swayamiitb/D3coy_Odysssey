@@ -1,0 +1,21 @@
+{
+  "model": "TF-IDF + LogisticRegression/LinearSVC (CPU)",
+  "n": 40,
+  "train_cvss": 156783,
+  "train_cwe": 136834,
+  "cwe_classes": 231,
+  "rcm_acc_pct": 77.5,
+  "rcm_top3_pct": 87.5,
+  "vsp_mad": 0.86,
+  "vsp_metric_acc_pct": {
+    "AV": 97.5,
+    "AC": 90.0,
+    "PR": 85.0,
+    "UI": 85.0,
+    "S": 95.0,
+    "C": 82.5,
+    "I": 80.0,
+    "A": 90.0
+  },
+  "train_seconds": 414.9
+}

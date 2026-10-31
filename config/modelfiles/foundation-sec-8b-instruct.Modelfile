@@ -1,0 +1,18 @@
+# ollama create foundation-sec:8b-instruct -f foundation-sec-8b-instruct.Modelfile
+FROM hf.co/fdtn-ai/Foundation-Sec-1.1-8B-Instruct-Q4_K_M-GGUF:latest
+TEMPLATE """{{- range .Messages }}{{- if eq .Role "system" }}<|system|>
+{{ .Content }}
+{{ else if eq .Role "user" }}<|user|>
+{{ .Content }}
+{{ else if eq .Role "assistant" }}<|assistant|>
+{{ .Content }}<|end_of_text|>
+{{ end }}{{- end }}<|assistant|>
+"""
+PARAMETER stop "<|end_of_text|>"
+PARAMETER stop "<|user|>"
+PARAMETER stop "<|system|>"
+PARAMETER num_ctx 8192
+PARAMETER temperature 0
+PARAMETER seed 42
+PARAMETER repeat_penalty 1.0
+PARAMETER num_predict 512

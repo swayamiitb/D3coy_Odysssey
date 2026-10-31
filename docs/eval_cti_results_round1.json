@@ -1,0 +1,56 @@
+[
+  {
+    "model": "qwen3:4b",
+    "n": 40,
+    "rcm_acc_pct": 2.5,
+    "vsp_mad": 1.27,
+    "vsp_metric_acc_pct": {
+      "AV": 55.0,
+      "AC": 87.5,
+      "PR": 40.0,
+      "UI": 77.5,
+      "S": 87.5,
+      "C": 42.5,
+      "I": 30.0,
+      "A": 32.5
+    },
+    "vsp_invalid": 0,
+    "median_s_per_call": 1.24
+  },
+  {
+    "model": "qwen3:8b",
+    "n": 40,
+    "rcm_acc_pct": 27.5,
+    "vsp_mad": 1.85,
+    "vsp_metric_acc_pct": {
+      "AV": 50.0,
+      "AC": 85.0,
+      "PR": 22.5,
+      "UI": 85.0,
+      "S": 32.5,
+      "C": 75.0,
+      "I": 62.5,
+      "A": 42.5
+    },
+    "vsp_invalid": 0,
+    "median_s_per_call": 1.81
+  },
+  {
+    "model": "foundation-sec:8b-instruct",
+    "n": 40,
+    "rcm_acc_pct": 40.0,
+    "vsp_mad": 1.81,
+    "vsp_metric_acc_pct": {
+      "AV": 65.0,
+      "AC": 47.5,
+      "PR": 32.5,
+      "UI": 47.5,
+      "S": 87.5,
+      "C": 47.5,
+      "I": 12.5,
+      "A": 25.0
+    },
+    "vsp_invalid": 0,
+    "median_s_per_call": 2.35
+  }
+]

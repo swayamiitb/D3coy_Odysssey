@@ -1,0 +1,38 @@
+[
+  {
+    "model": "mist:8b",
+    "n": 40,
+    "rcm_acc_pct": 62.5,
+    "vsp_mad": 2.31,
+    "vsp_metric_acc_pct": {
+      "AV": 75.0,
+      "AC": 90.0,
+      "PR": 42.5,
+      "UI": 85.0,
+      "S": 75.0,
+      "C": 57.5,
+      "I": 62.5,
+      "A": 30.0
+    },
+    "vsp_invalid": 0,
+    "median_s_per_call": 1.26
+  },
+  {
+    "model": "foundation-sec:8b-reasoning",
+    "n": 40,
+    "rcm_acc_pct": 7.5,
+    "vsp_mad": 9.81,
+    "vsp_metric_acc_pct": {
+      "AV": 0.0,
+      "AC": 2.5,
+      "PR": 0.0,
+      "UI": 0.0,
+      "S": 2.5,
+      "C": 0.0,
+      "I": 0.0,
+      "A": 0.0
+    },
+    "vsp_invalid": 39,
+    "median_s_per_call": 2.52
+  }
+]

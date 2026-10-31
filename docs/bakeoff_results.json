@@ -1,0 +1,2075 @@
+[
+  {
+    "model": "qwen3:4b",
+    "n": 40,
+    "json_valid_pct": 100.0,
+    "vendor_pct": 57.5,
+    "product_pct": 60.0,
+    "median_s": 2.03,
+    "median_tps": 71.6,
+    "rows": [
+      {
+        "id": "CVE-2026-22867",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 9.980682299999899,
+        "tps": 71.4111709707392,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "xss",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-28946",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 2.093984399999499,
+        "tps": 72.03275852507696,
+        "pred": {
+          "vendor": "Apple",
+          "product": "Safari",
+          "affected_versions": "26.5",
+          "fixed_version": "26.5",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-59124",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 1.8994309999998222,
+        "tps": 80.05818676810237,
+        "pred": {
+          "vendor": "Microsoft",
+          "product": "High Performance Computing (HPC) Pack",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "deserialization",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-27888",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 1.9988530000000537,
+        "tps": 79.35650911720906,
+        "pred": {
+          "vendor": "pypdf",
+          "product": "pypdf",
+          "affected_versions": "prior to 6.7.3",
+          "fixed_version": "6.7.3",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-3486",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 1.7835199999999531,
+        "tps": 79.67399393531517,
+        "pred": {
+          "vendor": "itsourcecode",
+          "product": "College Management System",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-32127",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 1.8877537000007578,
+        "tps": 79.08739633847661,
+        "pred": {
+          "vendor": "OpenEMR",
+          "product": "OpenEMR",
+          "affected_versions": "Prior to 8.0.0.1",
+          "fixed_version": "8.0.0.1",
+          "vuln_type": "sqli",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-34071",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.116461800000252,
+        "tps": 79.13706569454695,
+        "pred": {
+          "vendor": "Stirling",
+          "product": "Stirling-PDF",
+          "affected_versions": "2.7.3",
+          "fixed_version": "2.8.0",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-49392",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.7467915999995967,
+        "tps": 70.73517490614654,
+        "pred": {
+          "vendor": "Wazuh",
+          "product": "Wazuh",
+          "affected_versions": "4.6.0 until 4.14.6 and 5.0.0-beta3",
+          "fixed_version": "4.14.6 and 5.0.0-beta3",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-8291",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.8790275000001202,
+        "tps": 72.30421793111036,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "dos",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-35626",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 1.9328857000000426,
+        "tps": 72.20191355377706,
+        "pred": {
+          "vendor": "OpenClaw",
+          "product": "OpenClaw",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "auth_bypass",
+          "attack_vector": "unknown",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-23337",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.8676947000003565,
+        "tps": 72.46607487764233,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-42857",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 2.6648003999998764,
+        "tps": 71.35506808707267,
+        "pred": {
+          "vendor": "Open edX",
+          "product": "Open ed: Platform",
+          "affected_versions": "",
+          "fixed_version": "cddc25cd791bb78f76833896e4778f668861df12",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "physical",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-105896",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 1.7450186999994912,
+        "tps": 73.04926578678207,
+        "pred": {
+          "vendor": "Adobe",
+          "product": "Photoshop Desktop",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-46990",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.062676200000169,
+        "tps": 71.10216035266671,
+        "pred": {
+          "vendor": "Oracle",
+          "product": "Enterprise Manager Base Platform",
+          "affected_versions": "13.5, 24.1",
+          "fixed_version": "",
+          "vuln_type": "privilege_escalation",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-30463",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.8569859999997789,
+        "tps": 71.95951078193336,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-6706",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.6993931999995766,
+        "tps": 71.85364684972741,
+        "pred": {
+          "vendor": "Devolutions",
+          "product": "Server",
+          "affected_versions": "2026.1.6.0 through .2026.1.14.0, through 2025.3.18.0",
+          "fixed_version": "",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-13996",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.1692275000004884,
+        "tps": 71.46236291732234,
+        "pred": {
+          "vendor": "Google",
+          "product": "Chrome",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-53432",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.9276544999993348,
+        "tps": 71.86633272777392,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-2525",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.1335658999996667,
+        "tps": 70.25410813336688,
+        "pred": {
+          "vendor": "Free5GC",
+          "product": "Free5GC",
+          "affected_versions": "up to 4.1.0",
+          "fixed_version": "",
+          "vuln_type": "dos",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-6267",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.561023700000078,
+        "tps": 71.06946470278045,
+        "pred": {
+          "vendor": "GitLab",
+          "product": "GitLab",
+          "affected_versions": "10.1.0 before 19.0.5, 19.1 before 19.1.3, and 19.2 before 19.2.1",
+          "fixed_version": "",
+          "vuln_type": "auth_bypass",
+          "attack_vector": "unknown",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-59917",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.1324747000007847,
+        "tps": 70.96984642036522,
+        "pred": {
+          "vendor": "Dell",
+          "product": "Display and Peripheral Manager (DDPM Windows)",
+          "affected_versions": "prior to 2.3.0.17",
+          "fixed_version": "",
+          "vuln_type": "csrf",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-1049",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.765849100000196,
+        "tps": 72.250690629634,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "xss",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-33351",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.752364299999499,
+        "tps": 71.58765618096602,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "ssrf",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-75044",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.596212800000103,
+        "tps": 70.86584360151286,
+        "pred": {
+          "vendor": "JetBrains",
+          "product": "YouTrack",
+          "affected_versions": "before 2025.3.156085, 2026.1.13914, 2:2.18095",
+          "fixed_version": "",
+          "vuln_type": "auth_bypass",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-87014",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.8683664000000135,
+        "tps": 71.6675791485226,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "privilege_escalation",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-40863",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 3.167257499999323,
+        "tps": 70.41783812773845,
+        "pred": {
+          "vendor": "PhpSpreadsheet",
+          "product": "PhpSpreadsheet",
+          "affected_versions": "prior to 1.30.4, 2.1.16, 2.4.5, 3.10.5, and 5.7.0",
+          "fixed_version": "1.30.4, 2.1.16, 2.4.5, 3.10.5, and 5.7.0",
+          "vuln_type": "deserialization",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-58518",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 2.0632668999996895,
+        "tps": 70.84893007105286,
+        "pred": {
+          "vendor": "The Wikimedia Foundation",
+          "product": "Mediawiki",
+          "affected_versions": "from * before 1:3.3",
+          "fixed_version": "",
+          "vuln_type": "csrf",
+          "attack_vector": "unknown",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-53624",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.2464866000000256,
+        "tps": 70.89804515478771,
+        "pred": {
+          "vendor": "Fiber",
+          "product": "Fiber",
+          "affected_versions": "Prior to 3.4.0",
+          "fixed_version": "3.4.0",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-32628",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.960405300000275,
+        "tps": 71.96340285944048,
+        "pred": {
+          "vendor": "AnythingLLM",
+          "product": "AnythingLL: Application",
+          "affected_versions": "1.11.1 and earlier",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-32269",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.5599073000003045,
+        "tps": 70.60161382706742,
+        "pred": {
+          "vendor": "Parse",
+          "product": "Server",
+          "affected_versions": "Prior to 9.6.0-alpha.13 and 8.6.39",
+          "fixed_version": "9.6.0-alpha.13 and 8.6.39",
+          "vuln_type": "auth_bypass",
+          "attack_vector": "unknown",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-63742",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 1.9999818999995114,
+        "tps": 71.49160575924624,
+        "pred": {
+          "vendor": "SurrealDB",
+          "product": "Surre:DB",
+          "affected_versions": "before 3.1.0",
+          "fixed_version": "",
+          "vuln_type": "privilege_escalation",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-8353",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.855310100000679,
+        "tps": 71.62085702058044,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "xss",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-67100",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.0700387999995655,
+        "tps": 71.780810118223,
+        "pred": {
+          "vendor": "HCL",
+          "product": "BigFix Service Management",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-24345",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.8066911999994772,
+        "tps": 71.9592192712546,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "xss",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-54302",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.809866399999919,
+        "tps": 71.92435512012521,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "xss",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-0575",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 1.79609309999978,
+        "tps": 72.26950744717199,
+        "pred": {
+          "vendor": "",
+          "product": "",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-27196",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.241393899999821,
+        "tps": 71.35183930330005,
+        "pred": {
+          "vendor": "Statmatic",
+          "product": "Statmatic",
+          "affected_versions": "5.73.8 and below, 6.0.0-alpha.1 through 6.3.1",
+          "fixed_version": "6.3.2, 5.73.9",
+          "vuln_type": "xss",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-2614",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 2.15033239999957,
+        "tps": 71.20891189447525,
+        "pred": {
+          "vendor": "mlflow",
+          "product": "mlflow",
+          "affected_versions": "3.9.0 and earlier",
+          "fixed_version": "3.10.0",
+          "vuln_type": "privilege_escalation",
+          "attack_vector": "unknown",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-24325",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 1.8055825999999797,
+        "tps": 71.56058982349757,
+        "pred": {
+          "vendor": "SAP",
+          "product": "BusinessObjects Enterprise",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "xss",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-54572",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.161673900000096,
+        "tps": 70.458467899345,
+        "pred": {
+          "vendor": "rclone",
+          "product": "rclone",
+          "affected_versions": "prior to 1.74.4",
+          "fixed_version": "1.74.4",
+          "vuln_type": "path_traversal",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      }
+    ]
+  },
+  {
+    "model": "qwen3:8b",
+    "n": 40,
+    "json_valid_pct": 100.0,
+    "vendor_pct": 80.0,
+    "product_pct": 95.0,
+    "median_s": 2.83,
+    "median_tps": 41.1,
+    "rows": [
+      {
+        "id": "CVE-2026-22867",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 6.398756800000228,
+        "tps": 40.937351343004224,
+        "pred": {
+          "vendor": "LaSuite",
+          "product": "Doc",
+          "affected_versions": "3.8.0 to 4.3.0",
+          "fixed_version": "4.4.0",
+          "vuln_type": "csrf",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-28946",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 2.7298994000002494,
+        "tps": 41.06594762930098,
+        "pred": {
+          "vendor": "Apple",
+          "product": "Safari",
+          "affected_versions": "26.5",
+          "fixed_version": "26.5",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-59124",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 2.548401200000626,
+        "tps": 40.998010145809104,
+        "pred": {
+          "vendor": "Microsoft",
+          "product": "High Performance Computing (HPC) Pack",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "deserialization",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-27888",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.9479126000005635,
+        "tps": 40.915161325373624,
+        "pred": {
+          "vendor": "pypdf",
+          "product": "pypdf",
+          "affected_versions": "Prior to 6.7.3",
+          "fixed_version": "6.7.3",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-3486",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 2.4694534999998723,
+        "tps": 41.29721017649665,
+        "pred": {
+          "vendor": "",
+          "product": "itsourcecode College Management System",
+          "affected_versions": "1.0",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-32127",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.837635699999737,
+        "tps": 41.24579415348086,
+        "pred": {
+          "vendor": "OpenEMR",
+          "product": "OpenEMR",
+          "affected_versions": "Prior to 8.0.0.1",
+          "fixed_version": "8.0.0.1",
+          "vuln_type": "sqli",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-34071",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.8440112999996927,
+        "tps": 41.2307783583821,
+        "pred": {
+          "vendor": "Stirling",
+          "product": "Stirling-PDF",
+          "affected_versions": "2.7.3",
+          "fixed_version": "2.8.0",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-49392",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.4018620000006194,
+        "tps": 40.92794790297882,
+        "pred": {
+          "vendor": "Wazuh",
+          "product": "Wazuh",
+          "affected_versions": "4.6.0 until 4.14.6 and 5.0.0-beta3",
+          "fixed_version": "4.14.6 and 5.0.0-beta3",
+          "vuln_type": "sqli",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-8291",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.668669200000295,
+        "tps": 41.12186800432578,
+        "pred": {
+          "vendor": "Open5GS",
+          "product": "Open5GS",
+          "affected_versions": "up to 2.7.7",
+          "fixed_version": "",
+          "vuln_type": "dos",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-35626",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.9329477999999654,
+        "tps": 41.184020787608425,
+        "pred": {
+          "vendor": "OpenClaw",
+          "product": "OpenClaw",
+          "affected_versions": "before 2026.3.22",
+          "fixed_version": "",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-23337",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.440821500000311,
+        "tps": 41.40769022219156,
+        "pred": {
+          "vendor": "Linux",
+          "product": "kernel",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-42857",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.70021480000014,
+        "tps": 41.07946282532405,
+        "pred": {
+          "vendor": "Open edX",
+          "product": "Open edX Platform",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-105896",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.581369700000323,
+        "tps": 41.408809191756575,
+        "pred": {
+          "vendor": "Adobe",
+          "product": "Photoshop Desktop",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-46990",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.881780499999877,
+        "tps": 40.83465601321344,
+        "pred": {
+          "vendor": "Oracle",
+          "product": "Enterprise Manager Base Platform",
+          "affected_versions": "13.5, 24.1",
+          "fixed_version": "",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-30463",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.790646299999935,
+        "tps": 41.3428796177449,
+        "pred": {
+          "vendor": "Daylight Studio",
+          "product": "FuelCMS",
+          "affected_versions": "v1.5.2",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "unknown",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-6706",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.4993273999998564,
+        "tps": 41.112380086372276,
+        "pred": {
+          "vendor": "Devolutions",
+          "product": "Server",
+          "affected_versions": "from 2026.1.6.0 through 2026.1.14.0, through 2025.3.18.0",
+          "fixed_version": "",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-13996",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.291866300000038,
+        "tps": 41.09488256032607,
+        "pred": {
+          "vendor": "Google",
+          "product": "Chrome",
+          "affected_versions": "prior to 150.0.7871.47",
+          "fixed_version": "150.0.7871.47",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-53432",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 2.5496172000002844,
+        "tps": 41.1632093404649,
+        "pred": {
+          "vendor": "fzf",
+          "product": "fzf",
+          "affected_versions": "",
+          "fixed_version": "0.73.1",
+          "vuln_type": "csrf",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-2525",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.589747800000623,
+        "tps": 41.19688780797809,
+        "pred": {
+          "vendor": "Free5GC",
+          "product": "Free5GC",
+          "affected_versions": "up to 4.1.0",
+          "fixed_version": "",
+          "vuln_type": "dos",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-6267",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 4.272541500000443,
+        "tps": 40.935459603803054,
+        "pred": {
+          "vendor": "GitLab",
+          "product": "GitLab CE/EE",
+          "affected_versions": "10.1.0 before 19.0.5, 19.1 before 19.1.3, and 19.2 before 19.2.1",
+          "fixed_version": "19.0.5, 19.1.3, 19.2.1",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-59917",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.8579083000004175,
+        "tps": 41.162827229683586,
+        "pred": {
+          "vendor": "Dell",
+          "product": "Display and Peripheral Manager (DDPM Windows)",
+          "affected_versions": "prior to 2.3.0.17",
+          "fixed_version": "",
+          "vuln_type": "csrf",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-1049",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.719247600000017,
+        "tps": 41.15824873876387,
+        "pred": {
+          "vendor": "LigeroSmart",
+          "product": "LigeroSmart",
+          "affected_versions": "up to 6.1.26",
+          "fixed_version": "",
+          "vuln_type": "csrf",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-33351",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.680984000000535,
+        "tps": 41.13138349915948,
+        "pred": {
+          "vendor": "WWBN",
+          "product": "AVideo",
+          "affected_versions": "Prior to 26.0",
+          "fixed_version": "26.0",
+          "vuln_type": "ssrf",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-75044",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.4701986000000034,
+        "tps": 41.04688825513546,
+        "pred": {
+          "vendor": "JetBrains",
+          "product": "YouTrack",
+          "affected_versions": "before 2025.3.156085, 2026.1.13914, 2026.2.18095",
+          "fixed_version": "",
+          "vuln_type": "auth_bypass",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-87014",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.048058100000162,
+        "tps": 41.12517326370236,
+        "pred": {
+          "vendor": "Open WebUI",
+          "product": "Open WebUI",
+          "affected_versions": "0.9.0 until 0.11.1",
+          "fixed_version": "0.11.1",
+          "vuln_type": "privilege_escalation",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-40863",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 4.4261989000006,
+        "tps": 40.69774776919656,
+        "pred": {
+          "vendor": "PhpSpreadsheet",
+          "product": "PhpSpreadsheet",
+          "affected_versions": "Prior to 1.30.4, 2.1.16, 2.4.5, 3.10.5, and 5.7.0",
+          "fixed_version": "1.30.4, 2.1.16, 2.4.5, 3.10.5, and 5.7.0",
+          "vuln_type": "deserialization",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-58518",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 2.7094842000005883,
+        "tps": 41.07107137996802,
+        "pred": {
+          "vendor": "The Wikimedia Foundation",
+          "product": "Mediawiki - RedirectManager Extension",
+          "affected_versions": "* before 1.3.3",
+          "fixed_version": "",
+          "vuln_type": "csrf",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-53624",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.824274499999774,
+        "tps": 41.345269041086596,
+        "pred": {
+          "vendor": "Fiber",
+          "product": "Fiber",
+          "affected_versions": "Prior to 3.4.0",
+          "fixed_version": "3.4.0",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-32628",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 2.758976499999335,
+        "tps": 41.273484895600696,
+        "pred": {
+          "vendor": "AnythingLLM",
+          "product": "AnythingLLM",
+          "affected_versions": "1.11.1 and earlier",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-32269",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.3782172999999602,
+        "tps": 40.876933692733346,
+        "pred": {
+          "vendor": "Parse",
+          "product": "Parse Server",
+          "affected_versions": "Prior to 9.6.0-alpha.13 and 8.6.39",
+          "fixed_version": "9.6.0-alpha.13 and 8.6.39",
+          "vuln_type": "auth_bypass",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-63742",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.0330794999999853,
+        "tps": 41.05049908751664,
+        "pred": {
+          "vendor": "SurrealDB",
+          "product": "SurrealDB",
+          "affected_versions": "before 3.1.0",
+          "fixed_version": "3.1.0",
+          "vuln_type": "privilege_escalation",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-8353",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.8264565999998013,
+        "tps": 40.854851451192694,
+        "pred": {
+          "vendor": "Concrete CMS",
+          "product": "Concrete CMS",
+          "affected_versions": "9.0 to 9.5.0",
+          "fixed_version": "",
+          "vuln_type": "csrf",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-67100",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.584614999999758,
+        "tps": 41.23637923121251,
+        "pred": {
+          "vendor": "HCL",
+          "product": "BigFix Service Management",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-24345",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 2.66832549999981,
+        "tps": 41.139697614080376,
+        "pred": {
+          "vendor": "EZCast",
+          "product": "Pro II",
+          "affected_versions": "1.17478.146",
+          "fixed_version": "",
+          "vuln_type": "csrf",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-54302",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.931168699999944,
+        "tps": 40.71482395341423,
+        "pred": {
+          "vendor": "n8n",
+          "product": "n8n",
+          "affected_versions": "Prior to 1.123.55, 2.25.7, and 2.26.2",
+          "fixed_version": "1.123.55, 2.25.7, and 2.26.2",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-0575",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 2.590296700000181,
+        "tps": 41.292726107566445,
+        "pred": {
+          "vendor": "",
+          "product": "code-projects Online Product Reservation System",
+          "affected_versions": "1.0",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-27196",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.3494956000004095,
+        "tps": 40.87879161631315,
+        "pred": {
+          "vendor": "Statmatic",
+          "product": "Statmatic",
+          "affected_versions": "5.73.8 and below, 6.0.0-alpha.1 through 6.3.1",
+          "fixed_version": "6.3.2, 5.73.9",
+          "vuln_type": "csrf",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-2614",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 2.810171000000082,
+        "tps": 40.75207243305956,
+        "pred": {
+          "vendor": "mlflow",
+          "product": "mlflow",
+          "affected_versions": "3.9.0 and earlier",
+          "fixed_version": "3.10.0",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-24325",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.4421964000002845,
+        "tps": 41.18166127485803,
+        "pred": {
+          "vendor": "SAP",
+          "product": "BusinessObjects Enterprise",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "xss",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-54572",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.867008100000021,
+        "tps": 40.99092082635174,
+        "pred": {
+          "vendor": "rclone",
+          "product": "rclone",
+          "affected_versions": "Prior to 1.74.4",
+          "fixed_version": "1.74.4",
+          "vuln_type": "path_traversal",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      }
+    ]
+  },
+  {
+    "model": "foundation-sec:8b-instruct",
+    "n": 40,
+    "json_valid_pct": 100.0,
+    "vendor_pct": 77.5,
+    "product_pct": 65.0,
+    "median_s": 3.83,
+    "median_tps": 44.7,
+    "rows": [
+      {
+        "id": "CVE-2026-22867",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 12.113238200000524,
+        "tps": 43.952304578366984,
+        "pred": {
+          "vendor": "LaSuite",
+          "product": "Doc",
+          "affected_versions": "3.8.0 to 4.3.0",
+          "fixed_version": "4.4.0",
+          "vuln_type": "xss",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-28946",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 3.733197999999902,
+        "tps": 44.6716218467272,
+        "pred": {
+          "vendor": "Apple",
+          "product": "Safari",
+          "affected_versions": "Safari 26.4 and earlier",
+          "fixed_version": "Safari 26.5",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-59124",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 3.1196403000003556,
+        "tps": 47.09391311173031,
+        "pred": {
+          "vendor": "Microsoft",
+          "product": "High Performance Computing (HPC) Pack",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "deserialization",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-27888",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.909246500000336,
+        "tps": 45.372645251874616,
+        "pred": {
+          "vendor": "pypdf",
+          "product": "pypdf",
+          "affected_versions": "prior to 6.7.3",
+          "fixed_version": "6.7.3",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "adjacent",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-3486",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 3.3151228000006085,
+        "tps": 45.60985983218121,
+        "pred": {
+          "vendor": "itsourcecode",
+          "product": "College Management System",
+          "affected_versions": "1.0",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-32127",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 4.361065799999778,
+        "tps": 45.04474866801666,
+        "pred": {
+          "vendor": "OpenEMR",
+          "product": "Free and open source electronic health records and medical practice management application",
+          "affected_versions": "Prior to 8.0.0.1",
+          "fixed_version": "8.0.0.1",
+          "vuln_type": "sqli",
+          "attack_vector": "unknown",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-34071",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.5478883000005226,
+        "tps": 45.22961701332825,
+        "pred": {
+          "vendor": "Stirling",
+          "product": "PDF",
+          "affected_versions": "2.7.3",
+          "fixed_version": "2.8.0",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-49392",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 5.286231000000043,
+        "tps": 44.341665439587906,
+        "pred": {
+          "vendor": "Wazuh",
+          "product": "Wazuh platform",
+          "affected_versions": "4.6.0 until 4.14.6, 5.0.0-beta3",
+          "fixed_version": "4.14.6, 5.0.0-beta3",
+          "vuln_type": "path_traversal",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-8291",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 3.6591349999998783,
+        "tps": 44.67800623830821,
+        "pred": {
+          "vendor": "Open5GS",
+          "product": "NRF component",
+          "affected_versions": "up to 2.7.7",
+          "fixed_version": "",
+          "vuln_type": "dos",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-35626",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 4.217117399999552,
+        "tps": 44.379061698910576,
+        "pred": {
+          "vendor": "OpenClaw",
+          "product": "OpenClaw",
+          "affected_versions": "before 2026.3.22",
+          "fixed_version": "2026.3.22",
+          "vuln_type": "auth_bypass",
+          "attack_vector": "unknown",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-23337",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 3.5682328999992023,
+        "tps": 44.21817652578292,
+        "pred": {
+          "vendor": "Linux kernel",
+          "product": "pinctrl",
+          "affected_versions": "Not specified",
+          "fixed_version": "Not specified",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-42857",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 4.133238299999903,
+        "tps": 45.14180208410672,
+        "pred": {
+          "vendor": "Open edX",
+          "product": "Platform",
+          "affected_versions": "",
+          "fixed_version": "commit cddc25cd791bb78f76833896e4778f668861df12",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-105896",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 2.846849900000052,
+        "tps": 45.554234825903684,
+        "pred": {
+          "vendor": "Adobe",
+          "product": "Photoshop Desktop",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "csrf",
+          "attack_vector": "local",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-46990",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.3819807999998375,
+        "tps": 45.219407514351424,
+        "pred": {
+          "vendor": "Oracle",
+          "product": "Enterprise Manager Base Platform",
+          "affected_versions": "13.5, 24.1",
+          "fixed_version": "",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-30463",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.4905871000000843,
+        "tps": 45.02472017940421,
+        "pred": {
+          "vendor": "Daylight Studio",
+          "product": "FuelCMS",
+          "affected_versions": "v1.5.2",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "unknown",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-6706",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 4.819376700000248,
+        "tps": 44.11590668066356,
+        "pred": {
+          "vendor": "Devolutions",
+          "product": "Server",
+          "affected_versions": "from 2026.1.6.0 through 2026.1.14.0, through 2025.3.18.0",
+          "fixed_version": "",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-13996",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 4.196017499999471,
+        "tps": 44.58986830086922,
+        "pred": {
+          "vendor": "Google",
+          "product": "Chrome",
+          "affected_versions": "prior to 150.0.7871.47",
+          "fixed_version": "150.0.7871.47",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-53432",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 3.9462831000000733,
+        "tps": 44.38504406166731,
+        "pred": {
+          "vendor": "fzf",
+          "product": "fzf",
+          "affected_versions": "prior to 0.73.1",
+          "fixed_version": "0.73.1",
+          "vuln_type": "memory_corruption",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-2525",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 3.5261375999998563,
+        "tps": 45.362535206453906,
+        "pred": {
+          "vendor": "Free5GC",
+          "product": "PFCP UDP Endpoint",
+          "affected_versions": "up to 4.1.0",
+          "fixed_version": "",
+          "vuln_type": "dos",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-6267",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 5.979673400000138,
+        "tps": 44.78557540361634,
+        "pred": {
+          "vendor": "GitLab",
+          "product": "GitLab CE/EE",
+          "affected_versions": "10.1.0 before 19.0.5, 19.1 before 19.1.3, and 19.2 before 19.2.1",
+          "fixed_version": "19.0.5, 19.1.3, 19.2.1",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-59917",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 4.261152000000038,
+        "tps": 44.94457601534216,
+        "pred": {
+          "vendor": "Dell",
+          "product": "Display and Peripheral Manager (DDPM Windows)",
+          "affected_versions": "prior to 2.3.0.17",
+          "fixed_version": "2.3.0.17",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-1049",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 3.668126399999892,
+        "tps": 45.06260728280229,
+        "pred": {
+          "vendor": "LigeroSmart",
+          "product": "up to 6.1.26",
+          "affected_versions": "6.1.26",
+          "fixed_version": "",
+          "vuln_type": "xss",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-33351",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.9612859999997454,
+        "tps": 44.575345445901945,
+        "pred": {
+          "vendor": "WWBN",
+          "product": "AVideo",
+          "affected_versions": "prior to version 26.0",
+          "fixed_version": "version 26.0",
+          "vuln_type": "ssrf",
+          "attack_vector": "adjacent",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-75044",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 4.714281099999425,
+        "tps": 44.6483318787899,
+        "pred": {
+          "vendor": "JetBrains",
+          "product": "YouTrack",
+          "affected_versions": "before 2025.3.156085, before 2026.1.13914, before 2026.2.18095",
+          "fixed_version": "",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-87014",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 4.344574499999908,
+        "tps": 44.89333746553806,
+        "pred": {
+          "vendor": "Open WebUI",
+          "product": "Self-hosted AI platform",
+          "affected_versions": "From 0.9.0 until 0.11.1",
+          "fixed_version": "0.11.1",
+          "vuln_type": "privilege_escalation",
+          "attack_vector": "unknown",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-40863",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 6.934274899999764,
+        "tps": 44.25818632607927,
+        "pred": {
+          "vendor": "PhpSpreadsheet",
+          "product": "PhpSpreadsheet",
+          "affected_versions": "prior to 1.30.4, prior to 2.1.16, prior to 2.4.5, prior to 3.10.5, prior to 5.7.0",
+          "fixed_version": "1.30.4, 2.1.16, 2.4.5, 3.10.5, 5.7.0",
+          "vuln_type": "dos",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-58518",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 4.071906099999978,
+        "tps": 44.9363809222119,
+        "pred": {
+          "vendor": "The Wikimedia Foundation",
+          "product": "Mediawiki - RedirectManager Extension",
+          "affected_versions": "* before 1.3.3",
+          "fixed_version": "1.3.3",
+          "vuln_type": "csrf",
+          "attack_vector": "unknown",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-53624",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 3.7432903999997507,
+        "tps": 45.05573736908029,
+        "pred": {
+          "vendor": "Fiber",
+          "product": "web framework",
+          "affected_versions": "prior to 3.4.0",
+          "fixed_version": "3.4.0",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-32628",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": false,
+        "seconds": 3.4461080999999467,
+        "tps": 44.89253848599914,
+        "pred": {
+          "vendor": "AnythingLLM",
+          "product": "SQL Agent plugin",
+          "affected_versions": "1.11.1 and earlier",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "unknown",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-32269",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 4.745816200000263,
+        "tps": 44.970914039278874,
+        "pred": {
+          "vendor": "Parse Server",
+          "product": "Parse Server",
+          "affected_versions": "prior to 9.6.0-alpha.13 and 8.6.39",
+          "fixed_version": "9.6.0-alpha.13 and 8.6.39",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "unknown",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-63742",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.7993870000000243,
+        "tps": 44.87130625370827,
+        "pred": {
+          "vendor": "SurrealDB",
+          "product": "SurrealDB",
+          "affected_versions": "<3.1.0",
+          "fixed_version": "3.1.0",
+          "vuln_type": "privilege_escalation",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-8353",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 3.5294464999997217,
+        "tps": 44.76269616163611,
+        "pred": {
+          "vendor": "Concrete CMS",
+          "product": "Atomik theme",
+          "affected_versions": "9.0 to 9.5.0",
+          "fixed_version": "",
+          "vuln_type": "xss",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-67100",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.1380955999993603,
+        "tps": 44.63357789558449,
+        "pred": {
+          "vendor": "HCL",
+          "product": "BigFix Service Management",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-24345",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 3.33873339999991,
+        "tps": 44.104959832846035,
+        "pred": {
+          "vendor": "EZCast",
+          "product": "Pro II",
+          "affected_versions": "1.17478.146",
+          "fixed_version": "",
+          "vuln_type": "csrf",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-54302",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 5.379599099999723,
+        "tps": 44.00006264963049,
+        "pred": {
+          "vendor": "n8n",
+          "product": "workflow automation platform",
+          "affected_versions": "prior to 1.123.55, prior to 2.25.7, prior to 2.26.2",
+          "fixed_version": "1.123.55, 2.25.7, 2.26.2",
+          "vuln_type": "info_disclosure",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-0575",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 3.2906536999998934,
+        "tps": 44.1303803532585,
+        "pred": {
+          "vendor": "code-projects",
+          "product": "Online Product Reservation System",
+          "affected_versions": "1.0",
+          "fixed_version": "",
+          "vuln_type": "sqli",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-27196",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": false,
+        "seconds": 5.46511400000054,
+        "tps": 43.94306034013367,
+        "pred": {
+          "vendor": "Statmatic",
+          "product": "Laravel and Git powered CMS",
+          "affected_versions": "5.73.8 and below, 6.0.0-alpha.1 through 6.3.1",
+          "fixed_version": "6.3.2 (for version 6), 5.73.9 (for version 5)",
+          "vuln_type": "xss",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-2614",
+        "valid": true,
+        "vendor_ok": false,
+        "product_ok": true,
+        "seconds": 3.8684605999997075,
+        "tps": 43.764771311676206,
+        "pred": {
+          "vendor": "mlflow",
+          "product": "mlflow/mlflow",
+          "affected_versions": "3.9.0 and earlier",
+          "fixed_version": "3.10.0",
+          "vuln_type": "path_traversal",
+          "attack_vector": "unknown",
+          "requires_auth": false
+        }
+      },
+      {
+        "id": "CVE-2026-24325",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.011282999999821,
+        "tps": 44.34812476815587,
+        "pred": {
+          "vendor": "SAP",
+          "product": "BusinessObjects Enterprise",
+          "affected_versions": "",
+          "fixed_version": "",
+          "vuln_type": "xss",
+          "attack_vector": "network",
+          "requires_auth": true
+        }
+      },
+      {
+        "id": "CVE-2026-54572",
+        "valid": true,
+        "vendor_ok": true,
+        "product_ok": true,
+        "seconds": 3.4317162000006647,
+        "tps": 44.006365699202576,
+        "pred": {
+          "vendor": "Rclone",
+          "product": "rclone",
+          "affected_versions": "<1.74.4",
+          "fixed_version": "1.74.4",
+          "vuln_type": "path_traversal",
+          "attack_vector": "local",
+          "requires_auth": true
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,26 @@
+# ollama create mist:8b -f mist-8b.Modelfile   (non-thinking: reproduces MiST's Jinja with enable_thinking=false)
+FROM hf.co/mradermacher/MiST-8B-GGUF:Q4_K_M
+TEMPLATE """{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1 }}
+{{- if eq .Role "system" }}<|im_start|>system
+{{ .Content }}<|im_end|>
+{{ else if eq .Role "user" }}<|im_start|>user
+{{ .Content }}<|im_end|>
+{{ else if eq .Role "assistant" }}<|im_start|>assistant
+{{ .Content }}<|im_end|>
+{{ end }}
+{{- if and $last (ne .Role "assistant") }}<|im_start|>assistant
+<think>
+
+</think>
+
+{{ end }}
+{{- end }}"""
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|endoftext|>"
+PARAMETER stop "<|im_start|>"
+PARAMETER num_ctx 8192
+PARAMETER temperature 0
+PARAMETER seed 42
+PARAMETER repeat_penalty 1.0
+PARAMETER num_predict 512

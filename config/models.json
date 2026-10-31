@@ -1,0 +1,29 @@
+{
+  "_comment": "One model per role, no fallbacks. Core generative roles: cybersecurity-specialised <=8B-class models only, chosen by local measurement (docs/MODEL_CARD.md). Standard ML models are separate pipeline components (ml_components), not fallbacks.",
+  "roles": {
+    "extract":  "mist:8b",
+    "classify": "mist:8b",
+    "copilot":  "mist:8b",
+    "narrate":  "mist:8b",
+    "reason":   "foundation-sec:8b-reasoning",
+    "embed":    "qwen3-embedding:0.6b"
+  },
+  "role_notes": {
+    "reason": "free-text only (thinking cannot be disabled; JSON-schema tasks fail). Batch for Critical alerts, keep text after </think>.",
+    "narrate": "head-to-head vs foundation-sec:8b-instruct on grounded narratives pending; both hallucinated a number once, so the fact validator is mandatory.",
+    "embed": "to be replaced by cisco-ai/SecureBERT2.0-biencoder (security-specialised) once downloaded and checked."
+  },
+  "ml_components": {
+    "cwe_mapping":         "TF-IDF + LinearSVC (data/models/text_clf.joblib) top-3, LLM adjudicates among candidates",
+    "cvss_prediction":     "TF-IDF + LogisticRegression heads (data/models/text_clf.joblib); only when CNA/ADP vector is absent",
+    "exposure_matching":   "backend/app/engine/exposure.py (NVD + CNA + text reconciliation, vendor-aware versions)",
+    "security_ner":        "planned: attack-vector/SecureModernBERT-NER + regex IOC layer",
+    "security_embeddings": "planned: cisco-ai/SecureBERT2.0-biencoder (+ cross_encoder rerank)",
+    "attack_mapping":      "planned: CTID KEV->ATT&CK lookup first, CIRCL roberta classifier for the rest",
+    "translation":         "planned: ai4bharat/indictrans2-en-indic-dist-200M",
+    "log_anomaly":         "scikit-learn IsolationForest",
+    "beacon_detector":     "RITA-style periodicity / jitter scoring",
+    "campaign_clustering": "scikit-learn HDBSCAN over security embeddings + IDF-weighted shared IOCs",
+    "surge_detector":      "robust z (median/MAD) on sessions and unique IPs per vendor/CVE tag"
+  }
+}
