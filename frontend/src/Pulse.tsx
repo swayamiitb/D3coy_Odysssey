@@ -25,7 +25,7 @@ export function Pulse({ summary, live }: { summary?: Summary; live: LedgerEvent[
   return (
     <aside className="flex w-80 shrink-0 flex-col gap-4 overflow-auto">
       <section className="rounded-2xl border border-line bg-panel p-4">
-        <div className="mb-3 text-xs uppercase tracking-wider text-mute">National pulse · NCIIPC sectors</div>
+        <div className="mb-3 text-sm font-semibold text-text">National pulse · NCIIPC sectors</div>
         <div className="grid grid-cols-2 gap-2">
           {SECTORS.map((s) => {
             const h = summary?.sector_heatmap[s] ?? {}
@@ -48,7 +48,7 @@ export function Pulse({ summary, live }: { summary?: Summary; live: LedgerEvent[
 
 
       <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-line bg-panel p-4">
-        <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider text-mute">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-text">
           <Activity size={12} className="text-ok" /> Live evidence stream
           <span className="ml-auto h-2 w-2 animate-pulse rounded-full bg-ok" />
         </div>

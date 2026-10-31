@@ -62,7 +62,7 @@ function AnalysisView({ a, text }: { a: Analysis; text?: string }) {
 
       {a.exposed.length > 0 && (
         <section>
-          <div className="mb-2 text-xs uppercase tracking-wider text-mute">Who must act</div>
+          <div className="mb-2 text-sm font-semibold text-text">Who must act</div>
           <table className="w-full text-sm">
             <tbody>
               {a.exposed.map((e) => (
@@ -80,7 +80,7 @@ function AnalysisView({ a, text }: { a: Analysis; text?: string }) {
       )}
       {a.cleared.length > 0 && (
         <section>
-          <div className="mb-2 flex items-center gap-1 text-xs uppercase tracking-wider text-mute"><ShieldCheck size={12} className="text-ok" /> Cleared — no alert sent</div>
+          <div className="mb-2 flex items-center gap-1 text-sm font-semibold text-text"><ShieldCheck size={12} className="text-ok" /> Cleared — no alert sent</div>
           <div className="flex flex-wrap gap-1">
             {a.cleared.map((e) => <Badge key={e.asset_id} tone="ok">{e.org_id} · {e.version}</Badge>)}
           </div>
@@ -89,7 +89,7 @@ function AnalysisView({ a, text }: { a: Analysis; text?: string }) {
 
       {iocCount > 0 && (
         <section>
-          <div className="mb-2 text-xs uppercase tracking-wider text-mute">Indicators (defanged) — ready to block</div>
+          <div className="mb-2 text-sm font-semibold text-text">Indicators (defanged) — ready to block</div>
           <div className="space-y-1">
             {(Object.keys(IOC_LABEL) as (keyof typeof IOC_LABEL)[]).flatMap((k) => a.iocs[k].map((v) => (
               <div key={k + v} className="flex items-center gap-2 text-xs">
@@ -103,7 +103,7 @@ function AnalysisView({ a, text }: { a: Analysis; text?: string }) {
 
       {(a.iocs.references?.length ?? 0) > 0 && (
         <section>
-          <div className="mb-2 text-xs uppercase tracking-wider text-mute">Reference links (vendor / CERT guidance, not indicators)</div>
+          <div className="mb-2 text-sm font-semibold text-text">Reference links (vendor / CERT guidance, not indicators)</div>
           <div className="space-y-1">
             {a.iocs.references!.map((u) => (
               <a key={u} href={u} target="_blank" rel="noreferrer" className="block truncate text-xs text-accent hover:underline">{u}</a>
@@ -113,7 +113,7 @@ function AnalysisView({ a, text }: { a: Analysis; text?: string }) {
       )}
 
       <section>
-        <div className="mb-2 flex items-center gap-1 text-xs uppercase tracking-wider text-mute"><Sparkles size={12} /> Entities (SecureBERT 2.0, on-device)</div>
+        <div className="mb-2 flex items-center gap-1 text-sm font-semibold text-text"><Sparkles size={12} /> Entities (SecureBERT 2.0, on-device)</div>
         <div className="flex flex-wrap gap-1">
           {a.entities.map((e) => <Badge key={e.type + e.text}>{e.type}: {e.text}</Badge>)}
         </div>
@@ -162,7 +162,7 @@ export function Advisories() {
             {busy ? <Loader2 size={14} className="animate-spin" /> : <ScanText size={14} />} Analyse
           </button>
         </div>
-        <div className="text-xs uppercase tracking-wider text-mute">Advisory inbox</div>
+        <div className="text-sm font-semibold text-text">Advisory inbox</div>
         {items.map((it, i) => (
           <button key={it.id} onClick={() => { setSel(i); setPasted(undefined) }}
                   className={`rounded-xl border p-3 text-left ${i === sel && !pasted ? 'border-accent bg-panel-2' : 'border-line bg-panel hover:bg-panel-2'}`}>

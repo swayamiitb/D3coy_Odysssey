@@ -1,18 +1,17 @@
-import { Building2, FlaskConical, Moon, Radar, Search, ShieldCheck, Sun, Telescope, Zap } from 'lucide-react'
+import { Moon, Radar, Search, ShieldCheck, Sun } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
 import { AlertQueue } from './AlertQueue'
 import { Copilot } from './Copilot'
 import { HowItWorks } from './HowItWorks'
-import { api, type AlertDetail as Detail, type AlertRow, type Health, type LedgerEvent, type Summary, type Tier } from './api'
+import { api, type AlertDetail as Detail, type AlertRow, type Health, type Summary, type Tier } from './api'
 import { Now } from './Now'
 import { Orgs } from './Orgs'
 import { Funnel, SectorHeatmap } from './Overview'
 import { Proof } from './Proof'
-import { Pulse } from './Pulse'
 import { Soc } from './Soc'
-import { Tabs } from './ui'
+import { Tabs, ToastProvider } from './ui'
 
 /* Four destinations, one question each (Uber-like): what needs me now, what is happening, who is at risk, why
    should I trust it. Everything else is a tab inside one of them, or a sheet that slides in. */
@@ -49,8 +48,8 @@ function PageHead({ title, sub, children }: { title: string; sub: string; childr
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h2 className="text-3xl font-semibold">{title}</h2>
-        <p className="text-sm text-mute">{sub}</p>
+        <h2 className="text-3xl font-bold tracking-tight">{title}</h2>
+        <p className="mt-1 text-mute">{sub}</p>
       </div>
       {children}
     </div>
@@ -72,11 +71,11 @@ export default function App() {
   const [org, setOrg] = useState<string | undefined>(() => new URLSearchParams(window.location.search).get('org') ?? undefined)
   const [detail, setDetail] = useState<Detail>()
   const [error, setError] = useState<string>()
-  const [live, setLive] = useState<LedgerEvent[]>([])
   const [tick, setTick] = useState(0)
   const [connected, setConnected] = useState(false)
   const askParam = new URLSearchParams(window.location.search).get('ask') ?? undefined // ?ask=<question> opens the copilot
   const [copilot, setCopilot] = useState(askParam != null)
+  const [menu, setMenu] = useState(false)
   const esRef = useRef<EventSource | null>(null)
   const staticMode = new URLSearchParams(window.location.search).has('nolive')
 
@@ -97,9 +96,7 @@ export default function App() {
     esRef.current = es
     es.onopen = () => setConnected(true)
     es.onerror = () => setConnected(false)
-    es.addEventListener('ledger', (msg) => {
-      const ev = JSON.parse((msg as MessageEvent).data) as LedgerEvent
-      setLive((l) => [...l.slice(-50), ev])
+    es.addEventListener('ledger', () => {
       setTick((t) => t + 1)
     })
     return () => es.close()
@@ -119,50 +116,56 @@ export default function App() {
   const status = connected ? 'live' : staticMode ? 'static' : 'offline'
 
   return (
+    <ToastProvider>
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-4 border-b border-line px-6 py-3">
-        <div className="flex items-center gap-2.5">
-          <Radar className="text-accent" size={22} />
-          <div className="leading-tight">
-            <div className="text-base font-semibold tracking-wide">ODYSSEY</div>
-            <div className="text-[11px] text-mute">National Cyber Early Warning</div>
-          </div>
-        </div>
-        <nav className="ml-4 flex rounded-full bg-panel p-1 ring-1 ring-line">
-          {([['now', 'Now', Zap], ['intel', 'Intel', Telescope], ['orgs', 'Organisations', Building2], ['proof', 'Proof', FlaskConical]] as const).map(([k, label, Icon]) => (
+      <header className="flex items-center gap-8 border-b border-line px-8 py-3.5">
+        <button onClick={() => setView('now')} className="flex items-center gap-2">
+          <Radar size={22} />
+          <span className="text-xl font-bold tracking-tight">Odyssey</span>
+        </button>
+        <nav className="flex items-center gap-6">
+          {([['now', 'Now'], ['intel', 'Intel'], ['orgs', 'Organisations'], ['proof', 'Proof']] as const).map(([k, label]) => (
             <button key={k} onClick={() => setView(k)}
-                    className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm ${view === k ? 'bg-text font-semibold text-ink' : 'text-mute hover:text-text'}`}>
-              <Icon size={14} /> {label}
+                    className={`border-b-2 py-1.5 text-[15px] font-medium transition ${view === k ? 'border-text text-text' : 'border-transparent text-mute hover:text-text'}`}>
+              {label}
             </button>
           ))}
         </nav>
         <button onClick={() => setCopilot(true)}
-                className="ml-auto flex w-80 max-w-[30vw] items-center gap-2 rounded-full bg-panel px-4 py-2 text-left text-sm text-mute ring-1 ring-line hover:ring-accent/60">
-          <Search size={15} /> <span className="truncate">Ask Odyssey anything…</span>
+                className="ml-auto flex w-96 max-w-[32vw] items-center gap-2.5 rounded-full bg-panel-2 px-5 py-2.5 text-left text-[15px] font-medium text-mute hover:bg-line">
+          <Search size={17} className="text-text" /> <span className="truncate">Ask Odyssey anything</span>
         </button>
-        <button onClick={toggleTheme} title={theme === 'light' ? 'Switch to dark' : 'Switch to light'}
-                className="rounded-full p-2 text-mute ring-1 ring-line hover:text-text">
-          {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
-        </button>
-        <div className="flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-mute ring-1 ring-line"
-             title={health ? `audit trail ${health.ledger_intact ? 'intact' : 'TAMPERED'} · models: ${health.models.narrate} (GPU) + CPU encoders · no cloud calls` : undefined}>
-          <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'animate-pulse bg-ok' : status === 'static' ? 'bg-mute' : 'bg-crit'}`} />
-          {status}
-          <span className="text-line">|</span>
-          <ShieldCheck size={12} className={health?.ledger_intact === false ? 'text-crit' : ''} /> audit {health?.ledger_intact === false ? 'TAMPERED' : 'intact'}
-          <span className="text-line">|</span>
-          on-device · 0 cloud
+        <div className="relative">
+          <button onClick={() => setMenu(!menu)} title="Analyst menu"
+                  className="relative flex h-10 w-10 items-center justify-center rounded-full bg-panel-2 text-sm font-bold hover:bg-line">
+            AN
+            <span className={`absolute right-0 top-0 h-2.5 w-2.5 rounded-full ring-2 ring-ink ${connected ? 'bg-ok' : status === 'static' ? 'bg-watch' : 'bg-crit'}`} />
+          </button>
+          {menu && (
+            <div className="absolute right-0 top-12 z-40 w-72 rounded-2xl bg-panel p-2 shadow-2xl ring-1 ring-line" onMouseLeave={() => setMenu(false)}>
+              <div className="px-3 py-2">
+                <div className="font-bold">Analyst on duty</div>
+                <div className="text-sm text-mute">analyst@ncew · National CERT desk</div>
+              </div>
+              <button onClick={toggleTheme} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-panel-2">
+                {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />} {theme === 'light' ? 'Dark mode' : 'Light mode'}
+              </button>
+              <div className="mt-1 space-y-1.5 border-t border-line px-3 pt-2.5 pb-1.5 text-sm text-mute">
+                <div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${connected ? 'bg-ok' : 'bg-watch'}`} /> {status === 'live' ? 'Live updates on' : status === 'static' ? 'Static view' : 'Offline'}</div>
+                <div className="flex items-center gap-2"><ShieldCheck size={14} className={health?.ledger_intact === false ? 'text-crit' : 'text-ok'} /> Audit trail {health?.ledger_intact === false ? 'TAMPERED' : 'intact'}</div>
+                <div>AI on this laptop: {health?.models.narrate ?? '…'} (GPU) + CPU models · 0 cloud calls</div>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
       {error && <div className="bg-crit/10 px-6 py-2 text-sm text-crit">Cannot reach the engine ({error}). Start the API on :8000.</div>}
 
-      <main className="flex min-h-0 flex-1 gap-5 p-5">
+      <main className="flex min-h-0 flex-1 gap-5 px-8 py-6">
         {view === 'now' && (
-          <>
-            <Now onOpen={(c) => setSelected(c)} tick={tick} />
-            <Pulse summary={summary} live={live} />
-          </>
+          <Now onOpen={(c) => setSelected(c)} tick={tick} onOrg={(id) => { setOrg(id); setView('orgs') }}
+               onGo={(v, t) => { setView(v); setIntelTab(t) }} />
         )}
 
         {view === 'intel' && (
@@ -212,5 +215,6 @@ export default function App() {
         </div>
       )}
     </div>
+    </ToastProvider>
   )
 }

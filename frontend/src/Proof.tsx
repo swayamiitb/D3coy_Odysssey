@@ -1,18 +1,12 @@
 import { useEffect, useState } from 'react'
 import { ForecastProof, LeadProof, TestBench } from './ProofProactive'
-import { Badge, Prov } from './ui'
+import { Badge, Prov, Stat } from './ui'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Scorecard = any
 
-function Tile({ value, label, sub, accent }: { value: string; label: string; sub?: string; accent?: boolean }) {
-  return (
-    <div className="rounded-2xl border border-line bg-panel p-5">
-      <div className={`text-4xl font-semibold tabular-nums ${accent ? 'text-accent' : ''}`}>{value}</div>
-      <div className="mt-1 text-sm">{label}</div>
-      {sub && <div className="mt-1 text-xs text-mute">{sub}</div>}
-    </div>
-  )
+function Tile({ value, label, sub }: { value: string; label: string; sub?: string }) {
+  return <Stat value={value} label={label} sub={sub} />
 }
 
 /** Emphasis bars: one series, ours in the accent hue, baselines in recessive gray, direct value labels. */

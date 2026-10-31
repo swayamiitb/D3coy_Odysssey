@@ -4,7 +4,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, type Approval, type AutoEvent, type ForecastView, type Language } from './api'
-import { Badge, Prov } from './ui'
+import { Badge, Prov, useToast } from './ui'
 
 /* ------------------------------------------------------------------ shared vocabulary */
 
@@ -61,20 +61,22 @@ export function Autonomy({ e }: { e: AutoEvent }) {
 /* ------------------------------------------------------------------ human in the loop */
 
 const PROPOSAL: Record<string, string> = {
-  'auto.forecast': 'Pre-emptive advisory (prediction)',
-  'auto.warn': 'Early warning (sensor-only signal)',
+  'auto.forecast': 'Pre-emptive advisory',
+  'auto.warn': 'Early warning',
   'auto.escalate': 'Report to regulator',
-  'auto.escalate_sla': 'SLA escalation to sector CSIRT',
-  'auto.advisory': 'New advisory: notify exposed organisations',
+  'auto.escalate_sla': 'SLA escalation',
+  'auto.advisory': 'New advisory',
 }
 const REJECT_REASONS = ['False positive', 'Not relevant to these organisations', 'Already handled']
 
-export function ApprovalQueue({ onChanged, limit = 6 }: { onChanged?: () => void; limit?: number }) {
+export function ApprovalQueue({ onChanged, limit = 6, hideMore }: { onChanged?: () => void; limit?: number; hideMore?: boolean }) {
   const [items, setItems] = useState<Approval[]>()
   const [done, setDone] = useState<Record<number, string>>({})
   const [busy, setBusy] = useState<number>()
   const [rejecting, setRejecting] = useState<number>()
   const [all, setAll] = useState(false)
+  const [open, setOpen] = useState<number>()
+  const toast = useToast()
   const langs = useLanguages()
   const load = () => api.approvals().then(setItems).catch(() => setItems([]))
   useEffect(() => { load() }, [])
@@ -83,7 +85,11 @@ export function ApprovalQueue({ onChanged, limit = 6 }: { onChanged?: () => void
     setBusy(a.id)
     api.decide(a.id, approve ? 'approve' : 'reject', note)
       .then((r) => {
-        setDone((d) => ({ ...d, [a.id]: approve ? `Sent ${r.executed} notice${r.executed === 1 ? '' : 's'} (simulated delivery), logged in the audit trail` : `Rejected: ${note}. Recorded for detector calibration.` }))
+        const msg = approve
+          ? `Sent ${r.executed} notice${r.executed === 1 ? '' : 's'}${a.langs.length ? ` in ${a.langs.length} language${a.langs.length === 1 ? '' : 's'}` : ''} · logged`
+          : `Rejected (${note}) · recorded for calibration`
+        setDone((d) => ({ ...d, [a.id]: `✓ ${msg}` }))
+        toast(msg)
         onChanged?.()
       })
       .catch((e) => setDone((d) => ({ ...d, [a.id]: String(e) })))
@@ -91,56 +97,62 @@ export function ApprovalQueue({ onChanged, limit = 6 }: { onChanged?: () => void
   }
 
   if (!items) return <div className="text-xs text-mute"><Loader2 size={12} className="mr-1 inline animate-spin" />Loading proposals…</div>
-  if (items.length === 0) return <div className="text-sm text-ok">Nothing waits for you: every proposal has been decided.</div>
+  if (items.length === 0) return <div className="rounded-2xl bg-panel-2 p-4 text-sm font-medium text-ok">Nothing waits for you: every proposal is decided.</div>
   const shown = all ? items : items.slice(0, limit)
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {shown.map((a) => (
-        <article key={a.id} className={`rounded-xl border p-3 ${done[a.id] ? 'border-ok/40 bg-ok/5' : 'border-high/40 bg-high/5'}`}>
-          <div className="mb-1 flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-semibold uppercase tracking-wide text-high">{PROPOSAL[a.kind] ?? a.kind}</span>
-            {a.basis && <span className="text-mute">· {a.basis}</span>}
+        <article key={a.id} className="rounded-2xl border border-line bg-panel p-4">
+          <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs text-mute">
+            <span className="font-semibold text-text">{PROPOSAL[a.kind] ?? a.kind}</span>
+            {a.basis && <span>· {a.basis}</span>}
             <ProvBadge p={a.provenance} />
-            <span className="ml-auto text-mute">proposed {istTime(a.proposed_at)} IST</span>
+            <span className="ml-auto">{istTime(a.proposed_at)}</span>
           </div>
-          <div className="text-sm font-medium">{a.title}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mute">
-            <span>{a.orgs.length} organisation{a.orgs.length === 1 ? '' : 's'}</span>
-            {a.langs.length > 0 && <span>in {a.langs.map((l) => langs[l]?.native ?? l).join(' · ')}</span>}
-            {a.recipients.length > 0 && a.kind.startsWith('auto.escalate') && <span>to {a.recipients.join(', ')}</span>}
+          <div className="text-[15px] font-semibold leading-snug">{a.title}</div>
+          <div className="mt-1 text-sm text-mute">
+            {a.orgs.length} organisation{a.orgs.length === 1 ? '' : 's'}
+            {a.langs.length > 0 && <> · in {a.langs.map((l) => langs[l]?.native ?? l).join(' · ')}</>}
+            {a.recipients.length > 0 && a.kind.startsWith('auto.escalate') && <> · to {a.recipients.join(', ')}</>}
           </div>
-          {a.preview[0] && <div className="mt-2 rounded-lg bg-panel-2 px-3 py-2 text-xs leading-relaxed text-mute">“{a.preview[0]}”</div>}
-          {a.items.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {a.items.map((i) => <Badge key={i.cve + i.asset}><span className="font-mono">{i.cve}</span> · {i.asset.split('.')[0]}</Badge>)}
+          {open === a.id && (
+            <div className="mt-3 space-y-2">
+              {a.preview[0] && <div className="rounded-xl bg-panel-2 px-3 py-2.5 text-sm leading-relaxed">{a.preview[0]}</div>}
+              {a.items.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {a.items.map((i) => <Badge key={i.cve + i.asset}><span className="font-mono">{i.cve}</span> · {i.asset.split('.')[0]}</Badge>)}
+                </div>
+              )}
             </div>
           )}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             {done[a.id] ? (
-              <span className="text-xs text-ok">{done[a.id]}</span>
+              <span className="text-sm font-medium text-ok">{done[a.id]}</span>
             ) : rejecting === a.id ? (
               <>
-                <span className="text-xs text-mute">Why?</span>
                 {REJECT_REASONS.map((r) => (
                   <button key={r} disabled={busy === a.id} onClick={() => decide(a, false, r)}
-                          className="rounded-full px-3 py-1 text-xs ring-1 ring-line hover:bg-panel-2">{r}</button>
+                          className="rounded-full bg-panel-2 px-3.5 py-2 text-sm font-medium hover:bg-line">{r}</button>
                 ))}
-                <button onClick={() => setRejecting(undefined)} className="text-xs text-mute hover:text-text">cancel</button>
+                <button onClick={() => setRejecting(undefined)} className="px-2 text-sm text-mute hover:text-text">Cancel</button>
               </>
             ) : (
               <>
                 <button disabled={busy === a.id} onClick={() => decide(a, true)}
-                        className="flex items-center gap-1.5 rounded-full bg-action px-4 py-1.5 text-sm font-semibold text-ink hover:opacity-85 disabled:opacity-50">
-                  {busy === a.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Approve &amp; send
+                        className="flex items-center gap-1.5 rounded-full bg-action px-5 py-2.5 text-sm font-semibold text-ink hover:opacity-85 disabled:opacity-50">
+                  {busy === a.id && <Loader2 size={14} className="animate-spin" />} Approve &amp; send
                 </button>
-                <button onClick={() => setRejecting(a.id)} className="rounded-full px-3 py-1.5 text-sm text-mute hover:text-text">Reject</button>
+                <button onClick={() => setRejecting(a.id)} className="rounded-full bg-panel-2 px-5 py-2.5 text-sm font-semibold hover:bg-line">Reject</button>
+                <button onClick={() => setOpen(open === a.id ? undefined : a.id)} className="ml-auto text-sm font-medium text-accent hover:underline">
+                  {open === a.id ? 'Hide' : 'Preview'}
+                </button>
               </>
             )}
           </div>
         </article>
       ))}
-      {items.length > limit && (
-        <button onClick={() => setAll(!all)} className="text-xs text-accent hover:underline">
+      {items.length > limit && !hideMore && (
+        <button onClick={() => setAll(!all)} className="text-sm font-medium text-accent hover:underline">
           {all ? 'Show fewer' : `Show all ${items.length} proposals`}
         </button>
       )}

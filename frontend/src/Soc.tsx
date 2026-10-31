@@ -4,19 +4,11 @@ import { api, type Attacks, type Campaign, type IntelAdvisory, type IntelSource,
 import { RiskPlanView } from './Orgs'
 import { ApprovalQueue, AutopilotFeed, ForecastPanel } from './proactive'
 import { Rewind } from './Rewind'
-import { Badge, Panel, Prov } from './ui'
+import { Badge, Panel, Prov, Stat } from './ui'
 
 const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString('en-IN'))
 
-function Kpi({ value, label, sub, tone }: { value: string; label: string; sub?: string; tone?: string }) {
-  return (
-    <div className="rounded-xl border border-line bg-panel px-4 py-3">
-      <div className={`text-3xl font-semibold tabular-nums ${tone ?? ''}`}>{value}</div>
-      <div className="text-sm">{label}</div>
-      {sub && <div className="mt-0.5 text-xs text-mute">{sub}</div>}
-    </div>
-  )
-}
+const Kpi = Stat // Uber-style figure: big bold number on soft grey
 
 /** Single-series sparkline; optional shaded bands (e.g. detected surges). Text stays in text tokens. */
 export function Spark({ values, bands = [], color = 'var(--color-accent)', h = 36 }: { values: number[]; bands?: [number, number][]; color?: string; h?: number }) {

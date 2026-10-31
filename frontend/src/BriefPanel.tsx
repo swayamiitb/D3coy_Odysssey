@@ -74,9 +74,9 @@ export function BriefPanel({ orgId, cveId }: { orgId: string; cveId: string }) {
           <div className="space-y-2 text-sm">
             <div dir={t.rtl ? 'rtl' : 'ltr'} lang={lang} className="space-y-2">
               <Line l={t.headline} strong />
-              <div className="text-xs font-semibold uppercase tracking-wide text-mute" dir="ltr">Why it matters</div>
+              <div className="text-sm font-semibold text-text" dir="ltr">Why it matters</div>
               {t.why_it_matters.map((x, i) => <Line key={i} l={x} />)}
-              <div className="text-xs font-semibold uppercase tracking-wide text-mute" dir="ltr">What to do</div>
+              <div className="text-sm font-semibold text-text" dir="ltr">What to do</div>
               {t.what_to_do.map((x, i) => <Line key={i} l={x} />)}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-1 text-xs text-mute">
@@ -101,9 +101,9 @@ export function BriefPanel({ orgId, cveId }: { orgId: string; cveId: string }) {
       {brief?.brief && (
         <div className="space-y-2 text-sm">
           <div className="font-medium">{brief.brief.headline}</div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-mute">Why it matters</div>
+          <div className="text-sm font-semibold text-text">Why it matters</div>
           <Bullets items={brief.brief.why_it_matters} onCite={setOpenFact} />
-          <div className="text-xs font-semibold uppercase tracking-wide text-mute">What to do</div>
+          <div className="text-sm font-semibold text-text">What to do</div>
           <Bullets items={brief.brief.what_to_do} onCite={setOpenFact} />
           {openFact && brief.facts[openFact] && (
             <div className="rounded border border-accent/30 bg-accent/5 p-2 text-xs text-mute">

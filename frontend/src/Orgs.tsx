@@ -4,7 +4,7 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Too
 import { api, type OrgProfile, type RiskPlan, type Soc } from './api'
 import { AutopilotFeed, useLanguages } from './proactive'
 import { Spark } from './Soc'
-import { Badge, deadlineText, Panel, Prov, Tabs, TIER_FILL, TierPill } from './ui'
+import { Badge, deadlineText, Panel, Prov, Stat, Tabs, TIER_FILL, TierPill } from './ui'
 
 const WORST = ['—', 'Medium', 'High', 'Critical', 'Compromise'] as const
 
@@ -98,13 +98,7 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
           { v: `${(p.tiers.Compromise ?? 0) + (p.tiers.Critical ?? 0)}`, l: 'Critical warnings', s: p.tiers.Compromise ? `${p.tiers.Compromise} suspected compromise` : `${p.tiers.High ?? 0} High` },
           { v: `${p.risk.for_80_pct ?? '—'}`, l: 'changes to remove 80% of risk', s: `of ${p.risk.tickets} tickets` },
           { v: `${p.inbox.length}`, l: 'notices from Odyssey', s: lang ? `delivered in ${lang.native}` : undefined },
-        ].map((k) => (
-          <div key={k.l} className="rounded-xl border border-line bg-panel px-4 py-3">
-            <div className="text-3xl font-semibold tabular-nums">{k.v}</div>
-            <div className="text-sm">{k.l}</div>
-            {k.s && <div className="text-xs text-mute">{k.s}</div>}
-          </div>
-        ))}
+        ].map((k) => <Stat key={k.l} value={k.v} label={k.l} sub={k.s} />)}
       </div>
 
       {tab === 'overview' && (
@@ -191,17 +185,18 @@ export function Orgs({ selected, onSelect, onAlert }: { selected?: string; onSel
   return (
     <>
       <aside className="flex w-72 shrink-0 flex-col gap-1 overflow-auto">
-        <div className="mb-1 text-xs uppercase tracking-wider text-mute">Organisations · {list.length}</div>
+        <div className="mb-1 text-sm font-semibold text-text">Organisations · {list.length}</div>
         {list.map((o) => (
           <button key={o.id} onClick={() => onSelect(o.id)}
-                  className={`rounded-xl border px-3 py-2 text-left ${o.id === id ? 'border-accent/60 bg-accent/10' : 'border-line bg-panel hover:bg-panel-2'}`}>
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-sm">{o.name}</span>
-              <span className="font-mono text-xs text-crit">{o.critical}</span>
-            </div>
-            <div className="truncate text-[11px] text-mute">
-              {o.sector} · {langs[o.lang]?.native ?? o.lang}{o.compromise > 0 && <span className="text-comp"> · compromise</span>}
-            </div>
+                  className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left ${o.id === id ? 'bg-panel-2' : 'hover:bg-panel-2/60'}`}>
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${o.compromise ? 'bg-comp text-white' : 'bg-panel-2 text-text'}`}>
+              {o.name.split(' ').filter((w) => /^[A-Z]/.test(w)).slice(0, 2).map((w) => w[0]).join('')}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold">{o.name}</span>
+              <span className="block truncate text-xs text-mute">{o.sector} · {langs[o.lang]?.native ?? o.lang}</span>
+            </span>
+            <span className="text-right"><span className="block text-sm font-bold text-crit">{o.critical}</span><span className="block text-[10px] text-mute">critical</span></span>
           </button>
         ))}
       </aside>

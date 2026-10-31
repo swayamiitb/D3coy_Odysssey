@@ -1,44 +1,57 @@
 @import "tailwindcss";
 
-/* Light, Uber-style by default: white cards on a soft grey page, black type, solid black primary actions, blue for
-   links and selection, colour for meaning (risk tiers, green = done). Dark lives under [data-theme="dark"]. */
+/* Uber Base-style palette. Light by default: pure white surfaces, black type, black primary actions, grey-filled
+   chips and inputs; colour only for meaning (Uber green / red / orange / yellow / purple, blue for links).
+   Dark lives under [data-theme="dark"]. Components only use these semantic tokens. */
 @theme {
-  --color-ink: #f6f6f6;      /* page */
-  --color-panel: #ffffff;    /* cards */
-  --color-panel-2: #f2f2f3;  /* wells, chips */
-  --color-line: #e3e3e6;     /* borders, grid lines */
-  --color-mute: #6b6b72;     /* secondary text */
-  --color-text: #0b0b0c;     /* primary text */
+  --color-ink: #ffffff;      /* page */
+  --color-panel: #ffffff;    /* cards, sheets */
+  --color-panel-2: #f3f3f3;  /* chips, inputs, wells */
+  --color-line: #e8e8e8;     /* separators */
+  --color-mute: #5e5e5e;     /* secondary text */
+  --color-text: #000000;     /* primary text */
   --color-action: #000000;   /* primary buttons */
-  --color-accent: #276ef1;   /* links, selection, highlights */
-  --color-crit: #dc2626;
-  --color-high: #d97706;
-  --color-med: #ca8a04;
-  --color-watch: #64748b;
-  --color-ok: #05944f;
-  --color-comp: #c026d3;     /* suspected compromise */
-  --font-sans: "Inter", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+  --color-accent: #276ef1;   /* links, selection */
+  --color-crit: #e11900;     /* Critical */
+  --color-high: #ff6937;     /* High */
+  --color-med: #ffc043;      /* Medium */
+  --color-watch: #a6a6a6;
+  --color-ok: #05a357;       /* done, verified */
+  --color-comp: #7356bf;     /* suspected compromise */
+  --color-map: #f6f6f6;      /* map land */
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", ui-monospace, monospace;
 }
 
 :root[data-theme="dark"] {
-  --color-ink: #0b0f14;
-  --color-panel: #121821;
-  --color-panel-2: #18202b;
-  --color-line: #243041;
-  --color-mute: #8b98a9;
-  --color-text: #e6edf3;
-  --color-action: #38bdf8;
-  --color-accent: #38bdf8;
-  --color-crit: #ef4444;
-  --color-high: #f59e0b;
-  --color-med: #eab308;
-  --color-watch: #64748b;
-  --color-ok: #22c55e;
-  --color-comp: #f0abfc;
+  --color-ink: #000000;
+  --color-panel: #141414;
+  --color-panel-2: #232323;
+  --color-line: #2c2c2c;
+  --color-mute: #a6a6a6;
+  --color-text: #ffffff;
+  --color-action: #ffffff;
+  --color-accent: #5b91f5;
+  --color-crit: #f25138;
+  --color-high: #ff8a5c;
+  --color-med: #ffd27a;
+  --color-watch: #6b6b6b;
+  --color-ok: #3aa76d;
+  --color-comp: #9b85de;
+  --color-map: #0d0d0d;
 }
 
 html, body, #root { height: 100%; }
-body { background: var(--color-ink); color: var(--color-text); font-family: var(--font-sans); }
+body {
+  background: var(--color-ink); color: var(--color-text); font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased; letter-spacing: -0.005em;
+}
+h1, h2, h3 { letter-spacing: -0.02em; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 4px; }
+
+@keyframes odyssey-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-comp) 55%, transparent); }
+  70% { box-shadow: 0 0 0 14px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.pulse-comp { animation: odyssey-pulse 1.8s ease-out infinite; }
+@keyframes odyssey-toast { from { transform: translate(-50%, 16px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+.toast-in { animation: odyssey-toast .22s ease-out; }

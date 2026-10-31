@@ -14,7 +14,7 @@ export function AlertQueue({ rows, tier, onTier, selected, onSelect }: Props) {
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-line bg-panel">
       <header className="flex items-center justify-between border-b border-line px-4 py-2">
-        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-mute">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-text">
           <ShieldAlert size={14} /> Early-warning queue · ranked by risk
         </h2>
         <div className="flex gap-1">

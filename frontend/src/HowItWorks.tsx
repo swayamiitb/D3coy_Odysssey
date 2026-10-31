@@ -75,7 +75,7 @@ export function HowItWorks() {
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto [&>*]:shrink-0">
 
       <section>
-        <div className="mb-2 text-xs uppercase tracking-wider text-mute">1 · The pipeline</div>
+        <div className="mb-2 text-sm font-semibold text-text">1 · The pipeline</div>
         <div className="flex flex-col gap-2 xl:flex-row xl:items-stretch">
           {[
             { title: 'Aggregate', body: ['vulnerability databases (NVD, KEV, EPSS, SSVC)', 'public advisories (CISA, CERT-In style)', 'attack telemetry (DShield, decoy grid)', 'indicators (Feodo C2, phishing)', 'security logs (SIM)'], stat: `${src.length} sources · ${real} real` },
@@ -94,7 +94,7 @@ export function HowItWorks() {
       </section>
 
       <section className="rounded-2xl border border-line bg-panel p-6">
-        <div className="mb-3 text-xs uppercase tracking-wider text-mute">2 · The AI models (each job goes to what measured best)</div>
+        <div className="mb-3 text-sm font-semibold text-text">2 · The AI models (each job goes to what measured best)</div>
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-mute">
             <tr><th className="pb-2 font-normal">Job</th><th className="pb-2 font-normal">Model</th><th className="pb-2 font-normal">Type</th><th className="pb-2 font-normal">Runs on</th><th className="pb-2 font-normal">Measured here</th></tr>
@@ -118,7 +118,7 @@ export function HowItWorks() {
       </section>
 
       <section className="rounded-2xl border border-line bg-panel p-6">
-        <div className="mb-1 text-xs uppercase tracking-wider text-mute">3 · Threat scoring (glass box)</div>
+        <div className="mb-1 text-sm font-semibold text-text">3 · Threat scoring (glass box)</div>
         <div className="mb-4 font-mono text-lg">Risk = 100 × R × K × (0.55·L + 0.30·S + 0.15·V)</div>
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
           <Factor k="L" name="Exploitability" value={a?.L} feeds="CISA KEV, SSVC 'active', exploits on decoys, vendor 'exploited in the wild', EPSS, day-0 forecast. Named rules set evidence floors." />
@@ -147,7 +147,7 @@ export function HowItWorks() {
       </section>
 
       <section className="rounded-2xl border border-line bg-panel p-6">
-        <div className="mb-3 text-xs uppercase tracking-wider text-mute">4 · Mitigation workflow (who does what)</div>
+        <div className="mb-3 text-sm font-semibold text-text">4 · Mitigation workflow (who does what)</div>
         <div className="grid gap-4 xl:grid-cols-3">
           {[
             { icon: Bot, who: 'Odyssey, on its own', tone: 'text-accent', steps: ['scores every new CVE, advisory and telemetry signal against the inventory', 'sends Critical/Compromise notices at once, in the organisation\'s language', 'folds High warnings and new KEV listings into a daily digest', 'drafts the CERT-In incident report on suspected compromise', 'hunts the same C2 across every organisation; warns exposed peers', 'watches deadlines and proposes escalation when they slip'] },

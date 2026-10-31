@@ -43,7 +43,7 @@ export function ForecastProof() {
       </p>
       <div className="grid gap-6 xl:grid-cols-2">
         <div>
-          <div className="mb-2 text-xs uppercase tracking-wider text-mute">Caught with the same alert budget ({live.odyssey.flag_rate_pct}% of new CVEs)</div>
+          <div className="mb-2 text-sm font-semibold text-text">Caught with the same alert budget ({live.odyssey.flag_rate_pct}% of new CVEs)</div>
           <Budget e={live} />
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -146,7 +146,7 @@ export function TestBench() {
         const shown = layer === 'engine tests' ? rs.filter((r) => !r.passed).concat(rs.filter((r) => r.passed).slice(0, 6)) : rs
         return (
           <div key={layer} className="mb-3">
-            <div className="mb-1 text-xs uppercase tracking-wider text-mute">{layer} · {rs.filter((r) => r.passed).length}/{rs.length} passed</div>
+            <div className="mb-1 text-sm font-semibold text-text">{layer} · {rs.filter((r) => r.passed).length}/{rs.length} passed</div>
             <ul className="space-y-1">
               {shown.map((r) => (
                 <li key={r.name} className="flex items-start gap-2 text-sm">

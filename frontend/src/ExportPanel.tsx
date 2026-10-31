@@ -35,7 +35,7 @@ export function CertInReportModal({ orgId, cveId, onClose }: { orgId: string; cv
       <div className="max-h-full w-[760px] overflow-auto rounded-2xl border border-line bg-panel p-6" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-start justify-between gap-4">
           <div>
-            <div className="text-xs uppercase tracking-wider text-crit">{report?.status ?? 'Preparing draft…'}</div>
+            <div className="text-sm font-semibold text-crit">{report?.status ?? 'Preparing draft…'}</div>
             <h3 className="text-lg font-semibold">{report?.title}</h3>
             <p className="text-xs text-mute">{report?.basis}</p>
           </div>

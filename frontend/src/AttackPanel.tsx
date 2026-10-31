@@ -23,7 +23,7 @@ export function AttackPanel({ attack }: { attack?: AttackMap | null }) {
           </li>
         ))}
       </ul>
-      <div className="mb-1.5 mt-3 flex items-center gap-1 text-xs uppercase tracking-wider text-mute"><ShieldPlus size={12} /> Official mitigations</div>
+      <div className="mb-1.5 mt-3 flex items-center gap-1 text-sm font-semibold text-text"><ShieldPlus size={12} /> Official mitigations</div>
       <ul className="space-y-1.5 text-xs">
         {attack.mitigations.map((m) => (
           <li key={m.id}>
