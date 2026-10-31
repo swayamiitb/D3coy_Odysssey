@@ -1,7 +1,7 @@
-"""Pre-generate AI briefs and Hindi/Marathi translations for the warnings on the "Now" feed, so nothing on stage
+"""Pre-generate AI briefs and Indic-language translations for the warnings on the "Now" feed, so nothing on stage
 waits for the GPU or the CPU translator. Safe to re-run (everything is cached by the API).
 
-Usage: .venv/Scripts/python scripts/warm_cache.py [--limit 10] [--langs hi,mr]
+Usage: .venv/Scripts/python scripts/warm_cache.py [--limit 10] [--langs hi,bn,ta,te,mr]  (any of the 22 codes from /api/languages)
 """
 
 import argparse
@@ -16,7 +16,7 @@ API = "http://127.0.0.1:8000"
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=10)
-    ap.add_argument("--langs", default="hi,mr")
+    ap.add_argument("--langs", default="hi,bn,ta,te,mr")
     args = ap.parse_args()
     feed = httpx.get(f"{API}/api/feed", params={"limit": args.limit}, timeout=60).json()
     for card in feed["cards"]:

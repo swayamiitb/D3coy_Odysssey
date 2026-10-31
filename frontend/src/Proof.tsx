@@ -59,6 +59,40 @@ function Table({ head, rows }: { head: string[]; rows: (string | number)[][] }) 
   )
 }
 
+/** One cell per scheduled language: measured share of brief sentences that passed the translation validator. */
+function IndicGrid({ r }: { r: Scorecard }) {
+  const langs = Object.entries(r.languages) as [string, any][]
+  const n = r.sentences?.length ?? langs[0]?.[1].total
+  return (
+    <section className="rounded-2xl border border-line bg-panel p-6">
+      <div className="mb-1 flex items-center gap-2">
+        <h3 className="text-lg font-semibold">Every warning in all {langs.length} scheduled Indian languages</h3>
+        <Badge tone="ok">{r.validated}/{r.total} validated</Badge>
+      </div>
+      <p className="mb-4 text-sm text-mute">
+        {n} real brief sentences per language (CVE ids, version lists, hostnames, IPs, dates), translated on the CPU by
+        IndicTrans2. A sentence is shown only if every identifier survives exactly, every Latin word comes from the source
+        and the text is in the right script; otherwise the English line is shown. Hover a language for what was withheld.
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-6">
+        {langs.map(([code, x]) => (
+          <div key={code} className="rounded-lg border border-line/60 bg-panel-2/40 p-2.5"
+               title={x.withheld?.length ? x.withheld.map((w: any) => `${w.source}… — ${w.problems.join('; ')}`).join('\n') : 'all sentences validated'}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="truncate text-base" lang={code} dir={x.script === 'Arab' ? 'rtl' : 'ltr'}>{x.native ?? x.name}</span>
+              <span className="font-mono text-sm tabular-nums">{x.validated}/{x.total}</span>
+            </div>
+            <div className="mt-1 h-1 rounded-full bg-panel-2">
+              <div className="h-1 rounded-full bg-accent" style={{ width: `${(100 * x.validated) / x.total}%` }} />
+            </div>
+            <div className="mt-1 text-[11px] text-mute">{x.name} · {x.script}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export function Proof() {
   const [d, setD] = useState<Scorecard>()
   useEffect(() => { fetch('/api/scorecard').then((r) => r.json()).then(setD) }, [])
@@ -147,6 +181,8 @@ export function Proof() {
           <Tile value="0" label="false 'affected' on the real Ivanti case" sub={d.exposure.unit_tests} />
         </div>
       </section>
+
+      {d.models.indic22 && <IndicGrid r={d.models.indic22} />}
     </div>
   )
 }

@@ -58,7 +58,7 @@ The two models are **statistically tied**. Most product misses are about naming 
   - MiST added a CVSS score of 9.8 that the source never stated.
 
   So a validator must check every number and version against the facts before any narrative is shown.
-- **Hindi:** Foundation-Sec produced Cyrillic garbage. No security LLM supports Hindi or Marathi, so translation uses IndicTrans2.
+- **Indic languages:** Foundation-Sec produced Cyrillic garbage for Hindi. No security LLM handles Indian languages, so the validated English brief is translated by IndicTrans2 (see below).
 - **Reasoning model:** Foundation-Sec-8B-Reasoning writes thorough analysis but takes about 112 s per narrative. Use it in batches for Critical alerts only.
 - **Chat templates:** Hugging Face GGUF imports can arrive with a bare `{{ .Prompt }}` template. Always check with `ollama show`.
 
@@ -69,3 +69,29 @@ The two models are **statistically tied**. Most product misses are about naming 
 | extract, classify, copilot, narrate | mist:8b | Best measured extraction and CWE among security models; fastest; Apache-2.0; Qwen3 template with tool support |
 | reason (Critical-alert deep analysis) | foundation-sec:8b-reasoning | Security reasoning traces; free-text only |
 | CWE / CVSS | TF-IDF classifiers; LLM adjudicates the top-3 CWE | Beat every LLM by a wide margin |
+| translate (22 scheduled Indian languages) | IndicTrans2 en-indic dist-200M (AI4Bharat, MIT), CPU | The only open model covering all 22; runs beside the GPU LLM |
+
+## Indic translation: all 22 scheduled languages
+
+Only the *validated* English brief is translated, so the translator can't add facts. Each sentence is shown only if:
+- every protected identifier (CVE id, version list, hostname, IP, date, product, organisation) survives exactly;
+- every Latin word in the output appears in the English source;
+- the text is in the target script, with no letters from another script.
+
+Otherwise the English line is shown with a "translation withheld" badge.
+
+- **Placeholder format, measured** (`scripts/eval_placeholders.py`; 80 identifiers, 8 languages):
+  - IndicTrans2's own `<IDn>`: 0/80 survive, because `>` is not in its vocabulary.
+  - `XQZn`: 60/80.
+  - Unprotected text: 14/80.
+
+  Lists such as "A, B, or C" travel as one placeholder.
+- **Script unification:** Brahmic languages come out in Devanagari and are transliterated by Unicode offset, with fixes for letters a script lacks.
+- **Colons:** the model writes `:` as a visarga, which is restored.
+- **Beam reranking:** the validator reranks the beam search's 4-best list, at no extra decoding cost.
+- **Result** (`scripts/eval_indic.py`, `docs/eval_indic22.json`): **127/132 sentences validated (96.2%)**.
+  - Test set: 6 identifier-heavy brief sentences per language, through the running service.
+  - 19 of 22 languages: 6/6.
+  - Bengali and Manipuri: 5/6.
+  - Santali: 3/6. The model mixes Devanagari and Urdu words into Ol Chiki. These are withheld, not shown.
+  - Speed: about 20–50 s per language on the CPU. Results are cached.

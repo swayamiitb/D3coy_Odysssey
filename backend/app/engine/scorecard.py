@@ -106,6 +106,7 @@ def scorecard(conn) -> dict:
             "cti_round1": _read("eval_cti_results_round1.json"),
             "cti_round3": _read("eval_cti_results.json"),
             "text_classifiers": _read("eval_text_clf_results.json"),
+            "indic22": _read("eval_indic22.json"),
         },
         "briefs": briefs,
         "backtest": backtest(),

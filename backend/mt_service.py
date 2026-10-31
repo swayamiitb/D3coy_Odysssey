@@ -1,9 +1,12 @@
 """Indic translation microservice (IndicTrans2 en->indic distilled 200M, AI4Bharat, MIT). Offline, CPU.
 
 Runs in its own Python 3.14 environment (.venv-mt) because sentencepiece has no Python 3.15 wheel yet.
-Protected spans (CVE ids, versions, hostnames, IPs, product names) are replaced with <ID n> placeholders, the
-format IndicTrans2's own preprocessor uses, and restored afterwards. Every output is validated: all placeholders
-must survive exactly, and the text must be in the target script (no foreign-script leakage).
+Protected spans (CVE ids, versions, hostnames, IPs, product names) are replaced with XQZn placeholders and restored
+afterwards; lists of identifiers ("A, B, or C") travel as one placeholder. XQZn was chosen by measurement: across 8
+languages it survived 60/80 times vs 0/80 for IndicTrans2's own <IDn> ('>' is not in its vocabulary) and 14/80 for
+unprotected text (scripts/eval_placeholders.py). Every output is validated: all placeholders must survive exactly, every
+Latin word must come from the source, and the text must be in the target script (no foreign-script leakage). The
+validator reranks the beam search's n-best list, so the highest-ranked hypothesis that passes is the one shown.
 
 Run: .venv-mt\\Scripts\\python -m uvicorn backend.mt_service:app --host 127.0.0.1 --port 8010
 """
@@ -135,30 +138,48 @@ def _load():
     return _state["tok"], _state["model"]
 
 
+PH = "XQZ"
+_KEY = re.compile(rf"{PH}\s*(\d+)", re.I)  # the model sometimes splits or lower-cases the key
+_LIST = re.compile(rf"{PH}\d+(?:(?:\s*,\s*(?:(?:or|and)\s+)?|\s+(?:or|and)\s+){PH}\d+)+")
+
+
 def _protect(text: str, extra: list[str]) -> tuple[str, dict[str, str]]:
     mapping: dict[str, str] = {}
 
     def sub(value: str) -> str:
         key = next((k for k, v in mapping.items() if v == value), None)
         if key is None:
-            key = f"<ID{len(mapping) + 1}>"
+            key = f"{PH}{len(mapping) + 1}"
             mapping[key] = value
         return key
 
     for term in sorted({t for t in extra if t}, key=len, reverse=True):
         text = re.sub(re.escape(term), lambda m: sub(m.group(0)), text)
     text = _PROTECT.sub(lambda m: sub(m.group(0)), text)
-    return text, mapping
+    # The model drops identifiers inside lists, so a run like "A, B, or C" travels as one language-neutral "A / B / C".
+    text = _LIST.sub(lambda m: sub(" / ".join(mapping[k] for k in re.findall(rf"{PH}\d+", m.group(0)))), text)
+    used = set(re.findall(rf"{PH}\d+", text))
+    return text, {k: v for k, v in mapping.items() if k in used}
 
 
-def _validate(out: str, mapping: dict[str, str], script: str) -> list[str]:
-    problems = [f"placeholder {k} lost or duplicated" for k in mapping if out.count(k) != 1]
-    body = re.sub(r"<ID\d+>|[।॥]", "", out)  # danda / double danda are shared punctuation, not a leak
+def _count(out: str, key: str) -> int:
+    return len(re.findall(rf"{key}(?!\d)", out))
+
+
+def _validate(out: str, mapping: dict[str, str], script: str, source: str) -> list[str]:
+    problems = [f"placeholder {k} lost or duplicated" for k in mapping if _count(out, k) != 1]
+    body = re.sub(rf"{PH}\d+|[।॥]", "", out)  # danda / double danda are shared punctuation, not a leak
+    # Latin text is never assumed safe: every Latin word must be copied from the English source (blocks "VPN" -> "WPN").
+    src_words = {w.lower() for w in re.findall(r"[A-Za-z][A-Za-z0-9]*", source)}
+    invented = sorted({w for w in re.findall(r"[A-Za-z][A-Za-z0-9]*", body) if w.lower() not in src_words})
+    if invented:
+        problems.append(f"Latin words not in the source: {invented}")
     letters = [c for c in body if c.isalpha() or "ऀ" <= c <= "꯿"]
     in_script = re.compile(f"[{SCRIPT_RANGES[script]}]")
-    other = re.compile("[" + "".join(r for s, r in SCRIPT_RANGES.items() if s != script) + "]")
-    if _FOREIGN.search(body) or other.search(body):
-        problems.append("letters from another script leaked into the output")
+    leaked = [s for s, r in SCRIPT_RANGES.items() if s != script and re.search(f"[{r}]", body)]
+    leaked += ["non-Indic"] if _FOREIGN.search(body) else []
+    if leaked:
+        problems.append(f"letters from another script leaked into the output ({', '.join(leaked)})")
     if letters and sum(bool(in_script.match(c)) for c in letters) / len(letters) < 0.6:
         problems.append(f"output is not mostly {script} script")
     return problems
@@ -194,20 +215,32 @@ def translate(req: Request) -> dict:
     with torch.inference_mode():
         enc = tok(batch, truncation=True, padding="longest", return_tensors="pt")
         # Output length bounded by input length (no runaway loops); remote code predates the Cache API.
-        gen = model.generate(**enc, max_new_tokens=int(enc["input_ids"].shape[1] * 1.8) + 16, num_beams=4,
-                             no_repeat_ngram_size=4, num_return_sequences=1, use_cache=False)
+        # All beams are returned: the validator reranks the n-best list at no extra decoding cost.
+        gen = model.generate(**enc, max_new_tokens=int(enc["input_ids"].shape[1] * 1.8) + 16, num_beams=BEAMS,
+                             no_repeat_ngram_size=4, num_return_sequences=BEAMS, use_cache=False)
     decoded = tok.batch_decode(gen, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+    restore = (lambda v: f"⁦{v}⁩") if rtl else (lambda v: v)  # isolate LTR ids inside RTL text
     results = []
-    for (_, mapping), out, src in zip(prepared, decoded, req.texts):
-        # '>' is not in the IndicTrans2 vocabulary, so the model emits "<ID1" (sometimes "<ID1′"); normalise.
-        out = re.sub(r"['’]?<\s*ID\s*(\d+)\s*[>′'’]?", r" <ID\1> ", out)
-        out = re.sub(r"(<ID\d+>)\s*[\]\[ʼ'’.]+(?=\s)", r"\1", out)  # stray marks the model attaches to identifiers
-        out = re.sub(r"\s+", " ", out).replace(" ।", "।").replace("( ", "(").replace(" )", ")").strip()
-        out = to_native(out, script, req.lang)
-        problems = _validate(out, mapping, script)
-        for key, value in mapping.items():
-            out = out.replace(key, f"⁦{value}⁩" if rtl else value)  # isolate LTR ids inside RTL text
-        results.append({"source": src, "text": out if not problems else None,
+    for i, ((_, mapping), src) in enumerate(zip(prepared, req.texts)):
+        candidates = [_postprocess(out, src, script, req.lang) for out in decoded[i * BEAMS:(i + 1) * BEAMS]]
+        checked = [(rank, out, _validate(out, mapping, script, src)) for rank, out in enumerate(candidates)]
+        rank, out, problems = next((c for c in checked if not c[2]), checked[0])
+        out = re.sub(rf"{PH}\d+", lambda m: restore(mapping[m.group(0)]) if m.group(0) in mapping else m.group(0), out)
+        results.append({"source": src, "text": out if not problems else None, "beam": rank,
                         "status": "validated" if not problems else "withheld", "problems": problems})
     return {"lang": req.lang, "model": MODEL_ID, "script": script, "rtl": rtl,
             "seconds": round(time.perf_counter() - started, 2), "results": results}
+
+
+BEAMS = 4
+
+
+def _postprocess(out: str, src: str, script: str, lang: str) -> str:
+    out = _KEY.sub(lambda m: f" {PH}{m.group(1)} ", out)
+    out = re.sub(rf"({PH}\d+)\s*[′ʼ'’\]\[]+", r"\1", out)  # stray marks the model attaches to identifiers
+    # IndicTrans2 writes the source's colon as a visarga ("करेंः", Tamil "ஃ" after transliteration); restore the
+    # colon, at most as many times as the source has one. Sanskrit is skipped: word-final visarga is grammar there.
+    if lang != "sa" and (n := src.count(":")):
+        out = re.sub(r"\s*ः(?=\s|$)", ":", out, count=n)
+    out = re.sub(r"\s+", " ", out).replace(" ।", "।").replace("( ", "(").replace(" )", ")").strip()
+    return to_native(out, script, lang)

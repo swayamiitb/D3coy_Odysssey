@@ -266,6 +266,7 @@ def stix(org_id: str, cve_id: str, tlp: str = "AMBER") -> dict:
 
 
 MT_URL = "http://127.0.0.1:8010"
+TRANSLATOR_VERSION = "mt-v2"  # XQZn placeholders + Latin grounding; bump to invalidate cached translations
 _LANGS_CACHE: list = []
 
 
@@ -301,7 +302,7 @@ def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
     texts = [b["headline"]] + [x["text"] for x in b["why_it_matters"]] + [x["text"] for x in b["what_to_do"]]
     detail = alert_detail(org_id, cve_id)
     protect = sorted({a["label"] for a in detail["assets"]} | {detail["org"]["name"]})
-    key = cache.key_of("translate", lang, texts, protect)
+    key = cache.key_of("translate", TRANSLATOR_VERSION, lang, texts, protect)
     if hit := cache.get("translate", key):
         return {**hit, "cached": True}
     try:
