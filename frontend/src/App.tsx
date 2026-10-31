@@ -1,17 +1,18 @@
-import { Cpu, LayoutList, Radar, ShieldCheck, WifiOff, Zap } from 'lucide-react'
+import { Cpu, FlaskConical, LayoutList, Radar, ShieldCheck, WifiOff, Zap } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { AlertDetail } from './AlertDetail'
 import { AlertQueue } from './AlertQueue'
 import { api, type AlertDetail as Detail, type AlertRow, type Health, type LedgerEvent, type Summary, type Tier } from './api'
 import { Now } from './Now'
 import { Funnel, SectorHeatmap } from './Overview'
+import { Proof } from './Proof'
 import { Pulse } from './Pulse'
 import { Badge } from './ui'
 
-type View = 'now' | 'explore'
+type View = 'now' | 'explore' | 'proof'
 
 export default function App() {
-  const [view, setView] = useState<View>('now')
+  const [view, setView] = useState<View>(() => (new URLSearchParams(window.location.search).get('view') as View) || 'now')
   const [summary, setSummary] = useState<Summary>()
   const [health, setHealth] = useState<Health>()
   const [rows, setRows] = useState<AlertRow[]>([])
@@ -66,11 +67,11 @@ export default function App() {
         <div className="flex items-center gap-3">
           <Radar className="text-accent" />
           <div>
-            <h1 className="text-base font-semibold">D3COY · National Cyber Early Warning</h1>
+            <h1 className="text-base font-semibold tracking-wide">ODYSSEY <span className="font-normal text-mute">· National Cyber Early Warning</span></h1>
             <p className="text-xs text-mute">Know first. Act first. Every warning explained.</p>
           </div>
           <nav className="ml-6 flex rounded-full bg-panel p-1">
-            {([['now', 'Now', Zap], ['explore', 'All warnings', LayoutList]] as const).map(([k, label, Icon]) => (
+            {([['now', 'Now', Zap], ['explore', 'All warnings', LayoutList], ['proof', 'Proof', FlaskConical]] as const).map(([k, label, Icon]) => (
               <button key={k} onClick={() => setView(k)}
                       className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm ${view === k ? 'bg-accent text-ink font-semibold' : 'text-mute hover:text-text'}`}>
                 <Icon size={14} /> {label}
@@ -95,7 +96,9 @@ export default function App() {
       {error && <div className="bg-crit/10 px-6 py-2 text-sm text-crit">Cannot reach the engine ({error}). Start the API on :8000.</div>}
 
       <main className="flex min-h-0 flex-1 gap-5 p-5">
-        {view === 'now' ? (
+        {view === 'proof' ? (
+          <Proof />
+        ) : view === 'now' ? (
           <>
             <Now onOpen={(c) => setSelected(c)} tick={tick} />
             <Pulse summary={summary} live={live} />

@@ -35,7 +35,7 @@ _PROTECT = re.compile(
 _DEVANAGARI = re.compile(r"[\u0900-\u097F]")
 _FOREIGN = re.compile(r"[\u0400-\u04FF\u0600-\u06FF\u0E00-\u0E7F\u4E00-\u9FFF]")  # Cyrillic, Arabic, Thai, CJK
 
-app = FastAPI(title="D3COY Indic translation service")
+app = FastAPI(title="Odyssey Indic translation service")
 _state: dict = {}
 
 

@@ -1,4 +1,4 @@
-"""D3COY Early Warning System API.
+"""Odyssey - national cyber threat early-warning system: API.
 
 Run: .venv/Scripts/python -m uvicorn backend.app.main:app --port 8000
 """
@@ -21,7 +21,7 @@ MODELS = json.loads((ROOT / "config" / "models.json").read_text(encoding="utf-8"
 TIER_RANK = {"Compromise": 4, "Critical": 3, "High": 2, "Medium": 1, "Watch": 0}
 EXPOSED = 0.6
 
-app = FastAPI(title="D3COY National Cyber Threat Early Warning System", version="0.1.0")
+app = FastAPI(title="Odyssey - National Cyber Threat Early Warning System", version="0.2.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
                    allow_methods=["*"], allow_headers=["*"])
 

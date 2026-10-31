@@ -19,7 +19,7 @@ TLP = {  # STIX 2.1 TLP v1 marking-definition ids
 ADMIRALTY_TO_STIX = {"A": 90, "B": 70, "C": 50, "D": 30, "E": 10}
 PRODUCER = {"type": "identity", "spec_version": "2.1", "id": "identity--" + str(uuid.uuid5(NS, "d3coy-ncew")),
             "created": "2026-10-31T00:00:00.000Z", "modified": "2026-10-31T00:00:00.000Z",
-            "name": "D3COY National Cyber Early Warning (prototype)", "identity_class": "system"}
+            "name": "Odyssey National Cyber Early Warning (prototype)", "identity_class": "system"}
 
 # CERT-In Directions (28 Apr 2022), Annexure I incident categories used by this system.
 CERTIN_TYPES = {
