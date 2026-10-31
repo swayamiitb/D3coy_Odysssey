@@ -185,7 +185,8 @@ def main() -> None:
                 break
         if rec["kev"]:
             # KEV publishes a date, not a time: never order a same-day listing before the CVE itself.
-            kev_ts = max(rec["kev"]["dateAdded"] + "T00:00:00Z", (rec["published"] or "")[:19] + "Z")
+            kev_day = rec["kev"]["dateAdded"] + "T00:00:00Z"
+            kev_ts = max(kev_day, rec["published"][:19] + "Z") if rec["published"] else kev_day
             ledger.append(ts=kev_ts, kind="kev.added", subject=cid,
                           source="CISA_KEV", payload={k: rec["kev"][k] for k in
                                                        ("dateAdded", "dueDate", "requiredAction",

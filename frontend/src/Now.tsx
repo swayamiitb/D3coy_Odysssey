@@ -43,7 +43,7 @@ function Countdown({ issuedAt, hours, big }: { issuedAt: string; hours: number |
   )
 }
 
-function Journey({ state }: { state: string }) {
+function Journey({ state, compact }: { state: string; compact?: boolean }) {
   const idx = Math.max(0, JOURNEY.findIndex((j) => j.key === (state === 'reopened' ? 'acknowledged' : state)))
   return (
     <ol className="flex items-center gap-1">
@@ -53,7 +53,7 @@ function Journey({ state }: { state: string }) {
             ${i < idx ? 'bg-ok text-ink' : i === idx ? 'bg-accent text-ink ring-4 ring-accent/20' : 'bg-panel-2 text-mute'}`}>
             {i < idx ? <Check size={12} /> : i + 1}
           </span>
-          <span className={`hidden text-xs xl:inline ${i === idx ? 'text-text' : 'text-mute'}`}>{j.label}</span>
+          {!compact && <span className={`hidden text-xs xl:inline ${i === idx ? 'text-text' : 'text-mute'}`}>{j.label}</span>}
           {i < JOURNEY.length - 1 && <span className={`h-px flex-1 ${i < idx ? 'bg-ok' : 'bg-line'}`} />}
         </li>
       ))}
@@ -146,7 +146,7 @@ export function Now({ onOpen, tick }: { onOpen: (c: Card) => void; tick: number 
               <div className="truncate font-medium">{title(c)}</div>
               <div className="truncate text-xs text-mute">{c.org_name} · {c.sector} · <span className="font-mono">{c.cve_id}</span></div>
             </button>
-            <div className="w-44 shrink-0"><Journey state={c.workflow.state} /></div>
+            <div className="w-36 shrink-0" title={c.workflow.state}><Journey state={c.workflow.state} compact /></div>
             <div className="w-24 shrink-0 text-right"><Countdown issuedAt={feed.issued_at} hours={c.deadline_hours} /></div>
             <div className="w-44 shrink-0 text-right"><ActionButtons c={c} onChanged={load} size="sm" /></div>
           </article>

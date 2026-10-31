@@ -80,7 +80,7 @@ export default function App() {
         </div>
         <div className="flex items-center gap-2">
           <Badge tone={connected ? 'ok' : 'crit'}>
-            <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'animate-pulse bg-ok' : 'bg-crit'}`} /> {connected ? 'live' : 'offline'}
+            <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'animate-pulse bg-ok' : 'bg-crit'}`} /> {connected ? 'live' : new URLSearchParams(window.location.search).has('nolive') ? 'static' : 'offline'}
           </Badge>
           {health && (
             <Badge tone={health.ledger_intact ? 'ok' : 'crit'}>

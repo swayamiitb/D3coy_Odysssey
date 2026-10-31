@@ -9,7 +9,8 @@ from pathlib import Path
 
 RAW = Path(__file__).resolve().parents[3] / "data" / "raw"
 NVD_FEEDS = ["nvdcve-2.0-modified.json.gz", "nvdcve-2.0-recent.json.gz", "nvdcve-2.0-2026.json.gz",
-             "nvdcve-2.0-2025.json.gz", "nvdcve-2.0-2024.json.gz"]
+             "nvdcve-2.0-2025.json.gz", "nvdcve-2.0-2024.json.gz", "nvdcve-2.0-2023.json.gz",
+             "nvdcve-2.0-2022.json.gz", "nvdcve-2.0-2021.json.gz"]
 _SSVC = re.compile(r'"(Exploitation|Automatable|Technical Impact)":\s*"([^"]+)"')
 
 
