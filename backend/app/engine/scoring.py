@@ -20,6 +20,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from . import cvss
+from .bayes import posterior
 
 CONFIG_PATH = Path(__file__).resolve().parents[3] / "config" / "scoring.json"
 _ITW = re.compile(r"exploited in the wild|actively exploited|active exploitation|has been exploited|"
@@ -63,6 +64,7 @@ class Assessment:
     kev_due: str | None
     config_hash: str
     inputs: dict = field(default_factory=dict)
+    bayes: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -210,16 +212,21 @@ def assess(vuln: dict, asset: dict, org: dict, exposure, signals: dict | None = 
     else:
         hours, basis = None, "monitor"
 
-    # ---- override: indicator sighting / C2 beacon from an exposed asset -> suspected compromise
+    # ---- decision model: Bayesian P(compromise | exposure, exploitation, reachability, telemetry)
     sighting = signals.get("ioc_sighting")
-    if sighting and R >= 0.6:
-        comp = cfg["compromise"]
-        tier, decision, hours, basis = comp["tier"], "Act", comp["deadline_hours"], comp["basis"]
-        path.append(f"C2 beacon from this asset to {sighting.get('dst_defanged', 'known C2')} "
-                    f"(cv={sighting.get('cv')}) -> suspected compromise")
+    bayes = posterior(cfg, exposed=R >= 0.6, exploited=exploitation == "active", internet=asset["zone"] == "internet",
+                      beacon=True if sighting else None, anomaly=signals.get("anomaly"))
+    if sighting:
         rules.append(Rule("IOC_SIGHTING", 4, "Own telemetry: periodic beacon to a known C2 address",
                           f"{sighting.get('connections')} connections every ~{sighting.get('mean_interval_s')}s",
                           "SIM_LOGS"))
+    if bayes["decision"] == "compromised":
+        comp = cfg["compromise"]
+        tier, decision, hours, basis = comp["tier"], "Act", comp["deadline_hours"], comp["basis"]
+        path.append(f"Bayesian model: P(compromise) = {bayes['p_compromise']:.1%} >= "
+                    f"{cfg['bayes']['threshold_compromise']:.0%} -> suspected compromise")
+    elif bayes["decision"] == "hunt":
+        path.append(f"Bayesian model: P(compromise) = {bayes['p_compromise']:.1%} -> threat hunt recommended")
 
     return Assessment(
         asset_id=asset["id"], cve_id=vuln["id"], L=L, S=round(S, 3), V=V, R=R, K=K, risk=risk, tier=tier,
@@ -228,4 +235,5 @@ def assess(vuln: dict, asset: dict, org: dict, exposure, signals: dict | None = 
         kev_due=(vuln.get("kev") or {}).get("dueDate"), config_hash=cfg_hash,
         inputs={"epss": epss, "cvss_vector": vuln.get("cvss_vector"), "crit": crit, "X": X, "B": round(B, 3),
                 "zone": asset["zone"], "tier": asset["tier"]},
+        bayes=bayes,
     )

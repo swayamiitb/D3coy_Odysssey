@@ -2,7 +2,9 @@ import { CheckSquare, Clock, FileCheck2, Link2, X } from 'lucide-react'
 import { useState } from 'react'
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { AlertDetail as Detail } from './api'
+import { AttackPanel } from './AttackPanel'
 import { BriefPanel } from './BriefPanel'
+import { DecisionPanel } from './DecisionPanel'
 import { ExportPanel } from './ExportPanel'
 import { RelatedPanel } from './RelatedPanel'
 import { ReplayPanel } from './ReplayPanel'
@@ -58,6 +60,8 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
             </div>
           </div>
         </div>
+
+        <DecisionPanel bayes={a.bayes} />
 
         <ReplayPanel orgId={d.org.id} cveId={v.id} />
 
@@ -137,6 +141,8 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
         </Panel>
 
         <ExportPanel orgId={d.org.id} cveId={v.id} compromise={a.tier === 'Compromise'} />
+
+        <AttackPanel attack={d.attack} />
 
         <RelatedPanel orgId={d.org.id} cveId={v.id} />
 

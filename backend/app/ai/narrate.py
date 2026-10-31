@@ -63,6 +63,10 @@ def build_facts(detail: dict, asset_index: int = 0) -> dict[str, str]:
         "F6": "Recommended actions: " + " | ".join(f"{x['type']}: {x['step']}" for x in detail["actions"]),
         "F7": f"Source description: {v['description']}",
     }
+    from .guard import screen
+    if screen(v["description"])["verdict"] == "blocked":  # untrusted text never reaches the LLM if it looks hostile
+        facts["F1"] = f"{v['id']}: {kev.get('vulnerabilityName') or 'description withheld'}"
+        facts["F7"] = "Source description withheld: flagged by the prompt-injection guard."
     if kev.get("dateAdded"):
         facts["F8"] = (f"US CISA added this CVE to its Known Exploited Vulnerabilities catalogue on {kev['dateAdded']} "
                        f"(confirmed exploitation in the wild).")

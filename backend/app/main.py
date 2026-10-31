@@ -153,8 +153,15 @@ def alert_detail(org_id: str, cve_id: str) -> dict:
             "epss": v["epss"], "ssvc": json.loads(v["ssvc"] or "{}"), "cvss_vector": v["cvss_vector"],
             "cvss_source": v["cvss_source"], "nvd_status": v["nvd_status"]}
     timeline = Ledger(conn=conn).events(subject=cve_id)
+    from .engine.attack import map_alert
+    top = assets[0] if assets else {}
+    fired = {r["id"] for r in top.get("rules", [])}
+    attack = map_alert(v["description"], top, v["cvss_vector"],
+                       exploited=bool(kev) or vuln["ssvc"].get("Exploitation") == "active",
+                       decoy_surge="DECOY_SURGE" in fired or "DECOY_EXPLOIT" in fired,
+                       beacon="IOC_SIGHTING" in fired) if top else None
     return {"org": dict(o), "vulnerability": vuln, "assets": assets, "actions": _actions(vuln, kev, record),
-            "timeline": timeline, "scoring_config_hash": scoring_config()[1]}
+            "timeline": timeline, "attack": attack, "scoring_config_hash": scoring_config()[1]}
 
 
 @app.get("/api/alerts/{org_id}/{cve_id}/brief")

@@ -21,6 +21,7 @@ from ..engine import cvss
 from ..engine.exposure import Exposure, reconcile, text_constraints
 from ..engine.products import mentions
 from ..engine.scoring import assess
+from .guard import screen
 from .llm import chat
 
 _CVE = re.compile(r"CVE-\d{4}-\d{4,}")
@@ -112,12 +113,15 @@ def iocs(text: str) -> dict:
     }
 
 
-def identify_product(text: str, catalog: list[dict]) -> dict:
+def identify_product(text: str, catalog: list[dict], allow_llm: bool = True) -> dict:
     """Closed-set product identity. Deterministic alias match first; the LLM only breaks ties or finds
     products named indirectly, and must choose from the catalogue or 'none'."""
     hits = [c for c in catalog if mentions(c["vendor"], c["product"], text)]
     if len(hits) == 1:
         return {"id": hits[0]["id"], "label": hits[0]["label"], "method": "alias match (deterministic)", "evidence": None}
+    if not allow_llm:
+        return {"id": None, "label": None, "evidence": None,
+                "method": "LLM step skipped: text blocked by the prompt-injection guard"}
     options = hits or catalog
     ids = [c["id"] for c in options] + ["none"]
     schema = {"type": "object", "properties": {
@@ -155,8 +159,9 @@ def analyse(adv: dict, assets: list[dict], orgs: dict[str, dict]) -> dict:
     text = adv["text"]
     timings = {}
     t = time.perf_counter(); found = iocs(text); timings["regex_ms"] = round(1000 * (time.perf_counter() - t))
+    t = time.perf_counter(); guard = screen(text); timings["guard_ms"] = round(1000 * (time.perf_counter() - t))
     t = time.perf_counter(); ents = entities(text); timings["ner_ms"] = round(1000 * (time.perf_counter() - t))
-    t = time.perf_counter(); product = identify_product(text, catalog_from(assets))
+    t = time.perf_counter(); product = identify_product(text, catalog_from(assets), guard["verdict"] != "blocked")
     timings["product_ms"] = round(1000 * (time.perf_counter() - t))
     constraints = [{k: c[k] for k in ("op", "version", "polarity") if k in c} | ({"start": c["start"]} if "start" in c else {})
                    for c in text_constraints(text)]
@@ -181,7 +186,7 @@ def analyse(adv: dict, assets: list[dict], orgs: dict[str, dict]) -> dict:
     sectors_targeted = sorted(sector for sector, rx in _SECTOR_WORDS.items() if rx.search(text))
     return {
         "id": adv["id"], "title": adv.get("title"), "provenance": adv.get("provenance", "USER"),
-        "iocs": found, "entities": ents, "product": product, "constraints": constraints,
+        "guard": guard, "iocs": found, "entities": ents, "product": product, "constraints": constraints,
         "predicted_cvss": {"vector": vector, "score": cvss.base_score(cvss.parse(vector)) if vector else None},
         "exploitation_claim": itw.group(0) if itw else None,
         "exposed": [e for e in exposures if e["status"] in ("affected", "disputed", "probable")],

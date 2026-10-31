@@ -65,6 +65,7 @@ export interface AssetAssessment {
   kev_due: string | null
   config_hash: string
   exposure: { status: string; votes: Vote[] }
+  bayes?: import('./DecisionPanel').Bayes
 }
 
 export interface AlertDetail {
@@ -83,6 +84,7 @@ export interface AlertDetail {
   assets: AssetAssessment[]
   actions: { type: string; step: string; source: string; due?: string }[]
   timeline: { seq: number; ts: string; kind: string; source: string; provenance: string; hash: string }[]
+  attack?: import('./AttackPanel').AttackMap | null
   scoring_config_hash: string
 }
 

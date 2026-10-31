@@ -57,3 +57,18 @@ def test_ledger_detects_tampering(tmp_path):
     assert led.verify() == (True, None)
     led.db.execute("UPDATE ledger SET payload = '{\"cvss\":4.0}' WHERE seq = 1")
     assert led.verify() == (False, 1)
+
+
+def test_bayesian_decision_drives_compromise(auth_bypass):
+    beacon = {"connections": 360, "mean_interval_s": 60.3, "cv": 0.056, "dst_defanged": "50[.]16[.]16[.]211"}
+    a = assess(auth_bypass, VPN, POWER_ORG, reconcile(VPN, auth_bypass), {"ioc_sighting": beacon})
+    assert a.tier == "Compromise" and a.deadline_hours == 6
+    assert a.bayes["p_compromise"] > 0.95 and a.bayes["decision"] == "compromised"
+    quiet = assess(auth_bypass, VPN, POWER_ORG, reconcile(VPN, auth_bypass))
+    assert quiet.tier == "Critical" and quiet.bayes["p_compromise"] < 0.2
+
+
+def test_beacon_from_unexposed_asset_means_hunt_not_compromise(auth_bypass):
+    beacon = {"connections": 360, "mean_interval_s": 60.3, "cv": 0.056}
+    a = assess(auth_bypass, PATCHED, BANK_ORG, reconcile(PATCHED, auth_bypass), {"ioc_sighting": beacon})
+    assert a.tier != "Compromise" and a.bayes["decision"] == "hunt"
