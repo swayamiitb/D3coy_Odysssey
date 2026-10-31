@@ -112,16 +112,44 @@ _PATTERNS = [
 ]
 
 
+# Ranges with a stated lower bound: "from 15.0 before 18.4.6", "18.5 before 18.5.4", "2.4.0 through 2.4.58",
+# "versions 9.0 to 9.4". Each is [start, end) or [start, end] depending on the wording.
+_RANGE = re.compile(
+    rf"(?:\bfrom\s+(?:version\s+)?)?(?<![\w.-]){_V}\s+(?:(before|prior to|up to but not including)|"
+    rf"(through|to|up to and including|until))\s+(?:version\s+)?{_V}", re.I)
+
+
 def text_constraints(description: str) -> list[dict]:
-    """Version bounds stated in prose, each with its sentence span and polarity."""
+    """Version bounds stated in prose, each with its sentence span and polarity. Bounded ranges are parsed first;
+    a bare "before X" only counts where it is not the end of a range already captured."""
     out = []
-    for sentence in re.split(r"(?<=[.;])\s+", description):
+    for sentence in re.split(r"(?<=[.;])\s+(?=[A-Z])", description):
         negated = bool(_NEGATION.search(sentence))
+        polarity = "unaffected" if negated else "affected"
+        taken: list[tuple[int, int]] = []
+        for m in _RANGE.finditer(sentence):
+            out.append({"op": "range", "start": m.group(1), "version": m.group(4),
+                        "end_inclusive": m.group(3) is not None, "polarity": polarity, "span": sentence.strip()})
+            taken.append(m.span())
         for rx, op in _PATTERNS:
             for m in rx.finditer(sentence):
-                out.append({"op": op, "version": m.group(1), "polarity": "unaffected" if negated else "affected",
-                            "span": sentence.strip()})
+                if any(a <= m.start() < b for a, b in taken):
+                    continue
+                out.append({"op": op, "version": m.group(1), "polarity": polarity, "span": sentence.strip()})
     return out
+
+
+def _within(v: Version, c: dict) -> bool:
+    if c["op"] == "range":
+        end = Version(c["version"])
+        return Version(c["start"]) <= v and (v <= end if c["end_inclusive"] else v < end)
+    return v < Version(c["version"]) if c["op"] == "lt" else v <= Version(c["version"])
+
+
+def _describe(c: dict) -> str:
+    if c["op"] == "range":
+        return f"{c['start']} {'through' if c['end_inclusive'] else 'before'} {c['version']}"
+    return f"{c['op']} {c['version']}"
 
 
 def text_vote(asset: dict, description: str) -> Vote | None:
@@ -130,18 +158,16 @@ def text_vote(asset: dict, description: str) -> Vote | None:
     if not constraints:
         return None
     for c in (c for c in constraints if c["polarity"] == "unaffected"):
-        below = v < Version(c["version"]) if c["op"] == "lt" else v <= Version(c["version"])
-        if below:
-            return Vote("TEXT", "not_affected", EXPLICIT, f"text excludes {c['op']} {c['version']}", c["span"])
-    affected_bounds = [c for c in constraints if c["polarity"] == "affected"]
-    for c in affected_bounds:
-        below = v < Version(c["version"]) if c["op"] == "lt" else v <= Version(c["version"])
-        if below:
-            return Vote("TEXT", "affected", EXPLICIT, f"{asset['version']} is {c['op']} {c['version']}", c["span"])
-    if affected_bounds:
-        c = affected_bounds[0]
-        return Vote("TEXT", "not_affected", EXPLICIT, f"{asset['version']} is at/after the stated bound {c['version']}",
-                    c["span"])
+        if _within(v, c):
+            return Vote("TEXT", "not_affected", EXPLICIT, f"text excludes {_describe(c)}", c["span"])
+    affected = [c for c in constraints if c["polarity"] == "affected"]
+    for c in affected:
+        if _within(v, c):
+            return Vote("TEXT", "affected", EXPLICIT, f"{asset['version']} is within {_describe(c)}", c["span"])
+    if affected:
+        return Vote("TEXT", "not_affected", EXPLICIT,
+                    f"{asset['version']} is outside every stated range ({'; '.join(_describe(c) for c in affected)})",
+                    affected[0]["span"])
     return None
 
 

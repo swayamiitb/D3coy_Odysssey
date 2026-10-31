@@ -88,13 +88,13 @@ def scorecard(conn) -> dict:
                                WHERE R >= 0.6 AND tier IN ('Compromise','Critical'))""").fetchone()[0]
     cleared = conn.execute("SELECT COUNT(*) FROM assessments WHERE status = 'cleared'").fetchone()[0]
     disputed = conn.execute("SELECT COUNT(*) FROM assessments WHERE status = 'disputed'").fetchone()[0]
+    from .. import cache
     briefs = {"total": 0, "validated": 0, "first_attempt": 0}
-    if conn.execute("SELECT name FROM sqlite_master WHERE name='briefs'").fetchone():
-        for (body,) in conn.execute("SELECT body FROM briefs"):
-            b = json.loads(body)
-            briefs["total"] += 1
-            briefs["validated"] += b["status"] == "validated"
-            briefs["first_attempt"] += b["status"] == "validated" and len(b.get("attempts", [])) <= 1
+    for (body,) in cache._conn().execute("SELECT body FROM ai_cache WHERE kind = 'brief'"):
+        b = json.loads(body)
+        briefs["total"] += 1
+        briefs["validated"] += b["status"] == "validated"
+        briefs["first_attempt"] += b["status"] == "validated" and len(b.get("attempts", [])) <= 1
     return {
         "funnel": {"cves_this_month": months.get("2026-10"), "candidates": int(meta.get("candidates", 0)),
                    "actionable_alerts": alerts, "critical_or_compromise": critical,

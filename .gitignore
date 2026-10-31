@@ -13,3 +13,5 @@ data/models/
 frontend/node_modules/
 *.tsbuildinfo
 .vite/
+.venv-mt/
+data/cache.db*

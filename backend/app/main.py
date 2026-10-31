@@ -157,35 +157,28 @@ def alert_detail(org_id: str, cve_id: str) -> dict:
             "timeline": timeline, "scoring_config_hash": scoring_config()[1]}
 
 
-BRIEFS_SCHEMA = """CREATE TABLE IF NOT EXISTS briefs (org_id TEXT, cve_id TEXT, model TEXT, config_hash TEXT,
-                   created TEXT, body TEXT, PRIMARY KEY (org_id, cve_id, model, config_hash))"""
-
-
 @app.get("/api/alerts/{org_id}/{cve_id}/brief")
 def alert_brief(org_id: str, cve_id: str, refresh: bool = False) -> dict:
-    """AI analyst brief (MiST, grounded + validated). Cached per model and scoring-config hash; every generation
-    is recorded in the hash-chained ledger as a machine opinion."""
+    """AI analyst brief (local security LLM, grounded + validated). Cached by a hash of model + prompt + facts, so
+    it survives database rebuilds but is never reused for changed facts. Each generation is a ledger event."""
     from datetime import datetime, timezone
 
+    from . import cache
     from .ai.llm import resolve
-    from .ai.narrate import generate
+    from .ai.narrate import SYSTEM, build_facts, generate
 
-    conn = db()
-    conn.execute(BRIEFS_SCHEMA)
-    model, cfg_hash = resolve("narrate"), scoring_config()[1]
-    if not refresh:
-        row = conn.execute("SELECT body FROM briefs WHERE org_id=? AND cve_id=? AND model=? AND config_hash=?",
-                           (org_id, cve_id, model, cfg_hash)).fetchone()
-        if row:
-            return {**json.loads(row["body"]), "cached": True}
-    result = generate(alert_detail(org_id, cve_id))
+    detail = alert_detail(org_id, cve_id)
+    model = resolve("narrate")
+    key = cache.key_of("brief", model, SYSTEM, build_facts(detail))
+    subject = f"{org_id}:{cve_id}"
+    if not refresh and (hit := cache.get("brief", key)):
+        return {**hit, "cached": True}
+    result = generate(detail)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    result["ledger_hash"] = Ledger(conn=conn).append(
-        ts=now, kind="model.output", subject=f"{org_id}:{cve_id}", source=f"MODEL:{model}", provenance="AI",
+    result["ledger_hash"] = Ledger(conn=db()).append(
+        ts=now, kind="model.output", subject=subject, source=f"MODEL:{model}", provenance="AI",
         payload={"role": "narrate", "status": result["status"], "brief": result["brief"], "problems": result["problems"]})
-    conn.execute("INSERT OR REPLACE INTO briefs VALUES (?,?,?,?,?,?)",
-                 (org_id, cve_id, model, cfg_hash, now, json.dumps(result)))
-    conn.commit()
+    cache.put("brief", key, result, now, subject)
     return {**result, "cached": False}
 
 
@@ -243,12 +236,8 @@ def _context(org_id: str, cve_id: str) -> tuple[dict, dict | None, dict | None, 
         if ev:
             sighting = ev[-1]["payload"]
     wf = workflow_state(org_id, cve_id)
-    brief = None
-    if conn.execute("SELECT name FROM sqlite_master WHERE name='briefs'").fetchone():
-        row = conn.execute("SELECT body FROM briefs WHERE org_id=? AND cve_id=? ORDER BY created DESC",
-                           (org_id, cve_id)).fetchone()
-        brief = json.loads(row[0]) if row else None
-    return detail, sighting, wf, brief
+    from . import cache
+    return detail, sighting, wf, cache.latest("brief", f"{org_id}:{cve_id}")
 
 
 @app.get("/api/alerts/{org_id}/{cve_id}/certin-report")
@@ -275,15 +264,11 @@ def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
     import httpx
     from datetime import datetime, timezone
 
+    from . import cache
+
     if lang not in {"hi", "mr"}:
         raise HTTPException(400, "lang must be hi or mr")
     conn = db()
-    conn.execute("""CREATE TABLE IF NOT EXISTS translations (org_id TEXT, cve_id TEXT, lang TEXT, created TEXT,
-                    body TEXT, PRIMARY KEY (org_id, cve_id, lang))""")
-    row = conn.execute("SELECT body FROM translations WHERE org_id=? AND cve_id=? AND lang=?",
-                       (org_id, cve_id, lang)).fetchone()
-    if row:
-        return {**json.loads(row[0]), "cached": True}
     brief = alert_brief(org_id, cve_id)
     if not brief.get("brief"):
         raise HTTPException(409, "no validated English brief to translate")
@@ -291,6 +276,9 @@ def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
     texts = [b["headline"]] + [x["text"] for x in b["why_it_matters"]] + [x["text"] for x in b["what_to_do"]]
     detail = alert_detail(org_id, cve_id)
     protect = sorted({a["label"] for a in detail["assets"]} | {detail["org"]["name"]})
+    key = cache.key_of("translate", lang, texts, protect)
+    if hit := cache.get("translate", key):
+        return {**hit, "cached": True}
     try:
         r = httpx.post(f"{MT_URL}/translate", json={"texts": texts, "lang": lang, "protect": protect}, timeout=300)
         r.raise_for_status()
@@ -306,9 +294,7 @@ def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
     Ledger(conn=conn).append(ts=now, kind="model.output", subject=f"{org_id}:{cve_id}", source=f"MODEL:{out['model']}",
                              provenance="AI", payload={"role": "translate", "lang": lang,
                                                        "validated": body["validated"], "total": body["total"]})
-    conn.execute("INSERT OR REPLACE INTO translations VALUES (?,?,?,?,?)",
-                 (org_id, cve_id, lang, now, json.dumps(body, ensure_ascii=False)))
-    conn.commit()
+    cache.put("translate", key, body, now, f"{org_id}:{cve_id}:{lang}")
     return {**body, "cached": False}
 
 
@@ -360,11 +346,11 @@ def feed(limit: int = 6) -> dict:
     rows = _alerts(" AND a.tier IN ('Compromise','Critical')", limit=400)
     open_rows = [r for r in rows if states.get(r["id"], "new") != "closed"]
     open_rows.sort(key=lambda r: (-TIER_RANK[r["tier"]], r["deadline_hours"] or 9999, -r["risk"]))
+    from . import cache
     cards = []
     for r in open_rows[:limit]:
-        cached = conn.execute("SELECT body FROM briefs WHERE org_id = ? AND cve_id = ?", (r["org_id"], r["cve_id"])) \
-            .fetchone() if conn.execute("SELECT name FROM sqlite_master WHERE name='briefs'").fetchone() else None
-        headline = (json.loads(cached[0]).get("brief") or {}).get("headline") if cached else None
+        cached = cache.latest("brief", r["id"])
+        headline = (cached.get("brief") or {}).get("headline") if cached else None
         cards.append({**r, "headline": headline, "workflow": workflow.get(conn, r["id"], issued)})
     counts = {"needs_action": len(open_rows),
               "compromise": sum(r["tier"] == "Compromise" for r in open_rows),

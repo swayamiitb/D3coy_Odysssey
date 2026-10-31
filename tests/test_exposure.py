@@ -77,6 +77,30 @@ def test_ivanti_privesc(records, org, expected):
     assert exp.status == expected, [vars(v) for v in exp.votes]
 
 
+GITLAB_DESC = ("An issue has been discovered in GitLab CE/EE affecting all versions from 15.0 before 18.4.6, "
+               "18.5 before 18.5.4, and 18.6 before 18.6.2. Under certain conditions an attacker could bypass "
+               "two-factor authentication.")
+
+
+@pytest.mark.parametrize("version,expected", [
+    ("17.8.1", "affected"),    # inside 15.0 .. <18.4.6
+    ("18.4.6", "not_affected"),  # fixed release of the first branch
+    ("18.5.3", "affected"),
+    ("18.5.4", "not_affected"),
+    ("14.9.0", "not_affected"),  # below the first range start
+])
+def test_text_ranges_with_lower_bounds(version, expected):
+    from backend.app.engine.exposure import text_vote
+    vote = text_vote({"vendor": "gitlab", "product": "gitlab", "version": version}, GITLAB_DESC)
+    assert vote.verdict == expected, vote.reason
+
+
+def test_bare_bound_inside_range_not_double_counted():
+    got = text_constraints("Affects versions 2.4.0 through 2.4.58 and all releases before 2.2.0.")
+    ops = sorted((c["op"], c["version"]) for c in got)
+    assert ops == [("lt", "2.2.0"), ("range", "2.4.58")]
+
+
 def test_disputed_when_explicit_sources_conflict():
     cve = {
         "id": "CVE-TEST-0001",
