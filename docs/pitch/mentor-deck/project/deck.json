@@ -1,0 +1,19 @@
+{
+  "v": 4,
+  "createdOnFiles": {"v": 1, "at": "2026-10-31T12:56:31Z"},
+  "lists": "css",
+  "title": "PS-01 Mentor Deck",
+  "order": ["cover", "volume", "india", "questions", "how", "score", "ai", "now", "runs", "proof", "new", "results", "status", "close"],
+  "sections": {
+    "problem": {"description": "The problem: too many flaws, too few labels, attackers move first, and India pays.", "start": "cover"},
+    "solution": {"description": "Our solution: collect, check, score and act, with AI that explains but never scores.", "start": "questions"},
+    "feasibility": {"description": "It already runs offline on one laptop, and it was tested on real attacks.", "start": "runs"},
+    "status": {"description": "Where we are now and what comes next.", "start": "results"}
+  },
+  "cover": "cover",
+  "faces": {
+    "inter-tight": {"family": "Inter Tight", "href": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500..800&family=Inter:wght@400..700&display=swap"},
+    "inter": {"family": "Inter", "href": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500..800&family=Inter:wght@400..700&display=swap"}
+  },
+  "designSystems": []
+}
