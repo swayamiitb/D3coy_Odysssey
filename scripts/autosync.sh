@@ -21,7 +21,7 @@ find "$lock" -maxdepth 0 -mmin +10 -exec rmdir {} \; 2>/dev/null
 mkdir "$lock" 2>/dev/null || exit 0
 trap 'rmdir "$lock" 2>/dev/null' EXIT
 
-git add -A
+git add -A 2>/dev/null                       # silence CRLF warnings; stdout must stay pure JSON for the hook
 skipped=""
 while IFS= read -r -d '' f; do
   if [ -f "$f" ] && [ "$(stat -c %s "$f")" -gt 95000000 ]; then
