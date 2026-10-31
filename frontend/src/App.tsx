@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
-import { AlertQueue } from './AlertQueue'
 import { Copilot } from './Copilot'
 import { HowItWorks } from './HowItWorks'
-import { api, type AlertDetail as Detail, type AlertRow, type Health, type Summary, type Tier } from './api'
+import { api, type AlertDetail as Detail, type Health } from './api'
 import { Now } from './Now'
 import { Orgs } from './Orgs'
-import { Funnel, SectorHeatmap } from './Overview'
 import { Proof } from './Proof'
 import { Footer, IntelFigures, OrgsFigures, ProofFigures, SocFigures, TopNav, type View } from './Shell'
 import { Soc } from './Soc'
-import { CaseBoard, OpsLog, OpsOverview, SystemView } from './SocOps'
+import { CaseBoard, OpsLog, OpsOverview, SystemView, WarningList } from './SocOps'
 import { Hero, Tabs, ToastProvider, WRAP } from './ui'
 
 /* Five destinations, one question each (Uber-like): what needs me now, how operations run, what is happening, who
@@ -38,11 +36,7 @@ export default function App() {
   const [socTab, setSocTab] = useState<SocTab>((start.view === 'soc' && start.tab as SocTab) || 'overview')
   const [intelTab, setIntelTab] = useState<IntelTab>((start.view === 'intel' && start.tab as IntelTab) || 'overview')
   const [proofTab, setProofTab] = useState<ProofTab>((start.view === 'proof' && start.tab as ProofTab) || 'evidence')
-  const [summary, setSummary] = useState<Summary>()
   const [health, setHealth] = useState<Health>()
-  const [rows, setRows] = useState<AlertRow[]>([])
-  const [tier, setTier] = useState<Tier>()
-  const [sector, setSector] = useState<string>()
   const [selected, setSelected] = useState<{ id: string; org_id: string; cve_id: string }>()
   const [org, setOrg] = useState<string | undefined>(() => new URLSearchParams(window.location.search).get('org') ?? undefined)
   const [detail, setDetail] = useState<Detail>()
@@ -56,8 +50,7 @@ export default function App() {
   const staticMode = new URLSearchParams(window.location.search).has('nolive')
 
   useEffect(() => {
-    api.summary().then(setSummary).catch((e) => setError(String(e)))
-    api.health().then(setHealth).catch(() => undefined)
+    api.health().then((h) => { setHealth(h); setError(undefined) }).catch((e) => setError(String(e)))
     api.soc().then((d) => setPending(d.pending)).catch(() => undefined)
     const deep = new URLSearchParams(window.location.search).get('alert')
     if (deep?.includes(':')) {
@@ -78,11 +71,6 @@ export default function App() {
     })
     return () => es.close()
   }, [staticMode])
-
-  useEffect(() => {
-    if (view !== 'soc' || socTab !== 'warnings') return
-    api.alerts({ tier, sector }).then((all) => setRows(all.filter((r) => r.tier !== 'Watch'))).catch((e) => setError(String(e)))
-  }, [tier, sector, view, socTab, tick])
 
   useEffect(() => {
     if (!selected) return setDetail(undefined)
@@ -113,37 +101,29 @@ export default function App() {
 
       {view === 'soc' && (
         <>
-          <Hero title="SOC" sub="Operations: cases and owners, decisions, every warning, what the autopilot did, and the platform's health."
+          <Hero title="SOC" sub="Cases, decisions and everything Odyssey did, in one place."
                 tabs={<Tabs dark value={socTab} onChange={setSocTab}
-                            items={[['overview', 'Overview'], ['cases', 'Cases'], ['warnings', 'All warnings'], ['log', 'Autopilot log'], ['system', 'System']]} />}>
+                            items={[['overview', 'Overview'], ['cases', 'Cases'], ['warnings', 'Warnings'], ['log', 'Log'], ['system', 'System']]} />}>
             <SocFigures tick={tick} />
           </Hero>
-          <main className={`${WRAP} flex flex-1 gap-6 py-10`}>
-            {socTab === 'overview' ? <OpsOverview tick={tick} onCases={() => setSocTab('cases')} />
+          <main className={`${WRAP} flex flex-1 py-12`}>
+            {socTab === 'overview' ? <OpsOverview tick={tick} onCases={() => setSocTab('cases')} onWarnings={() => setSocTab('warnings')} />
               : socTab === 'cases' ? <CaseBoard tick={tick} onAlert={openAlert} />
               : socTab === 'log' ? <OpsLog tick={tick} />
               : socTab === 'system' ? <SystemView />
-              : (
-                <>
-                  <div className="flex w-80 shrink-0 flex-col gap-4">
-                    {summary && <Funnel s={summary} />}
-                    {summary && <SectorHeatmap s={summary} active={sector} onPick={setSector} />}
-                  </div>
-                  <AlertQueue rows={rows} tier={tier} onTier={setTier} selected={selected?.id} onSelect={setSelected} />
-                </>
-              )}
+              : <WarningList tick={tick} onOpen={openAlert} />}
           </main>
         </>
       )}
 
       {view === 'intel' && (
         <>
-          <Hero title="Intel" sub="The threat picture: where the exposure is, what is under attack, what comes next, and how to cut the risk."
+          <Hero title="Intel" sub="What is under attack, where we are exposed, and what to fix first."
                 tabs={<Tabs dark value={intelTab} onChange={setIntelTab}
-                            items={[['overview', 'Overview'], ['threats', 'Threats & sources'], ['risk', 'Risk plan'], ['advisories', 'Advisories']]} />}>
+                            items={[['overview', 'Overview'], ['threats', 'Threats'], ['risk', 'Risk plan'], ['advisories', 'Advisories']]} />}>
             <IntelFigures tick={tick} />
           </Hero>
-          <main className={`${WRAP} flex flex-1 gap-6 py-10`}>
+          <main className={`${WRAP} flex flex-1 gap-6 py-12`}>
             {intelTab === 'advisories' ? <Advisories /> : <Soc section={intelTab} tick={tick} />}
           </main>
         </>
@@ -151,10 +131,10 @@ export default function App() {
 
       {view === 'orgs' && (
         <>
-          <Hero title="Organisations" sub="The constituency: each operator's exposure, what to fix first, what an outsider sees, and every notice it received.">
+          <Hero title="Organisations" sub="Every operator we protect: its exposure, its fixes and what we told it.">
             <OrgsFigures />
           </Hero>
-          <main className={`${WRAP} flex flex-1 gap-8 py-10`}>
+          <main className={`${WRAP} flex flex-1 gap-10 py-12`}>
             <Orgs selected={org} onSelect={setOrg} onAlert={openAlert} />
           </main>
         </>
@@ -162,11 +142,11 @@ export default function App() {
 
       {view === 'proof' && (
         <>
-          <Hero title="Proof" sub="Why to trust it: measured on this laptop, re-runnable on demand, and explained end to end."
+          <Hero title="Proof" sub="Every claim measured on this laptop. Open any card for the evidence, or re-run it."
                 tabs={<Tabs dark value={proofTab} onChange={setProofTab} items={[['evidence', 'Evidence'], ['how', 'How it works']]} />}>
-            <ProofFigures />
+            <ProofFigures health={health} />
           </Hero>
-          <main className={`${WRAP} flex flex-1 py-10`}>{proofTab === 'evidence' ? <Proof /> : <HowItWorks />}</main>
+          <main className={`${WRAP} flex flex-1 py-12`}>{proofTab === 'evidence' ? <Proof /> : <HowItWorks />}</main>
         </>
       )}
 

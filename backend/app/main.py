@@ -329,7 +329,7 @@ def brief_translate(org_id: str, cve_id: str, lang: str = "hi") -> dict:
 
 
 ADVISORIES = ROOT / "data" / "sim" / "advisories.json"
-ANALYSER_VERSION = "advisory-v4"  # v4: versions and vendor links are never indicators
+ANALYSER_VERSION = "advisory-v5"  # v5: attack context reads plurals ("attackers", "exfiltrated")
 
 
 def _analyse_advisory(adv: dict) -> dict:

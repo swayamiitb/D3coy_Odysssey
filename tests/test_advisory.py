@@ -65,3 +65,11 @@ def test_versions_and_vendor_links_are_not_indicators():
     assert found["urls"] == ["hxxp://evil-cdn[.]example/x.bin"]          # defanged in the source: an indicator
     assert found["references"] == ["https://www.siemens.com/cert/advisories"]  # vendor guidance: never blocked
     assert all("siemens" not in d for d in found["domains"])
+
+
+def test_attack_context_reads_plurals_and_inflections():
+    text = ("Attackers connected from 185.220.101.4 and used the domain fortiupdate-check.com. "
+            "Data was exfiltrated to files-sync.net. Release notes are at docs.fortinet.com.")
+    found = iocs(text)
+    assert sorted(found["domains"]) == ["files-sync[.]net", "fortiupdate-check[.]com"]  # "Attackers", "exfiltrated" count
+    assert found["ips"] == ["185[.]220[.]101[.]4"]

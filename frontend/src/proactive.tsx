@@ -225,42 +225,38 @@ export function ForecastPanel({ limit = 8, compact }: { limit?: number; compact?
   return (
     <div>
       {compact ? (
-        <p className="mb-3 text-xs text-mute">Flags {live.odyssey.flag_rate_pct}% of new CVEs on day 0; caught {live.odyssey.recall_pct}% of those CISA later confirmed exploited (out-of-time test).</p>
-      ) : <p className="mb-3 text-xs leading-relaxed text-mute">
+        <p className="mb-2 text-sm text-mute">Flags {live.odyssey.flag_rate_pct}% of new CVEs on day 0 and caught {live.odyssey.recall_pct}% of those CISA later confirmed exploited (out-of-time test).</p>
+      ) : <p className="mb-4 leading-relaxed text-mute">
         On the day a CVE is published, before anyone exploits it, Odyssey's model asks: will this one be weaponised?
         Frozen on 31 Jul and never tuned since: in Aug–Oct it flagged <b className="text-text">{live.odyssey.flag_rate_pct}%</b> of new CVEs and caught
         {' '}<b className="text-text">{live.odyssey.recall_pct}%</b> of the ones CISA later confirmed exploited. CVSS ≥ 9 at the same alert budget caught {live.same_budget_recall_pct.cvss}%.
       </p>}
-      <ol className="space-y-1.5">
+      <ol>
         {f.items.slice(0, limit).map((i) => {
           const lead = i.kev_added ? Math.round((new Date(i.kev_added).getTime() - new Date(i.published).getTime()) / 86400_000) : null
           return (
-            <li key={i.cve} className="flex items-center gap-3 rounded-lg bg-panel-2 px-3 py-2">
-              <div className="w-12 shrink-0 text-right">
-                <div className="font-mono text-sm font-semibold">{Math.round(i.p / base)}×</div>
-                <div className="text-[10px] text-mute">base rate</div>
+            <li key={i.cve} className="flex items-center gap-4 border-b border-line py-3 last:border-0">
+              <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-full bg-panel-2" title="times the base rate of exploitation">
+                <span className="text-sm font-bold tabular-nums leading-none">{Math.round(i.p / base)}×</span>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="font-mono">{i.cve}</span>
-                  <span className="truncate text-mute">{i.product}</span>
-                </div>
-                <div className="truncate text-[11px] text-mute">
-                  published {i.published.slice(0, 10)} · {i.orgs} org{i.orgs === 1 ? '' : 's'}, {i.assets} asset{i.assets === 1 ? '' : 's'} · {i.reasons.slice(0, 2).join(', ')}
+                <div className="truncate font-medium"><span className="font-mono text-sm">{i.cve}</span> <span className="text-mute">·</span> {i.product}</div>
+                <div className="truncate text-sm text-mute">
+                  {i.orgs} organisation{i.orgs === 1 ? '' : 's'}, {i.assets} asset{i.assets === 1 ? '' : 's'} · {i.reasons.slice(0, 2).join(', ')}
                 </div>
               </div>
-              <div className="w-32 shrink-0 text-right text-xs">
+              <div className="w-56 shrink-0 text-right text-sm">
                 {i.kev_added ? (
-                  <span className="text-crit">CISA KEV {lead != null && lead > 0 ? `${lead} d later` : 'same day'}</span>
+                  <span className="font-medium text-crit">CISA confirmed {lead != null && lead > 0 ? `${lead} d later` : 'same day'}</span>
                 ) : (
-                  <span className="text-mute">not exploited yet{i.median_days_to_exploit != null ? ` · vendor median ${i.median_days_to_exploit} d to exploitation` : ''}</span>
+                  <span className="text-mute">not exploited yet</span>
                 )}
               </div>
             </li>
           )
         })}
       </ol>
-      <div className="mt-2 text-[11px] text-mute">
+      <div className="mt-3 text-sm text-mute">
         {f.flagged} flagged CVEs on exposed assets since {f.since}; {f.since_exploited} have since been confirmed exploited by CISA.
       </div>
     </div>

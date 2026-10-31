@@ -4,7 +4,7 @@ import { api, type Campaign, type IntelAdvisory, type IntelSource, type Soc as S
 import { Heatmap, type HeatData } from './Heatmap'
 import { RiskPlanView } from './Orgs'
 import { ForecastPanel } from './proactive'
-import { Badge, Panel, Prov } from './ui'
+import { Badge, Pill, Prov, Row, Section, Sheet, Tile } from './ui'
 
 const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString('en-IN'))
 
@@ -27,7 +27,7 @@ export function Spark({ values, bands = [], color = 'var(--color-accent)', h = 3
 
 function Technologies({ rows }: { rows: Technology[] }) {
   return (
-    <table className="w-full text-xs">
+    <table className="w-full text-sm">
       <thead className="text-left text-mute">
         <tr>
           <th className="pb-1 font-normal">Technology</th><th className="pb-1 text-right font-normal">Orgs</th>
@@ -40,9 +40,9 @@ function Technologies({ rows }: { rows: Technology[] }) {
         </tr>
       </thead>
       <tbody>
-        {rows.filter((r) => r.assets_at_risk > 0).slice(0, 14).map((r) => (
-          <tr key={r.label} className="border-t border-line/50">
-            <td className="py-1.5 pr-2">
+        {rows.filter((r) => r.assets_at_risk > 0).map((r) => (
+          <tr key={r.label} className="border-t border-line">
+            <td className="py-2.5 pr-2">
               <span className="font-medium">{r.label}</span>
               {r.compromised_assets > 0 && <span className="ml-2 text-comp">{r.compromised_assets} compromised</span>}
             </td>
@@ -85,14 +85,14 @@ function Campaigns({ rows }: { rows: Campaign[] }) {
 
 function Sources({ rows }: { rows: IntelSource[] }) {
   return (
-    <table className="w-full text-xs">
+    <table className="w-full text-sm">
       <thead className="text-left text-mute">
         <tr><th className="pb-1 font-normal">Source</th><th className="pb-1 font-normal">Type</th><th className="pb-1 text-right font-normal">Items</th><th className="pb-1 text-right font-normal">Relevant</th><th className="pb-1 pl-2 font-normal">Grade</th></tr>
       </thead>
       <tbody>
         {rows.map((r) => (
-          <tr key={r.name} className="border-t border-line/50" title={r.funnel}>
-            <td className="py-1.5 pr-2"><div className="flex items-center gap-1.5"><Prov p={r.provenance} /><span>{r.name}</span></div></td>
+          <tr key={r.name} className="border-t border-line" title={r.funnel}>
+            <td className="py-2.5 pr-2"><div className="flex items-center gap-1.5"><Prov p={r.provenance} /><span>{r.name}</span></div></td>
             <td className="py-1.5 text-mute">{r.kind}</td>
             <td className="py-1.5 text-right font-mono">{fmt(r.items)}</td>
             <td className="py-1.5 text-right font-mono">{fmt(r.relevant)}</td>
@@ -133,6 +133,13 @@ function Advisories({ rows }: { rows: IntelAdvisory[] }) {
 
 export type SocSection = 'overview' | 'threats' | 'risk'
 
+/** Number of separate surges among the outlined heatmap cells (a run of consecutive days on one row is one surge). */
+function surgeCount(marks: [number, number][] = []): number {
+  const set = new Set(marks.map(([r, c]) => `${r}:${c}`))
+  return marks.filter(([r, c]) => !set.has(`${r}:${c - 1}`)).length
+}
+
+/** Intel, Uber-simple: one question per tab, one visual, the rest as tiles that open sheets. */
 export function Soc({ section, tick }: { section: SocSection; tick: number }) {
   const [d, setD] = useState<SocData>()
   const [sources, setSources] = useState<IntelSource[]>([])
@@ -141,6 +148,7 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
   const [camps, setCamps] = useState<Campaign[]>([])
   const [heat, setHeat] = useState<Record<string, HeatData>>()
   const [plan, setPlan] = useState<RiskPlan>()
+  const [sheet, setSheet] = useState<'tech' | 'forecast' | 'decoy' | 'campaigns' | 'sources' | 'advisories'>()
   useEffect(() => { api.soc().then(setD).catch(() => undefined) }, [tick])
   useEffect(() => {
     api.intelSources().then(setSources).catch(() => undefined)
@@ -150,61 +158,75 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
     api.riskplan().then(setPlan).catch(() => undefined)
     fetch('/api/heatmaps').then((r) => r.json()).then(setHeat).catch(() => undefined)
   }, [])
-  if (!d) return <div className="p-8 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Assembling the threat picture…</div>
+  if (!d) return <div className="py-10 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Assembling the threat picture…</div>
+
+  const atRisk = tech.filter((t) => t.critical > 0).sort((a, b) => b.compromised_assets - a.compromised_assets || b.critical - a.critical)
+  const close = () => setSheet(undefined)
+  const active = camps.filter((c) => c.status === 'ACTIVE').length
+  const relevantAdv = adv.filter((a) => a.relevant).length
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-6">
+    <div className="flex min-w-0 flex-1 flex-col gap-14">
       {section === 'overview' && (
         <>
+          <Section title="What is under attack" sub="Technologies we run that have Critical warnings, compromised and most exposed first."
+                   action={<Pill onClick={() => setSheet('tech')}>See all {atRisk.length}</Pill>}>
+            <div className="grid gap-x-12 xl:grid-cols-2">
+              {atRisk.slice(0, 6).map((t) => (
+                <Row key={t.label} onClick={() => setSheet('tech')}
+                     lead={<span className={`h-3 w-3 rounded-full ${t.compromised_assets ? 'bg-comp' : 'bg-crit'}`} />}
+                     title={t.label}
+                     sub={`${fmt(t.critical)} Critical at ${t.orgs} organisations · ${t.kev_cves} exploited CVE${t.kev_cves === 1 ? '' : 's'}`}
+                     trail={t.compromised_assets ? <span className="font-semibold text-comp">{t.compromised_assets} compromised</span>
+                       : t.campaign === 'ACTIVE' ? <span className="rounded-full bg-crit px-2.5 py-0.5 text-xs font-semibold text-white">Active campaign</span> : undefined} />
+              ))}
+            </div>
+          </Section>
           {heat && (
-            <Panel title="Where the critical exposure is" right={<span className="text-xs text-mute">Critical warnings by technology and sector</span>}>
-              <Heatmap data={heat.exposure} hue="crit" unit="Critical warnings" labelW={230} cellH={22} dateCols={false} />
-            </Panel>
+            <Section title="Where the critical exposure is" sub="Critical warnings by technology and sector. Hover a cell for its count.">
+              <Heatmap data={heat.exposure} hue="crit" unit="Critical warnings" labelW={230} cellH={24} dateCols={false} />
+            </Section>
           )}
-          <Panel title="Active threats by technology" right={<span className="text-xs text-mute">what is under attack, and where we run it</span>}>
-            <Technologies rows={tech} />
-          </Panel>
-          <Panel title="Likely to be exploited next · day-0 forecast" right={<span className="text-xs text-mute">new CVEs on exposed assets, before CISA confirms</span>}>
-            <ForecastPanel limit={8} />
-          </Panel>
+          <Section title="Likely to be exploited next" sub="New CVEs on our exposed assets, flagged on the day they are published, before CISA confirms exploitation."
+                   action={<Pill onClick={() => setSheet('forecast')}>See all</Pill>}>
+            <ForecastPanel limit={4} compact />
+          </Section>
         </>
       )}
 
       {section === 'threats' && (
         <>
           {heat && (
-            <Panel title="Real attacks on the services we run" right={<Prov p="REAL" label="REAL · SANS ISC DShield" />}>
-              <p className="mb-3 text-sm text-mute">Daily attack records seen by a global honeypot network on the ports our internet-facing products listen on, since go-live. Each row runs from its own quietest day (light) to its busiest (dark).</p>
+            <Section title="Real attacks on the services we run" action={<Prov p="REAL" label="REAL · SANS ISC DShield" />}
+                     sub="Daily attack records from a global honeypot network on the ports our internet-facing products use. Each row runs from its quietest day (light) to its busiest (dark).">
               <Heatmap data={heat.attacks} hue="accent" unit="attack records" labelW={200} />
-            </Panel>
+            </Section>
           )}
-          {heat && (
-            <Panel title="National decoy grid" right={<Prov p="SIM" label="SIM" />}>
-              <p className="mb-3 text-sm text-mute">Sessions per product per day across 24 decoy sensors, each row from its own quietest day to its busiest. Outlined days are scanning surges the detector raised: the Ivanti ones preceded a real CVE, the Confluence one was stood down.</p>
-              <Heatmap data={heat.decoy} hue="accent" unit="sessions" labelW={200} />
-            </Panel>
-          )}
-          <div className="grid gap-4 xl:grid-cols-3">
-            <Panel title="Campaigns · correlated threats" right={<span className="text-xs text-mute">CVEs, chains, decoy surges</span>}>
-              <Campaigns rows={camps} />
-            </Panel>
-            <div className="xl:col-span-2">
-              <Panel title="Real advisories, matched to our inventory" right={<Prov p="REAL" label="REAL · CISA" />}>
-                <Advisories rows={adv} />
-              </Panel>
-            </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Tile value={surgeCount(heat?.decoy.marks)} title="Scanning surges on our decoy grid" sub="24 sensors, simulated and labelled SIM" cta="See the grid" onClick={() => setSheet('decoy')} />
+            <Tile value={active} title="Active campaigns" sub="exploited CVEs, chained assets and decoy surges, correlated" cta="See campaigns" onClick={() => setSheet('campaigns')} />
+            <Tile value={relevantAdv} title="Real advisories that name our products" sub={`of the latest ${adv.length} CISA advisories`} cta="See advisories" onClick={() => setSheet('advisories')} />
+            <Tile value={sources.length} title="Intelligence sources" sub={`${sources.filter((x) => x.provenance === 'REAL').length} real public feeds, the rest simulated and labelled`} cta="See sources" onClick={() => setSheet('sources')} />
           </div>
-          <Panel title="Where the intelligence comes from" right={<span className="text-xs text-mute">hover a row for its funnel</span>}>
-            <Sources rows={sources} />
-          </Panel>
         </>
       )}
 
       {section === 'risk' && (
-        <Panel title="National risk plan: the fewest changes that remove the most risk" right={<span className="text-xs text-mute">urgency first, then risk removed per unit of effort</span>}>
-          {plan ? <RiskPlanView r={plan} limit={15} /> : <div className="text-xs text-mute"><Loader2 size={12} className="mr-1 inline animate-spin" />Ranking change tickets…</div>}
-        </Panel>
+        <Section title="The fewest changes that remove the most risk" sub="Urgency first (compromise, then known-exploited), then the most risk removed per unit of effort.">
+          {plan ? <RiskPlanView r={plan} limit={10} /> : <div className="text-mute"><Loader2 size={14} className="mr-1 inline animate-spin" />Ranking change tickets…</div>}
+        </Section>
       )}
+
+      {sheet === 'tech' && <Sheet wide title="Every technology we run, by exposure" sub="Hover a column heading for what it counts." onClose={close}><Technologies rows={tech} /></Sheet>}
+      {sheet === 'forecast' && <Sheet wide title="Likely to be exploited next" sub="Day-0 forecast for every new CVE on our exposed assets." onClose={close}><ForecastPanel limit={40} /></Sheet>}
+      {sheet === 'decoy' && heat && (
+        <Sheet wide title="National decoy grid" sub="Sessions per product per day across 24 decoy sensors (SIM). Outlined days are surges the detector raised: the Ivanti ones preceded a real CVE, the Confluence one was stood down." onClose={close}>
+          <Heatmap data={heat.decoy} hue="accent" unit="sessions" labelW={200} />
+        </Sheet>
+      )}
+      {sheet === 'campaigns' && <Sheet title="Campaigns" sub="Correlated threats: exploited CVEs, chained assets and decoy surges." onClose={close}><Campaigns rows={camps} /></Sheet>}
+      {sheet === 'advisories' && <Sheet title="Real advisories that name our products" sub="Latest CISA advisories, matched to the inventory." onClose={close}><Advisories rows={adv} /></Sheet>}
+      {sheet === 'sources' && <Sheet wide title="Where the intelligence comes from" sub="Hover a row for its funnel." onClose={close}><Sources rows={sources} /></Sheet>}
     </div>
   )
 }

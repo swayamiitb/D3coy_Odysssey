@@ -103,7 +103,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
   const lead = soc?.autopilot.lead?.real_signals_only
   const langs = soc ? new Set(soc.orgs.map((o) => o.lang)).size : undefined
   const headline = feed.counts.compromise > 0
-    ? `${feed.counts.compromise} suspected compromise needs you now.`
+    ? 'A suspected compromise needs you now.'
     : feed.counts.needs_action > 0 ? `${feed.counts.needs_action} warnings need you.` : 'All quiet. Nothing needs you.'
 
   return (
@@ -113,9 +113,9 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
           <div>
             <p className="text-band-mute">National CERT duty desk · {new Date(feed.issued_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} IST</p>
             <h1 className="mt-4 max-w-3xl text-6xl font-bold leading-[1.05] tracking-tight">{headline}</h1>
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-band-mute">
-              {feed.counts.needs_action} warnings are open across {soc?.orgs.length ?? '…'} critical-infrastructure operators, each told in its own
-              language{langs ? ` (${langs} languages)` : ''}. {soc?.pending ?? '…'} decisions wait for a person; Odyssey handles the rest and logs every step.
+            <p className="mt-6 max-w-2xl text-xl leading-relaxed text-band-mute">
+              {feed.counts.needs_action} open warnings across {soc?.orgs.length ?? '…'} operators, each told in its own language{langs ? ` (${langs} in use)` : ''}.
+              {' '}{soc?.pending ?? '…'} decisions wait for you; Odyssey handles the rest.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <button onClick={() => onGo('soc', 'overview')} className="rounded-full bg-white px-6 py-3.5 text-base font-semibold text-black hover:bg-panel-3">

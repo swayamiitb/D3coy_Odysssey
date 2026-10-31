@@ -1,5 +1,5 @@
-import { ChevronRight } from 'lucide-react'
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { ChevronRight, X } from 'lucide-react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Tier } from './api'
 
 /* Uber Base-style building blocks, "Oreo" layering: black bands (nav, Hero, footer, Band tone="black") around a white
@@ -127,6 +127,69 @@ export function Stat({ value, label, sub, tone }: { value: ReactNode; label: str
       <div className={`text-4xl font-bold tracking-tight tabular-nums ${tone ?? ''}`}>{value}</div>
       <div className="mt-1 text-sm font-medium">{label}</div>
       {sub && <div className="mt-0.5 text-xs text-mute">{sub}</div>}
+    </div>
+  )
+}
+
+/** Section as on Uber's website: a big bold heading, one quiet line, an optional pill on the right, no card chrome. */
+export function Section({ title, sub, action, children }: { title: ReactNode; sub?: ReactNode; action?: ReactNode; children: ReactNode }) {
+  return (
+    <section>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">{title}</h2>
+          {sub && <p className="mt-1.5 max-w-3xl text-mute">{sub}</p>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+/** Quiet grey pill for "See all", "Details" and other secondary moves. */
+export function Pill({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="inline-flex items-center gap-1.5 rounded-full bg-panel-2 px-4 py-2 text-sm font-medium hover:bg-panel-3">
+      {children}
+    </button>
+  )
+}
+
+/** Uber "Suggestions" card: grey, one figure, one line, one Details pill. Opens the detail in a sheet. */
+export function Tile({ value, title, sub, onClick, cta = 'Details' }: { value: ReactNode; title: string; sub?: ReactNode; onClick: () => void; cta?: string }) {
+  return (
+    <button onClick={onClick} className="flex min-h-[200px] flex-col justify-between rounded-2xl bg-panel-2 p-6 text-left transition hover:bg-panel-3">
+      <div>
+        <div className="text-4xl font-bold tracking-tight tabular-nums">{value}</div>
+        <div className="mt-2 text-lg font-semibold leading-snug">{title}</div>
+        {sub && <div className="mt-1 text-sm text-mute">{sub}</div>}
+      </div>
+      <span className="mt-6 inline-flex w-fit items-center gap-1 rounded-full bg-panel px-4 py-2 text-sm font-medium">{cta} <ChevronRight size={14} /></span>
+    </button>
+  )
+}
+
+/** Details on demand: a sheet slides over from the right (Uber's trip details); Esc or the backdrop closes it. */
+export function Sheet({ title, sub, onClose, children, wide }: { title: ReactNode; sub?: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [onClose])
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onClick={onClose}>
+      <aside onClick={(e) => e.stopPropagation()}
+             className={`m-3 flex h-[calc(100%-1.5rem)] ${wide ? 'w-[1180px]' : 'w-[760px]'} max-w-[96vw] flex-col overflow-hidden rounded-3xl bg-panel text-text shadow-2xl`}>
+        <header className="flex items-start justify-between gap-4 border-b border-line px-8 py-6">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
+            {sub && <p className="mt-1 text-mute">{sub}</p>}
+          </div>
+          <button onClick={onClose} title="Close" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-panel-2 hover:bg-panel-3"><X size={18} /></button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-auto px-8 py-6">{children}</div>
+      </aside>
     </div>
   )
 }

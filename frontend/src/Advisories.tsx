@@ -1,7 +1,10 @@
-import { ClipboardPaste, Loader2, ScanText, ShieldCheck, Sparkles } from 'lucide-react'
+import { Loader2, ScanText, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Badge, deadlineText, Prov, TierPill } from './ui'
 import type { Tier } from './api'
+import { Badge, deadlineText, Pill, Prov, Row, Section, Sheet, Stat, TIER_FILL } from './ui'
+
+/* Advisories, Uber-simple: the inbox on the left; on the right one advisory answered as "what is it, who must act,
+   what to block". How the text was read (entities, references, source) waits behind one pill. */
 
 interface Exposure {
   asset_id: string; org_id: string; org: string; sector: string; hostname: string; version: string; zone: string
@@ -22,7 +25,8 @@ interface Analysis {
 }
 interface Item { id: string; title: string; severity: string; published: string; provenance: string; note: string; text: string; analysis: Analysis }
 
-const IOC_LABEL = { ips: 'IP', domains: 'Domain', urls: 'URL', sha256: 'SHA-256' } as const
+const IOC_LABEL = { ips: 'IP address', domains: 'Domain', urls: 'URL', sha256: 'File hash' } as const
+const TIER_RANK: Record<string, number> = { Compromise: 0, Critical: 1, High: 2, Medium: 3, Watch: 4 }
 
 function constraintText(c: Analysis['constraints'][number]) {
   const v = c.op === 'range' ? `${c.start} → ${c.version}` : `${c.op === 'lt' ? 'before' : 'up to'} ${c.version}`
@@ -30,99 +34,80 @@ function constraintText(c: Analysis['constraints'][number]) {
 }
 
 function AnalysisView({ a, text }: { a: Analysis; text?: string }) {
-  const iocCount = (Object.keys(IOC_LABEL) as (keyof typeof IOC_LABEL)[]).reduce((n, k) => n + a.iocs[k].length, 0)
-  const orgs = new Set(a.exposed.map((e) => e.org_id))
+  const [all, setAll] = useState(false)
+  const [how, setHow] = useState(false)
+  const iocs = (Object.keys(IOC_LABEL) as (keyof typeof IOC_LABEL)[]).flatMap((k) => a.iocs[k].map((v) => [k, v] as const))
+  // one row per organisation: worst tier, earliest deadline, its hosts and versions
+  const byOrg = Object.values(a.exposed.reduce<Record<string, Exposure[]>>((m, e) => { (m[e.org_id] ??= []).push(e); return m }, {}))
+    .map((es) => es.sort((x, y) => TIER_RANK[x.tier] - TIER_RANK[y.tier]))
+    .sort((x, y) => TIER_RANK[x[0].tier] - TIER_RANK[y[0].tier] || y.length - x.length)
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-line bg-panel-2 p-4">
-          <div className="text-xs text-mute">Product identified</div>
-          <div className="mt-1 text-lg font-semibold">{a.product.label ?? 'None in our estate'}</div>
-          <div className="mt-1 text-xs text-mute">{a.product.method}</div>
-        </div>
-        <div className="rounded-xl border border-line bg-panel-2 p-4">
-          <div className="text-xs text-mute">Exposed</div>
-          <div className="mt-1 text-lg font-semibold">{a.exposed.length} assets · {orgs.size} orgs</div>
-          <div className="mt-1 text-xs text-mute">{a.cleared.length} cleared by version evidence</div>
-        </div>
-        <div className="rounded-xl border border-line bg-panel-2 p-4">
-          <div className="text-xs text-mute">Severity (ML, from text)</div>
-          <div className="mt-1 text-lg font-semibold">{a.predicted_cvss.score ?? '—'}</div>
-          <div className="mt-1 truncate font-mono text-[10px] text-mute">{a.predicted_cvss.vector}</div>
-        </div>
+    <div className="flex flex-col gap-10">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Stat value={<span className="text-2xl leading-tight">{a.product.label ?? 'Not in our estate'}</span>} label="product identified" sub={a.product.method} />
+        <Stat value={`${a.exposed.length}`} label={`assets exposed at ${byOrg.length} organisation${byOrg.length === 1 ? '' : 's'}`} sub={`${a.cleared.length} cleared by version evidence`} />
+        <Stat value={a.predicted_cvss.score ?? '—'} label="severity, read from the text" sub="CVSS predicted on the CPU" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-1 text-xs">
-        {a.exploitation_claim && <Badge tone="crit">exploitation claimed: "{a.exploitation_claim}"</Badge>}
-        {a.sectors_targeted.map((s) => <Badge key={s} tone="accent">targets {s}</Badge>)}
-        {a.constraints.map((c, i) => <Badge key={i}>{constraintText(c)}</Badge>)}
-        {a.iocs.cves.map((c) => <Badge key={c}>{c}</Badge>)}
-        <span className="ml-auto text-mute">analysed in {a.timings.total_ms} ms{a.cached ? ' (cached)' : ''}</span>
+      {(a.exploitation_claim || a.sectors_targeted.length > 0 || a.constraints.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {a.exploitation_claim && <Badge tone="crit">exploitation claimed: "{a.exploitation_claim}"</Badge>}
+          {a.sectors_targeted.map((s) => <Badge key={s} tone="accent">targets {s}</Badge>)}
+          {a.constraints.map((c, i) => <Badge key={i}>{constraintText(c)}</Badge>)}
+        </div>
+      )}
+
+      {byOrg.length > 0 && (
+        <Section title="Who must act" sub="One row per organisation, most urgent first. Each is notified in its own language once an analyst approves."
+                 action={byOrg.length > 6 ? <Pill onClick={() => setAll(!all)}>{all ? 'Show fewer' : `See all ${byOrg.length}`}</Pill> : undefined}>
+          {byOrg.slice(0, all ? undefined : 6).map((es) => (
+            <Row key={es[0].org_id} lead={<span className="h-3 w-3 rounded-full" style={{ background: TIER_FILL[es[0].tier] }} />}
+                 title={es[0].org}
+                 sub={`${es.length} asset${es.length === 1 ? '' : 's'}: ${es.slice(0, 3).map((e) => `${e.hostname.split('.')[0]} (${e.version})`).join(', ')}${es.length > 3 ? '…' : ''} · ${es[0].sector}`}
+                 trail={<span><b>{es[0].tier}</b><span className="block text-xs text-mute">due {deadlineText(es[0].deadline_hours)}</span></span>} />
+          ))}
+        </Section>
+      )}
+
+      {iocs.length > 0 && (
+        <Section title="Ready to block" sub="Indicators from the advisory, defanged. Vendor and CERT links are kept apart and never blocked.">
+          {iocs.map(([k, v]) => (
+            <Row key={k + v} lead={<span className="text-[10px] font-bold">{k === 'sha256' ? 'SHA' : k === 'ips' ? 'IP' : k === 'urls' ? 'URL' : 'DNS'}</span>}
+                 title={<code className="text-sm">{v}</code>} sub={IOC_LABEL[k]} />
+          ))}
+        </Section>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3 text-sm text-mute">
+        <Pill onClick={() => setHow(true)}>How Odyssey read it</Pill>
+        analysed on this laptop in {a.timings.total_ms} ms{a.cached ? ' (cached)' : ''}
       </div>
 
-      {a.exposed.length > 0 && (
-        <section>
-          <div className="mb-2 text-sm font-semibold text-text">Who must act</div>
-          <table className="w-full text-sm">
-            <tbody>
-              {a.exposed.map((e) => (
-                <tr key={e.asset_id} className="border-t border-line/60">
-                  <td className="py-2 pr-3"><TierPill tier={e.tier} /></td>
-                  <td className="pr-3">{e.org}<div className="text-xs text-mute">{e.sector}</div></td>
-                  <td className="pr-3 font-mono text-xs">{e.hostname}<div className="text-mute">{e.version} · {e.zone}</div></td>
-                  <td className="pr-3 font-mono text-xs">{deadlineText(e.deadline_hours)}</td>
-                  <td className="text-xs text-mute">{e.reason}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
-      {a.cleared.length > 0 && (
-        <section>
-          <div className="mb-2 flex items-center gap-1 text-sm font-semibold text-text"><ShieldCheck size={12} className="text-ok" /> Cleared — no alert sent</div>
-          <div className="flex flex-wrap gap-1">
-            {a.cleared.map((e) => <Badge key={e.asset_id} tone="ok">{e.org_id} · {e.version}</Badge>)}
-          </div>
-        </section>
-      )}
-
-      {iocCount > 0 && (
-        <section>
-          <div className="mb-2 text-sm font-semibold text-text">Indicators (defanged) — ready to block</div>
-          <div className="space-y-1">
-            {(Object.keys(IOC_LABEL) as (keyof typeof IOC_LABEL)[]).flatMap((k) => a.iocs[k].map((v) => (
-              <div key={k + v} className="flex items-center gap-2 text-xs">
-                <span className="w-16 shrink-0 text-mute">{IOC_LABEL[k]}</span>
-                <code className="truncate rounded bg-ink px-2 py-0.5">{v}</code>
+      {how && (
+        <Sheet wide title="How Odyssey read this advisory" sub="Guard model first, then SecureBERT 2.0 entities, version parsing and a closed-set product match against the inventory." onClose={() => setHow(false)}>
+          <div className="flex flex-col gap-10">
+            {a.cleared.length > 0 && (
+              <Section title="Cleared, no alert sent" sub="Installed versions outside the affected ranges.">
+                <div className="flex flex-wrap gap-1.5">
+                  {a.cleared.map((e) => <Badge key={e.asset_id} tone="ok"><ShieldCheck size={12} /> {e.org_id} · {e.version}</Badge>)}
+                </div>
+              </Section>
+            )}
+            {(a.iocs.references?.length ?? 0) > 0 && (
+              <Section title="Reference links" sub="Vendor and CERT guidance: for reading, not for blocking.">
+                {a.iocs.references!.map((u) => <a key={u} href={u} target="_blank" rel="noreferrer" className="block truncate py-1 text-accent hover:underline">{u}</a>)}
+              </Section>
+            )}
+            <Section title="Entities" sub="Found by SecureBERT 2.0 on the CPU; shown as context, never used to decide.">
+              <div className="flex flex-wrap gap-1.5">
+                {a.entities.map((e) => <Badge key={e.type + e.text}>{e.type}: {e.text}</Badge>)}
               </div>
-            )))}
+            </Section>
+            {a.product.evidence && <p className="text-mute">Product evidence quoted by the model: "<span className="text-text">{a.product.evidence}</span>"</p>}
+            {text && <Section title="Source text"><p className="whitespace-pre-wrap leading-relaxed text-mute">{text}</p></Section>}
           </div>
-        </section>
+        </Sheet>
       )}
-
-      {(a.iocs.references?.length ?? 0) > 0 && (
-        <section>
-          <div className="mb-2 text-sm font-semibold text-text">Reference links (vendor / CERT guidance, not indicators)</div>
-          <div className="space-y-1">
-            {a.iocs.references!.map((u) => (
-              <a key={u} href={u} target="_blank" rel="noreferrer" className="block truncate text-xs text-accent hover:underline">{u}</a>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section>
-        <div className="mb-2 flex items-center gap-1 text-sm font-semibold text-text"><Sparkles size={12} /> Entities (SecureBERT 2.0, on-device)</div>
-        <div className="flex flex-wrap gap-1">
-          {a.entities.map((e) => <Badge key={e.type + e.text}>{e.type}: {e.text}</Badge>)}
-        </div>
-      </section>
-
-      {a.product.evidence && (
-        <div className="text-xs text-mute">Product evidence quoted by the model: "<span className="text-text">{a.product.evidence}</span>"</div>
-      )}
-      {text && <details className="text-xs text-mute"><summary className="cursor-pointer">Source text</summary><p className="mt-2 leading-relaxed">{text}</p></details>}
     </div>
   )
 }
@@ -146,50 +131,49 @@ export function Advisories() {
     } catch (e) { setErr(String(e)) } finally { setBusy(false) }
   }
 
-  if (!items) return <div className="flex items-center gap-2 p-8 text-mute"><Loader2 className="animate-spin" size={16} /> Reading the advisory inbox…</div>
+  if (!items) return <div className="flex items-center gap-2 py-10 text-mute"><Loader2 className="animate-spin" size={16} /> Reading the advisory inbox…</div>
   const current = items[sel]
 
   return (
-    <div className="flex min-w-0 flex-1 gap-5">
-      <aside className="sticky top-24 flex max-h-[calc(100vh-7rem)] w-96 shrink-0 flex-col gap-3 self-start overflow-auto pr-1">
-        <div className="rounded-2xl border border-line bg-panel p-4">
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><ClipboardPaste size={14} /> Paste any advisory</div>
+    <div className="flex min-w-0 flex-1 items-start gap-12">
+      <aside className="sticky top-24 flex max-h-[calc(100vh-7rem)] w-[400px] shrink-0 flex-col gap-6 overflow-auto pr-1">
+        <div className="rounded-2xl bg-panel-2 p-5">
+          <div className="mb-3 text-xl font-bold">Paste any advisory</div>
           <textarea value={paste} onChange={(e) => setPaste(e.target.value)} rows={5}
-                    placeholder="Paste a CERT-In note, vendor bulletin or email. Odyssey finds the product, versions and indicators, and tells you who is exposed."
-                    className="w-full resize-none rounded-lg border border-line bg-ink p-2 text-xs outline-none focus:border-accent" />
+                    placeholder="A CERT-In note, vendor bulletin or email. Odyssey finds the product, versions and indicators, and who is exposed."
+                    className="w-full resize-none rounded-xl bg-panel p-3 text-sm outline-none ring-1 ring-line focus:ring-text" />
           <button onClick={analyse} disabled={busy || paste.trim().length < 40}
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-action py-2 text-sm font-semibold text-ink disabled:opacity-40">
-            {busy ? <Loader2 size={14} className="animate-spin" /> : <ScanText size={14} />} Analyse
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-action py-3 font-semibold text-ink disabled:opacity-40">
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <ScanText size={16} />} Analyse
           </button>
         </div>
-        <div className="text-sm font-semibold text-text">Advisory inbox</div>
-        {items.map((it, i) => (
-          <button key={it.id} onClick={() => { setSel(i); setPasted(undefined) }}
-                  className={`rounded-xl border p-3 text-left ${i === sel && !pasted ? 'border-accent bg-panel-2' : 'border-line bg-panel hover:bg-panel-2'}`}>
-            <div className="flex items-center gap-2">
-              <Prov p={it.provenance} />
-              <span className="font-mono text-xs text-mute">{it.id}</span>
-            </div>
-            <div className="mt-1 text-sm font-medium">{it.title}</div>
-            <div className="mt-1 text-xs text-mute">
-              {it.analysis.exposed.length ? `${it.analysis.exposed.length} assets exposed` : it.analysis.sectors_targeted.length ? `campaign · ${it.analysis.sectors_targeted.join(', ')}` : 'no exposure'}
-            </div>
-          </button>
-        ))}
+        <div>
+          <div className="mb-1 text-xl font-bold">Inbox</div>
+          {items.map((it, i) => (
+            <button key={it.id} onClick={() => { setSel(i); setPasted(undefined) }}
+                    className={`mb-1 w-full rounded-2xl px-4 py-3 text-left ${i === sel && !pasted ? 'bg-panel-2' : 'hover:bg-soft'}`}>
+              <div className="flex items-center gap-2"><Prov p={it.provenance} /><span className="font-mono text-xs text-faint">{it.id}</span></div>
+              <div className="mt-1 font-semibold leading-snug">{it.title}</div>
+              <div className="text-sm text-mute">
+                {it.analysis.exposed.length ? `${it.analysis.exposed.length} assets exposed` : it.analysis.sectors_targeted.length ? `campaign · ${it.analysis.sectors_targeted.join(', ')}` : 'no exposure'}
+              </div>
+            </button>
+          ))}
+        </div>
       </aside>
-      <section className="min-w-0 flex-1 rounded-2xl border border-line bg-panel p-6">
-        {err && <div className="mb-3 text-sm text-crit">{err}</div>}
+      <section className="min-w-0 max-w-5xl flex-1">
+        {err && <div className="mb-4 rounded-2xl bg-crit/10 px-4 py-3 text-crit">{err}</div>}
         {pasted ? (
           <>
-            <h2 className="mb-4 text-2xl font-semibold">Pasted advisory</h2>
-            <AnalysisView a={pasted} text={paste} />
+            <h2 className="mb-8 text-4xl font-bold tracking-tight">Pasted advisory</h2>
+            <AnalysisView key="pasted" a={pasted} text={paste} />
           </>
         ) : (
           <>
-            <div className="mb-1 flex items-center gap-2"><Prov p={current.provenance} /><span className="font-mono text-xs text-mute">{current.id} · {current.published?.slice(0, 10)}</span></div>
-            <h2 className="mb-1 text-2xl font-semibold">{current.title}</h2>
-            <p className="mb-4 text-xs text-mute">{current.note}</p>
-            <AnalysisView a={current.analysis} text={current.text} />
+            <div className="mb-2 flex items-center gap-2"><Prov p={current.provenance} /><span className="font-mono text-sm text-faint">{current.id} · {current.published?.slice(0, 10)}</span></div>
+            <h2 className="text-4xl font-bold tracking-tight">{current.title}</h2>
+            <p className="mt-2 mb-8 text-mute">{current.note}</p>
+            <AnalysisView key={current.id} a={current.analysis} text={current.text} />
           </>
         )}
       </section>

@@ -110,9 +110,9 @@ _REFERENCE_DOMAINS = {
     "swift.com", "temenos.com", "f5.com", "nginx.org", "kernel.org", "hitachienergy.com", "mitsubishielectric.com",
     "nciipc.gov.in", "meity.gov.in",
 }
-_ATTACK_CONTEXT = re.compile(r"\b(c2|command[- ]and[- ]control|malicious|attacker|threat actor|callback|beacon|"
-                             r"hosted on|download(?:ed|s)? from|phishing|lookalike|look-alike|exfiltrat|payload|"
-                             r"indicator|ioc|block)\b", re.I)
+_ATTACK_CONTEXT = re.compile(r"\b(c2|command[- ]and[- ]control|malicious|attackers?|threat actors?|callbacks?|"
+                             r"beacon(?:s|ed|ing)?|hosted on|download(?:ed|s)? from|phishing|lookalike|look-alike|"
+                             r"exfiltrat\w*|payloads?|indicators?|iocs?|block(?:ed|list)?)\b", re.I)
 
 
 def _registrable(host: str) -> str:

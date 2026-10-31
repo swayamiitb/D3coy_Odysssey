@@ -166,18 +166,24 @@ export function OrgsFigures() {
   )
 }
 
-export function ProofFigures() {
+export function ProofFigures({ health }: { health?: Health }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [d, setD] = useState<any>()
-  useEffect(() => { fetch('/api/scorecard').then((r) => r.json()).then(setD).catch(() => undefined) }, [])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [t, setT] = useState<any>()
+  useEffect(() => {
+    fetch('/api/scorecard').then((r) => r.json()).then(setD).catch(() => undefined)
+    fetch('/api/telemetry').then((r) => r.json()).then(setT).catch(() => undefined)
+  }, [])
   if (!d) return <div className="h-[118px]" />
   return (
     <Figures items={[
       { value: `${d.funnel.noise_reduction_x}×`, label: 'noise reduction',
         sub: `${n(d.funnel.cves_this_month)} CVEs this month → ${d.funnel.critical_or_compromise} critical warnings` },
-      { value: `${d.backtest.missed_pct.epss_alone}%`, label: 'of exploited CVEs EPSS alone would miss', sub: `median EPSS of CISA-KEV entries: ${d.backtest.median_epss_of_kev}` },
-      { value: `${d.briefs.validated}/${d.briefs.total}`, label: 'AI briefs passed the fact check', sub: 'failures are withheld, never shown' },
-      { value: '0', label: 'cloud calls', sub: 'security LLM on the GPU, ML on the CPU', dot: 'bg-ok' },
+      { value: '0', label: 'cloud calls', sub: 'every model runs on this laptop', dot: 'bg-ok' },
+      { value: '8B', label: 'largest model, security-tuned', sub: 'fits an 8 GB laptop GPU; encoders and ML on the CPU' },
+      { value: t ? n(t.ledger.events) : '—', label: 'audit-trail events', sub: health?.ledger_intact === false ? 'chain BROKEN' : 'hash-chained, verified intact',
+        dot: health?.ledger_intact === false ? 'bg-crit' : 'bg-ok' },
     ]} />
   )
 }

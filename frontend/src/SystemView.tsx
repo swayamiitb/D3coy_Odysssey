@@ -1,15 +1,19 @@
-import { Activity, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Spark } from './Soc'
-import { Panel, Stat } from './ui'
+import { Row, Section, Sheet, Stat, Tile } from './ui'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Tele = any
 
-/** System telemetry, live: the platform measuring itself (refreshes every 3 s). */
+const PROV_COLOR = ['var(--color-text)', 'var(--color-accent)', 'var(--color-ok)', 'var(--color-comp)', 'var(--color-high)', 'var(--color-faint)']
+
+/** System telemetry, live: the platform measuring itself (refreshes every 3 s). Vital signs on screen, the
+ *  breakdowns (AI jobs, API routes, audit trail, build stages) one tap away. */
 export function SystemView() {
   const [t, setT] = useState<Tele>()
   const [err, setErr] = useState<string>()
+  const [sheet, setSheet] = useState<'ai' | 'api' | 'ledger' | 'build'>()
   useEffect(() => {
     let alive = true
     const pull = () => fetch('/api/telemetry').then((r) => r.json()).then((d) => alive && setT(d)).catch((e) => setErr(String(e)))
@@ -17,118 +21,121 @@ export function SystemView() {
     const id = setInterval(pull, 3000)
     return () => { alive = false; clearInterval(id) }
   }, [])
-  if (!t) return <div className="p-8 text-mute">{err ?? <><Loader2 size={16} className="mr-2 inline animate-spin" />Reading the system's vital signs…</>}</div>
+  if (!t) return <div className="py-10 text-mute">{err ?? <><Loader2 size={16} className="mr-2 inline animate-spin" />Reading the system's vital signs…</>}</div>
   const h = t.host
   const series = t.series as { cpu: number; gpu: number; ram: number; vram: number }[]
   const prov = Object.entries(t.ledger.by_provenance as Record<string, number>).sort((a, b) => b[1] - a[1])
   const provTotal = prov.reduce((s, [, n]) => s + n, 0) || 1
   const stages = (t.pipeline.stages as { stage: string; seconds: number }[])
   const stageMax = Math.max(1, ...stages.map((s) => s.seconds))
-  return (
-    <div className="flex min-w-0 flex-1 flex-col gap-5">
-      <div className="flex items-center gap-2 text-sm text-mute">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-ok" /> Live · refreshes every 3 s · up {Math.floor(t.uptime_s / 60)} min
-      </div>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-        <Stat value={h.cpu != null ? `${Math.round(h.cpu)}%` : '—'} label="CPU" sub="i9 · ML models, translation, API" />
-        <Stat value={h.ram ? `${h.ram.used_gb} GB` : '—'} label="Memory" sub={h.ram ? `${h.ram.percent}% of ${h.ram.total_gb} GB` : undefined} />
-        <Stat value={h.gpu ? `${Math.round(h.gpu.util)}%` : '—'} label="GPU load" sub={h.gpu ? `${h.gpu.name} · ${h.gpu.temp_c}°C · ${h.gpu.power_w} W` : 'nvidia-smi unavailable'} />
-        <Stat value={h.gpu ? `${h.gpu.vram_used_gb} GB` : '—'} label="VRAM in use" sub={h.gpu ? `of ${h.gpu.vram_total_gb} GB` : undefined} />
-        <Stat value={`${t.ledger.events.toLocaleString('en-IN')}`} label="audit-trail events" sub={`${t.ledger.per_min} new per minute`} />
-      </div>
+  const ai = [...(t.ai as any[]).map((r) => ({ ...r, live: true })), ...((t.ai_record as any[]) ?? [])]
+  const runs = ai.reduce((s, r) => s + r.calls, 0)
+  const p50s = (t.api as any[]).map((r) => r.p50_ms).filter((v) => v != null).sort((a, b) => a - b)
+  const apiP50 = p50s.length ? p50s[Math.floor(p50s.length / 2)] : null
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Load, last minutes" right={<span className="flex items-center gap-1 text-xs text-mute"><Activity size={12} /> sampled every 3 s</span>}>
-          <div className="grid grid-cols-2 gap-4">
-            {([['CPU %', 'cpu', 'var(--color-text)', 100], ['GPU %', 'gpu', 'var(--color-accent)', 100], ['Memory %', 'ram', 'var(--color-mute)', 100],
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-14">
+      <Section title="Vital signs" sub={<span className="flex items-center gap-2"><span className="h-2 w-2 animate-pulse rounded-full bg-ok" /> Live from this laptop, every 3 seconds.</span>}>
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <Stat value={h.cpu != null ? `${Math.round(h.cpu)}%` : '—'} label="CPU" sub="ML models, translation, API" />
+          <Stat value={h.gpu ? `${Math.round(h.gpu.util)}%` : '—'} label="GPU" sub={h.gpu ? `${h.gpu.name.replace('NVIDIA GeForce ', '')} · ${h.gpu.temp_c}°C` : 'nvidia-smi unavailable'} />
+          <Stat value={h.gpu ? `${h.gpu.vram_used_gb} GB` : '—'} label="VRAM in use" sub={h.gpu ? `of ${h.gpu.vram_total_gb} GB` : undefined} />
+          <Stat value={h.ram ? `${h.ram.used_gb} GB` : '—'} label="Memory" sub={h.ram ? `${h.ram.percent}% of ${h.ram.total_gb} GB` : undefined} />
+        </div>
+      </Section>
+
+      <div className="grid gap-12 xl:grid-cols-2">
+        <Section title="Load, last minutes">
+          <div className="grid grid-cols-2 gap-5">
+            {([['CPU %', 'cpu', 'var(--color-text)', 100], ['GPU %', 'gpu', 'var(--color-accent)', 100], ['Memory %', 'ram', 'var(--color-faint)', 100],
                ['VRAM GB', 'vram', 'var(--color-comp)', h.gpu?.vram_total_gb ?? 8]] as const).map(([label, key, color, top]) => (
               <div key={key}>
                 <div className="flex justify-between text-sm"><span className="font-medium">{label}</span><span className="tabular-nums text-mute">{series.at(-1)?.[key] ?? '—'}</span></div>
-                <div className="rounded-lg bg-soft px-1"><Spark values={series.map((s) => s[key] ?? 0)} color={color} h={44} max={top} /></div>
+                <div className="mt-1 rounded-xl bg-panel-2 px-1.5 py-1"><Spark values={series.map((s) => s[key] ?? 0)} color={color} h={44} max={top} /></div>
               </div>
             ))}
           </div>
-        </Panel>
-        <Panel title="AI resident on this laptop">
+        </Section>
+        <Section title="AI on this laptop" sub="Nothing leaves the machine: 0 cloud calls.">
           {h.models.length ? h.models.map((m: any) => (
-            <div key={m.name} className="flex items-center justify-between border-b border-line py-2.5 last:border-0">
-              <div><div className="font-semibold">{m.name}</div><div className="text-sm text-mute">{m.params} parameters · context {m.context}</div></div>
-              <div className="text-right"><div className="text-xl font-bold">{m.vram_gb} GB</div><div className="text-xs text-mute">in VRAM</div></div>
-            </div>
-          )) : <div className="text-sm text-mute">No model loaded right now (Ollama unloads idle models).</div>}
-          <div className="mt-2 text-xs text-mute">Encoders (SecureBERT 2.0, DeBERTa guard), classic ML and IndicTrans2 run on the CPU; 0 cloud calls.</div>
-        </Panel>
+            <Row key={m.name} lead={<span className="text-xs font-bold">GPU</span>} title={m.name} sub={`${m.params} parameters · context ${m.context}`}
+                 trail={<span><b>{m.vram_gb} GB</b><span className="block text-xs text-mute">in VRAM</span></span>} />
+          )) : <Row lead={<span className="text-xs font-bold">GPU</span>} title="Security LLM idle" sub="Ollama unloads it when idle; the next question loads it again" />}
+          <Row lead={<span className="text-xs font-bold">CPU</span>} title="SecureBERT 2.0, DeBERTa guard, IndicTrans2, classic ML" sub="encoders, prompt-injection guard, 22-language translation, scoring" />
+        </Section>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="AI work, measured" right={<span className="text-xs text-mute">every model call is timed and its output checked</span>}>
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-mute"><tr><th className="pb-2 font-normal">Job</th><th className="pb-2 font-normal">Model</th><th className="pb-2 text-right font-normal">Runs</th><th className="pb-2 text-right font-normal">p50</th><th className="pb-2 text-right font-normal">p95</th><th className="pb-2 text-right font-normal">tok/s</th><th className="pb-2 text-right font-normal" title="share of output that passed its checks (facts, numbers, placeholders, script)">Checked OK</th></tr></thead>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Tile value={runs.toLocaleString('en-IN')} title="AI jobs, timed and checked" sub="briefs, copilot answers, translations, advisory analysis" onClick={() => setSheet('ai')} />
+        <Tile value={apiP50 != null ? `${apiP50} ms` : '—'} title="Typical API response" sub={`median across ${t.api.length} routes since start`} onClick={() => setSheet('api')} />
+        <Tile value={t.ledger.events.toLocaleString('en-IN')} title="Audit-trail events" sub={`${t.ledger.per_min} new per minute · hash-chained`} onClick={() => setSheet('ledger')} />
+        <Tile value={stages.length ? `${Math.round(stages.reduce((s, x) => s + x.seconds, 0))} s` : '—'} title="Last full rebuild" sub={t.pipeline.built_at?.replace('T', ' ').slice(0, 16) ?? 'not yet timed'} onClick={() => setSheet('build')} />
+      </div>
+
+      {sheet === 'ai' && (
+        <Sheet wide title="AI jobs, timed and checked" sub="Live rows are calls since the API started; the rest were timed when first generated and are served from the content-addressed cache." onClose={() => setSheet(undefined)}>
+          <table className="w-full">
+            <thead className="text-left text-sm text-mute"><tr><th className="pb-3 font-normal">Job</th><th className="pb-3 font-normal">Model</th><th className="pb-3 text-right font-normal">Runs</th><th className="pb-3 text-right font-normal">Median</th><th className="pb-3 text-right font-normal">p95</th><th className="pb-3 text-right font-normal">tokens/s</th><th className="pb-3 text-right font-normal" title="share of output that passed its checks (facts, numbers, placeholders, script)">Passed checks</th></tr></thead>
             <tbody>
-              {([...(t.ai as any[]).map((r) => ({ ...r, live: true })), ...(t.ai_record as any[] ?? [])]).map((r) => (
+              {ai.map((r) => (
                 <tr key={(r.live ? 'live' : 'rec') + r.role + r.model} className="border-t border-line">
-                  <td className="py-2 font-medium">{r.role}{r.live && <span className="ml-2 rounded-full bg-ok px-2 py-0.5 text-[10px] font-semibold text-white">live</span>}</td>
-                  <td className="max-w-56 truncate py-2 text-mute" title={r.model}>{r.model}</td>
-                  <td className="py-2 text-right tabular-nums">{r.calls}</td><td className="py-2 text-right tabular-nums">{r.p50_s}s</td>
-                  <td className="py-2 text-right tabular-nums">{r.p95_s}s</td><td className="py-2 text-right tabular-nums">{r.tokens_per_s ?? '—'}</td>
-                  <td className="py-2 text-right tabular-nums">{r.ok_pct}%</td>
+                  <td className="py-3 font-medium">{r.role}{r.live && <span className="ml-2 rounded-full bg-ok px-2 py-0.5 text-[10px] font-semibold text-white">live</span>}</td>
+                  <td className="max-w-64 truncate py-3 text-mute" title={r.model}>{r.model}</td>
+                  <td className="py-3 text-right tabular-nums">{r.calls}</td><td className="py-3 text-right tabular-nums">{r.p50_s} s</td>
+                  <td className="py-3 text-right tabular-nums">{r.p95_s} s</td><td className="py-3 text-right tabular-nums">{r.tokens_per_s ?? '—'}</td>
+                  <td className="py-3 text-right tabular-nums">{r.ok_pct}%</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="mt-3 text-xs text-mute">
-            <b className="text-text">live</b>: calls since the API started ({t.ai.length ? t.ai.reduce((s: number, r: any) => s + r.calls, 0) : 0}).
-            Other rows: every stored answer, timed when it was first generated and served from the content-addressed cache since.
-          </div>
-        </Panel>
-        <Panel title="API latency by route" right={<span className="text-xs text-mute">last 400 requests per route</span>}>
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-mute"><tr><th className="pb-2 font-normal">Route</th><th className="pb-2 text-right font-normal">Calls</th><th className="pb-2 text-right font-normal">p50</th><th className="pb-2 text-right font-normal">p95</th><th className="pb-2 text-right font-normal">Errors</th></tr></thead>
+          <p className="mt-4 text-sm text-mute">Anything that fails its checks is withheld (briefs, answers) or falls back to English (translation); it is never shown as if it passed.</p>
+        </Sheet>
+      )}
+      {sheet === 'api' && (
+        <Sheet title="API response time by route" sub="The last 400 requests per route since the API started." onClose={() => setSheet(undefined)}>
+          <table className="w-full">
+            <thead className="text-left text-sm text-mute"><tr><th className="pb-3 font-normal">Route</th><th className="pb-3 text-right font-normal">Calls</th><th className="pb-3 text-right font-normal">Median</th><th className="pb-3 text-right font-normal">p95</th><th className="pb-3 text-right font-normal">Errors</th></tr></thead>
             <tbody>
-              {(t.api as any[]).slice(0, 12).map((r) => (
+              {(t.api as any[]).map((r) => (
                 <tr key={r.route} className="border-t border-line">
-                  <td className="max-w-80 truncate py-2 font-mono text-xs" title={r.route}>{r.route}</td>
-                  <td className="py-2 text-right tabular-nums">{r.calls}</td><td className="py-2 text-right tabular-nums">{r.p50_ms} ms</td>
-                  <td className="py-2 text-right tabular-nums">{r.p95_ms} ms</td>
-                  <td className={`py-2 text-right tabular-nums ${r.errors ? 'text-crit' : 'text-mute'}`}>{r.errors}</td>
+                  <td className="max-w-80 truncate py-2.5 font-mono text-sm" title={r.route}>{r.route}</td>
+                  <td className="py-2.5 text-right tabular-nums">{r.calls}</td><td className="py-2.5 text-right tabular-nums">{r.p50_ms} ms</td>
+                  <td className="py-2.5 text-right tabular-nums">{r.p95_ms} ms</td>
+                  <td className={`py-2.5 text-right tabular-nums ${r.errors ? 'text-crit' : 'text-mute'}`}>{r.errors}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </Panel>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Where the audit trail comes from">
-          <div className="flex h-4 overflow-hidden rounded-full">
+        </Sheet>
+      )}
+      {sheet === 'ledger' && (
+        <Sheet title="Where the audit trail comes from" sub="Every event is hash-chained to the one before it; any edit breaks the chain." onClose={() => setSheet(undefined)}>
+          <div className="flex h-5 overflow-hidden rounded-full">
+            {prov.map(([p, n], i) => <div key={p} title={`${p}: ${n}`} style={{ width: `${(100 * n) / provTotal}%`, background: PROV_COLOR[i % 6] }} />)}
+          </div>
+          <div className="mt-5">
             {prov.map(([p, n], i) => (
-              <div key={p} title={`${p}: ${n}`} style={{ width: `${(100 * n) / provTotal}%`, background: ['var(--color-text)', 'var(--color-accent)', 'var(--color-ok)', 'var(--color-comp)', 'var(--color-high)', 'var(--color-mute)'][i % 6] }} />
+              <Row key={p} lead={<span className="h-3 w-3 rounded-full" style={{ background: PROV_COLOR[i % 6] }} />} title={p}
+                   sub={({ REAL: 'public feeds', SIM: 'simulated sensors, labelled', AI: 'model outputs', AUTO: 'autopilot actions', HUMAN: 'analyst decisions' } as Record<string, string>)[p] ?? ''}
+                   trail={<b className="tabular-nums">{n.toLocaleString('en-IN')}</b>} />
             ))}
           </div>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            {prov.map(([p, n], i) => (
-              <span key={p} className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: ['var(--color-text)', 'var(--color-accent)', 'var(--color-ok)', 'var(--color-comp)', 'var(--color-high)', 'var(--color-mute)'][i % 6] }} />
-                {p} <b className="tabular-nums">{n.toLocaleString('en-IN')}</b>
-              </span>
-            ))}
-          </div>
-          <div className="mt-2 text-xs text-mute">REAL public feeds · SIM sensors · AI model outputs · AUTO autopilot · HUMAN analyst decisions. Every event is hash-chained.</div>
-        </Panel>
-        <Panel title="Last build, stage by stage" right={<span className="text-xs text-mute">{t.pipeline.built_at?.replace('T', ' ')}</span>}>
+        </Sheet>
+      )}
+      {sheet === 'build' && (
+        <Sheet title="Last full rebuild, stage by stage" sub={`Built ${t.pipeline.built_at?.replace('T', ' ') ?? ''} from the offline feed snapshot.`} onClose={() => setSheet(undefined)}>
           {stages.length ? (
-            <div className="space-y-2">
+            <div className="space-y-4">
               {stages.map((s) => (
-                <div key={s.stage} className="grid grid-cols-[200px_1fr_56px] items-center gap-3 text-sm">
-                  <span className="truncate">{s.stage}</span>
+                <div key={s.stage}>
+                  <div className="mb-1 flex justify-between"><span>{s.stage}</span><span className="tabular-nums text-mute">{s.seconds} s</span></div>
                   <div className="h-2.5 rounded-full bg-panel-2"><div className="h-2.5 rounded-full bg-action" style={{ width: `${Math.max(2, (100 * s.seconds) / stageMax)}%` }} /></div>
-                  <span className="text-right tabular-nums text-mute">{s.seconds}s</span>
                 </div>
               ))}
             </div>
-          ) : <div className="text-sm text-mute">Stage timings appear after the next rebuild.</div>}
-        </Panel>
-      </div>
+          ) : <div className="text-mute">Stage timings appear after the next rebuild.</div>}
+        </Sheet>
+      )}
     </div>
   )
 }
