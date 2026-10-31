@@ -31,3 +31,15 @@ def test_vendor_update_suffix_versions():
     vote = text_vote({"vendor": "siemens", "product": "simatic_wincc", "version": "8.0"},
                      "SIMATIC WinCC versions before 8.0 Update 3 are affected.")
     assert vote.verdict == "affected"
+
+
+def test_restated_deadline_must_keep_its_authority():
+    from backend.app.ai.narrate import validate
+    facts = {"F5": "Decision: tier Compromise (SSVC Act) because suspected compromise: report to cert-in within 6 hours.",
+             "F8": "US CISA added this CVE to its Known Exploited Vulnerabilities catalogue on 2026-10-13."}
+    ok = {"headline": "h", "why_it_matters": [{"text": "Report findings to CERT-In within 6 hours.", "cites": ["F5"]}],
+          "what_to_do": []}
+    wrong = {"headline": "h", "why_it_matters": [{"text": "CISA requires a fix within 6 hours.", "cites": ["F5"]}],
+             "what_to_do": []}
+    assert validate(ok, facts) == []
+    assert any("authority" in p for p in validate(wrong, facts))

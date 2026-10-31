@@ -59,7 +59,11 @@ def build_facts(detail: dict, asset_index: int = 0) -> dict[str, str]:
                                              for x in a["exposure"]["votes"]),
         "F4": "Evidence: " + "; ".join(f"{r['text']} ({r['evidence']})" for r in a["rules"]) if a["rules"] else
               "Evidence: no exploitation evidence yet.",
-        "F5": f"Decision: tier {a['tier']} (SSVC {a['decision']}) because {a['deadline_basis'].lower()}.",
+        "F5": (f"Decision: Odyssey's Bayesian decision model rates this asset a suspected compromise "
+               f"(P = {a['bayes']['p_compromise']:.0%}; tier Compromise, SSVC Act). Under India's CERT-In Directions "
+               f"of 28 Apr 2022, a suspected compromise must be reported to CERT-In within 6 hours."
+               if a["tier"] == "Compromise" and a.get("bayes") else
+               f"Decision: tier {a['tier']} (SSVC {a['decision']}) because {a['deadline_basis'].lower()}."),
         "F6": "Recommended actions: " + " | ".join(f"{x['type']}: {x['step']}" for x in detail["actions"]),
         "F7": f"Source description: {v['description']}",
     }
@@ -90,8 +94,25 @@ def validate(brief: dict, facts: dict[str, str]) -> list[str]:
             if token not in corpus:
                 problems.append(f"ungrounded token '{token}'")
         for m in _RESTATED.findall(text):
-            problems.append(f"restates a score/deadline '{m}' (shown on the card; do not restate)")
+            if not _attributed_correctly(m, text, facts):
+                problems.append(f"restates '{m}' without the same wording and authority as the facts")
     return problems
+
+
+_AUTHORITIES = re.compile(r"cert-?in|cisa|rbi|daksh|dpdp|nciipc|kev", re.I)
+
+
+def _attributed_correctly(phrase: str, sentence: str, facts: dict[str, str]) -> bool:
+    """A restated deadline/score must appear verbatim in a fact, and every authority the sentence names must be
+    named in that same fact (blocks e.g. a CERT-In 12-hour deadline being attributed to CISA)."""
+    clause = next((s for s in re.split(r"(?<=[.;])\s+|,\s+(?=and\b)", sentence) if phrase.lower() in s.lower()), sentence)
+    named = {a.lower().replace("-", "") for a in _AUTHORITIES.findall(clause)}
+    for fact in facts.values():
+        if phrase.lower() in fact.lower():
+            in_fact = {a.lower().replace("-", "") for a in _AUTHORITIES.findall(fact)}
+            if named <= in_fact:
+                return True
+    return False
 
 
 MAX_REPAIRS = 1  # one self-correction round with the same model; never a different model
