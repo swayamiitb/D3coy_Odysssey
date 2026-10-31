@@ -109,11 +109,15 @@ def alerts(tier: str | None = None, sector: str | None = None, org: str | None =
     return _alerts(where, tuple(args), limit)
 
 
-def _actions(vuln: dict, kev: dict | None, record: dict) -> list[dict]:
-    """Deterministic, sourced actions. The LLM never invents these; it may only explain them."""
+def _actions(vuln: dict, kev: dict | None, record: dict, installed: list[str] | None = None) -> list[dict]:
+    """Deterministic, sourced actions. The LLM never invents these; it may only explain them.
+    Fixed releases are only those newer than the oldest installed version (never suggest a downgrade)."""
+    from .engine.versions import Version
     actions = []
+    floor = min((Version(v) for v in installed or []), default=None)
     fixed = sorted({v["version"] for e in record.get("cna_affected", []) for v in e.get("versions", [])
-                    if v.get("status") == "unaffected"})
+                    if v.get("status") == "unaffected" and (floor is None or Version(v["version"]) > floor)},
+                   key=Version)
     if kev:
         actions.append({"type": "patch", "step": kev["requiredAction"], "source": "CISA KEV requiredAction",
                         "due": kev["dueDate"]})
@@ -160,7 +164,7 @@ def alert_detail(org_id: str, cve_id: str) -> dict:
                        exploited=bool(kev) or vuln["ssvc"].get("Exploitation") == "active",
                        decoy_surge="DECOY_SURGE" in fired or "DECOY_EXPLOIT" in fired,
                        beacon="IOC_SIGHTING" in fired) if top else None
-    return {"org": dict(o), "vulnerability": vuln, "assets": assets, "actions": _actions(vuln, kev, record),
+    return {"org": dict(o), "vulnerability": vuln, "assets": assets, "actions": _actions(vuln, kev, record, [x["version"] for x in assets]),
             "timeline": timeline, "attack": attack, "scoring_config_hash": scoring_config()[1]}
 
 
