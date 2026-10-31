@@ -176,8 +176,8 @@ were already known when monitoring began are reported apart and not counted as l
 
 | Check | How | Result |
 |---|---|---|
-| Engine tests | `.venv\Scripts\python -m pytest -q` | 91/91: 60 core plus 31 from the shield thread. Includes a regression test proving concurrent writers no longer fork the audit chain, and tests for decay, the clocks, supplier fan-out and the hostile advisory. |
-| Test bench | Proof → *Run them now* (`POST /api/tests/run`) | 66/66: 4 attack drills on a data copy, 5 detection checks with negative controls, the audit-trail chain, and the engine tests. |
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 93/93: 62 core plus 31 from the shield thread. Includes a regression test proving concurrent writers no longer fork the audit chain, and tests for decay, the clocks, supplier fan-out and the hostile advisory. |
+| Test bench | Proof → *Run them now* (`POST /api/tests/run`) | 103/103: 4 attack drills on a data copy, 5 detection checks with negative controls, the audit-trail chain, and the engine tests. |
 | Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 15/15 on a private DB copy: every screen loads; approve and reject; a warning from issued to closed; a SOC case from new to closed; advisory analysis; compliance clocks, supplier fan-out and the hostile advisory; three live drills with live re-scoring; the audit trail. |
 | Interface | `python scripts\ui_audit.py` (Playwright drives the installed Edge) | 17/17 click-through steps on a copy API at :8001, with 0 page or console errors and 0 HTTP 5xx. |
 | Production build | `cd frontend && npm run build` | OK (one large-chunk warning only). |
