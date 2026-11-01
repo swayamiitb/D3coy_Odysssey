@@ -26,7 +26,7 @@ export function Plexus({ className = '' }: { className?: string }) {
       const n = Math.min(150, Math.max(30, Math.round((W * H) / 5200)))
       nodes = Array.from({ length: n }, () => {
         const z = 0.35 + Math.random() * 0.65
-        const a = Math.random() * Math.PI * 2, sp = (5 + Math.random() * 9) * z
+        const a = Math.random() * Math.PI * 2, sp = (6 + Math.random() * 10.8) * z // 1.2x the clip's drift
         return { x: Math.random() * W, y: Math.random() * H, z, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, tw: Math.random() * Math.PI * 2 }
       })
     }
