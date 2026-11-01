@@ -219,8 +219,24 @@ A second Claude Code thread works in the same `d:\DECOY` folder on "Odyssey in a
 web app and red-teams it (`agent/` middleware for ASGI/WSGI/Express, `backend/app/shield.py`,
 `backend/app/engine/webattack.py`, `backend/app/engine/redteam.py`, `target/portal.py` on :8080, `frontend/src/Shield.tsx`,
 `tests/test_shield.py`, its own entry in `README.md`). It shares the ledger, the autopilot and the database, so its attacks
-create real proposals and cases; its 31 tests run in the same suite. Both threads' turns trigger the auto-sync. The main
-thread's commits list their files explicitly so as not to sweep the shield's in-progress work in.
+create real proposals and cases; its tests run in the same suite (49 of the 124). Both threads' turns trigger the auto-sync.
+The main thread's commits list their files explicitly so as not to sweep the shield's in-progress work in.
+
+Since the first version of this document the shield thread also delivered, all committed and verified: **Channels**
+(`backend/app/notify.py`, `config/notify.json`, secrets in the git-ignored `config/notify.local.json` or the environment):
+a tap on the ledger, cursor at the head on API start, one card per routable event to Slack, Discord, Teams, e-mail or any
+webhook, severity floor High, one per (kind, subject) per 10 min, cap 20/min, back-off 60 s per failing destination; new
+ledger kinds `notify.sent` / `notify.failed` (destination host only, never the URL); endpoints `GET /api/notify`,
+`POST /api/notify/test/{name}`, `POST /api/notify/channels/{name}/enabled?on=`, `POST /api/notify/reload`; starts only
+when `ODYSSEY_LIVE != 0` and `ODYSSEY_NOTIFY != 0`; `auto.notify` is deliberately not routed (one CVE intake would be
+eleven org notices), `live.intake`, `live.detect.*`, `live.rescore`, `live.drill.end`, `auto.case_opened`,
+`auto.escalate`, `auto.proposed` and `shield.*` are. The **Ops Console** (`target/console.py`, :8090) is a webhook receiver
+with a live card page. `agent/odyssey_proxy.py` is a reverse-proxy agent for any stack (drops with 403 before the upstream).
+The Live page gained "A real app, protected" and "Alerts delivered to your apps" above the pipeline section.
+`scripts/demo_reset.ps1` also launches the console if it is down and, as its last step, clears it, so the proposals that
+`warm_cache.py` creates leave no cards before a demo; after an API restart the shield registry is empty for up to 10 s
+until the portal's heartbeat re-announces it. The shield thread also moved all test scratch off the full C: drive (see
+`machine-c-drive-nearly-full` in the team lead's memory notes and `tests/conftest.py`).
 
 ## 17. Known limits
 
