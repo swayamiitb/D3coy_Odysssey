@@ -39,7 +39,7 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
    national risk, 205 remove 80%; *Advisories*: the real CISA Siemens WinCC advisory, 13 assets at 7 operators,
    version ranges parsed; then the hostile advisory, blocked by the guard with the deterministic layer still working.
 6. **Organisations (45 s).** Vidyut Grid West Corp opens on its threat map: hover the VPN gateway (compromised, calling a real QakBot C2), the HTTPS port under real attack pressure, the Ivanti scanning surge; then what outsiders see, its suppliers, its Marathi inbox. "Country threat maps draw arcs between nations; this is the same idea per operator, every line with its source."
-7. **Proof (60 s).** Eight claims, each with its evidence; press *Run them now* (121 checks, about two minutes,
+7. **Proof (60 s).** Eight claims, each with its evidence; press *Run them now* (127 checks, about two minutes,
    let it run while you take questions); *How it works*: six steps, the model table, the open formula.
 8. **Close (20 s).** "Real data, measured claims, a human in the loop, zero cloud calls, and it runs on this laptop."
 

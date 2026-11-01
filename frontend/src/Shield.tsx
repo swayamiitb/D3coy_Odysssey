@@ -202,7 +202,7 @@ export function ShieldSection({ onGo }: { onGo: (view: 'soc' | 'now', tab?: stri
         )}
         <p className="mt-5 text-sm text-mute">
           Connect any app in three lines: <code className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-[13px]">app.add_middleware(OdysseyShield, app_id="my-app", mode="enforce")</code>.
-          Agents ship for ASGI (FastAPI/Starlette/Django), WSGI (Flask) and Express, plus an access-log tailer for apps you can't modify. See <span className="font-mono">agent/README.md</span>.
+          Agents ship for ASGI (FastAPI/Starlette/Django), WSGI (Flask) and Express, a reverse proxy for any stack you cannot modify, and an access-log tailer. See <span className="font-mono">agent/README.md</span>.
         </p>
       </Section>
 

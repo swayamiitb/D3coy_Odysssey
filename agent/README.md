@@ -18,9 +18,9 @@ Nothing leaves your machine: the shield is a local service. The shield URL defau
 
 | Approach | Agent | Blocks inline? | Change to your app |
 |---|---|---|---|
-| **In-process middleware** (recommended) | `odyssey_asgi.py`, `odyssey_wsgi.py`, `odyssey_express.js` | Yes (enforce mode) | 3 lines |
+| **In-process middleware** (recommended when you own the code) | `odyssey_asgi.py`, `odyssey_wsgi.py`, `odyssey_express.js` | Yes (enforce mode) | 3 lines |
+| **Reverse proxy** (any stack: PHP, Java, .NET, a static site, a container) | `odyssey_proxy.py` | Yes (enforce mode) | None — point clients at the proxy |
 | **Log tailing** (least invasive) | `tail_logs.py` | No (detect only) | None — read-only on the access log |
-| **Reverse proxy** | point the log tailer at the proxy's access log, or add the Express agent to a Node proxy | Via the proxy | None to the app |
 
 ### ASGI — FastAPI, Starlette, Quart, Django ASGI
 ```python
@@ -41,7 +41,17 @@ const { odysseyShield } = require('./agent/odyssey_express')
 app.use(odysseyShield({ appId: 'ops-console', name: 'Ops Console', mode: 'enforce' }))
 ```
 
-### Access-log tailing — any server you can't modify (Nginx, Apache, …)
+### Reverse proxy — any app you can't modify, on any stack
+```bash
+python agent/odyssey_proxy.py --listen 127.0.0.1:9000 --upstream http://127.0.0.1:3000 \
+    --app legacy-billing --name "Legacy Billing" --org BFS-01 --mode enforce
+```
+Clients (and the red-team) use `http://127.0.0.1:9000`; the proxy forwards to the app with `X-Forwarded-For/-Host/-Proto`
+set, the shield inspects every request on the way through, and in enforce mode an attack is answered 403 before it
+reaches the app. Plain HTTP to the upstream; put the proxy behind your TLS terminator. An unreachable shield never stops
+it forwarding (fail-open); an unreachable upstream answers 502.
+
+### Access-log tailing — a server whose log you can read (Nginx, Apache, …)
 ```bash
 python agent/tail_logs.py --app marketing-site --name "Marketing Site" \
     --log /var/log/nginx/access.log --format combined
