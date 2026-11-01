@@ -457,7 +457,7 @@ export function IntelGraph({ focus, onFocus, initialNode }: { focus?: string; on
         <div className={`${atNow ? 'mt-6' : 'mt-3'} flex items-start gap-5`}>
           <div className="soc-dark relative min-w-0 flex-1 overflow-hidden rounded-2xl" style={{ height: 'clamp(560px, 64vw, 900px)' }} data-intelgraph role="img" aria-label={`Intelligence graph: ${g.focus.label}`}>
             <GraphCanvas view={viewRef} onHover={setHover} onPick={setCard} dark />
-            <div className="pointer-events-none absolute bottom-3 left-4 text-[11.5px] text-mute">Hover a node to light what it touches · click for its card · drag to pan · wheel to zoom · double-click to reset</div>
+            <div className="pointer-events-none absolute bottom-3 left-4 text-[11.5px] text-mute">Hover a node to light what it touches · click for its card · wheel to zoom, then drag to pan · double-click to reset</div>
           </div>
 
           <aside className="sticky top-24 w-[360px] shrink-0 self-start rounded-2xl bg-panel-2 p-5 text-sm">

@@ -58,7 +58,7 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
       const { pos, rings } = v.layout
       const isDark = darkRef.current
       const c = cam.current
-      const R = Math.min(W, H) * 0.47 * c.k
+      const R = Math.min(W, H) * 0.42 * c.k
       const cx = W / 2 + c.x, cy = H / 2 + c.y
       const P = (p: { x: number; y: number }) => [cx + p.x * R, cy + p.y * R] as [number, number]
       const ink = isDark ? '244,244,245' : '0,0,0'
@@ -285,15 +285,20 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
       for (const h of hits.current) { const d = Math.hypot(h.x - x, h.y - y); if (d < h.r && d < bd) { best = h; bd = d } }
       return best
     }
+    const clamp = (c: { k: number; x: number; y: number }) => {
+      if (c.k <= 1.001) return { k: 1, x: 0, y: 0 }
+      const lim = Math.min(W, H) * 0.42 * (c.k - 1) + 40
+      return { k: c.k, x: Math.max(-lim, Math.min(lim, c.x)), y: Math.max(-lim, Math.min(lim, c.y)) }
+    }
     const onMove = (e: PointerEvent) => {
       const [x, y] = at(e)
       if (drag) {
         if (Math.hypot(x - drag.x, y - drag.y) > 3) drag.moved = true
-        cam.current = { ...cam.current, x: drag.cx + (x - drag.x), y: drag.cy + (y - drag.y) }
+        cam.current = clamp({ ...cam.current, x: drag.cx + (x - drag.x), y: drag.cy + (y - drag.y) })
         return
       }
       const h = nearest(x, y)
-      el.style.cursor = h ? 'pointer' : 'grab'
+      el.style.cursor = h ? 'pointer' : cam.current.k > 1 ? 'grab' : 'default'
       onHover(h?.id)
     }
     const onDown = (e: PointerEvent) => { const [x, y] = at(e); drag = { x, y, cx: cam.current.x, cy: cam.current.y, moved: false }; el.setPointerCapture(e.pointerId) }
@@ -309,10 +314,10 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
       e.preventDefault()
       const [x, y] = at(e)
       const c = cam.current
-      const k = Math.max(0.8, Math.min(3.2, c.k * (e.deltaY < 0 ? 1.12 : 1 / 1.12)))
+      const k = Math.max(1, Math.min(3.2, c.k * (e.deltaY < 0 ? 1.12 : 1 / 1.12)))
       // zoom about the pointer
       const f = k / c.k
-      cam.current = { k, x: x - W / 2 - (x - W / 2 - c.x) * f, y: y - H / 2 - (y - H / 2 - c.y) * f }
+      cam.current = clamp({ k, x: x - W / 2 - (x - W / 2 - c.x) * f, y: y - H / 2 - (y - H / 2 - c.y) * f })
     }
     const onDbl = () => { cam.current = { k: 1, x: 0, y: 0 } }
     el.addEventListener('pointermove', onMove)
@@ -343,7 +348,7 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
 
 /** Unit-circle layout from the record's ring and angle: ring radii leave room for the inner labels; the focus organisation sits at the centre. */
 export function circleLayout(nodes: GraphNode[], rings: number, kindLabel: Record<string, string>): Layout {
-  const RADII: Record<number, number[]> = { 5: [0.36, 0.56, 0.74, 0.88, 1], 6: [0.3, 0.48, 0.64, 0.78, 0.9, 1] }
+  const RADII: Record<number, number[]> = { 5: [0.34, 0.55, 0.74, 0.89, 1], 6: [0.28, 0.46, 0.62, 0.77, 0.9, 1] }
   const table = RADII[rings] ?? Array.from({ length: rings }, (_, i) => (i + 1) / rings)
   const pos: Layout['pos'] = {}
   const ringsOf: Record<number, { r: number; kinds: string[] }> = {}
