@@ -30,7 +30,7 @@ import time
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Callable
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
 
@@ -88,6 +88,18 @@ def load_config(path: Path = CONFIG, local: Path = LOCAL, env: dict | None = Non
 
 
 # ---------------------------------------------------------------- from a ledger event to one card
+def _graph_link(public_url: str, node: str | None, org_id: str | None = None) -> str:
+    """Intel -> Graph, opened on an entity's card when its node id is known (product:fortios, cve:CVE-..., indicator:...,
+    actor:G0007). Asset nodes (asset:<ORG>-A001) exist only in their organisation's graph, so they carry focus=<ORG>."""
+    link = f"{public_url}/?view=intel&tab=graph"
+    if not node:
+        return link
+    link += f"&node={quote(node, safe='')}"
+    m = re.match(r"asset:([A-Za-z]+-\d+)-", node)
+    org = org_id or (m.group(1) if m else None)
+    return link + (f"&focus={quote(org, safe='')}" if org else "")
+
+
 def card(event: dict, public_url: str) -> dict | None:
     """One alert card from a ledger event, or None when the kind is not something a person should be told about."""
     kind, p = event["kind"], event.get("payload") or {}
@@ -170,12 +182,12 @@ def card(event: dict, public_url: str) -> dict | None:
         sev = p.get("severity") if p.get("severity") in RANK else "High"
         title = f"Watchlist: {p.get('label') or 'rule'} fired on {p.get('target', subject)}"
         lines = [p.get("reason", "")]
-        link = f"{public_url}/?view=intel&tab=graph"
+        link = _graph_link(public_url, p.get("target") or subject, p.get("org_id"))
     elif kind == "ioc.match":
         sev = p.get("severity") if p.get("severity") in RANK else "High"
         title = f"Indicator matched: {p.get('type', 'indicator')} {p.get('value', subject)} seen in {p.get('where', 'our telemetry')}"
         lines = [f"source: {p['source']}" if p.get("source") else ""]
-        link = f"{public_url}/?view=intel&tab=graph"
+        link = _graph_link(public_url, f"indicator:{p['value']}" if p.get("value") else None)
     elif kind == "brand.hit":
         try:
             score = float(p.get("score") or 0)

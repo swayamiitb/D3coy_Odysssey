@@ -108,12 +108,16 @@ def test_cards_from_the_events_people_should_hear_about():
     assert notify.card({"kind": "vuln.published", "subject": "CVE-2026-2", "payload": {}}, url) is None
     assert notify.card({"kind": "notify.sent", "subject": "console:x", "payload": {}}, url) is None
     # kinds written by the graph, indicator, brand-monitoring and attack-surface engines
-    w = notify.card({"kind": "watch.fired", "subject": "w1", "payload": {"target": "vpn-gw01", "label": "C2 contact",
-                                                                        "reason": "beacon to a listed C2", "severity": "Critical"}}, url)
-    assert w["title"] == "Watchlist: C2 contact fired on vpn-gw01" and w["severity"] == "Critical" and w["lines"] == ["beacon to a listed C2"]
-    i = notify.card({"kind": "ioc.match", "subject": "i1", "payload": {"value": "198[.]51[.]100[.]7", "type": "ip", "source": "bulk import",
-                                                                       "where": "firewall flows", "severity": "High"}}, url)
+    w = notify.card({"kind": "watch.fired", "subject": "asset:PWR-01-A001", "payload": {"target": "asset:PWR-01-A001", "label": "C2 contact",
+                                                                                       "reason": "beacon to a listed C2", "severity": "Critical"}}, url)
+    assert w["title"] == "Watchlist: C2 contact fired on asset:PWR-01-A001" and w["severity"] == "Critical" and w["lines"] == ["beacon to a listed C2"]
+    assert w["link"].endswith("?view=intel&tab=graph&node=asset%3APWR-01-A001&focus=PWR-01")  # an asset lives in its organisation's graph
+    cve = notify.card({"kind": "watch.fired", "subject": "cve:CVE-2026-104935", "payload": {"target": "cve:CVE-2026-104935", "label": "KEV"}}, url)
+    assert cve["link"].endswith("&node=cve%3ACVE-2026-104935") and "focus" not in cve["link"]
+    i = notify.card({"kind": "ioc.match", "subject": "ioc:198[.]51[.]100[.]7", "payload": {"value": "198[.]51[.]100[.]7", "type": "ip", "source": "bulk import",
+                                                                                           "where": "firewall flows", "severity": "High"}}, url)
     assert i["title"] == "Indicator matched: ip 198[.]51[.]100[.]7 seen in firewall flows" and i["severity"] == "High"
+    assert i["link"].endswith("&node=indicator%3A198%5B.%5D51%5B.%5D100%5B.%5D7")
     hit = {"term": "CityPower", "org_id": "PWR-01", "source": "pastebin", "kind": "credential dump", "value": "hxxp://p[.]example/x"}
     assert notify.card({"kind": "brand.hit", "subject": "b1", "payload": {**hit, "score": 92}}, url)["severity"] == "Critical"
     b = notify.card({"kind": "brand.hit", "subject": "b2", "payload": {**hit, "score": 71}}, url)
@@ -121,6 +125,7 @@ def test_cards_from_the_events_people_should_hear_about():
     s = notify.card({"kind": "surface.finding", "subject": "s1", "payload": {"host": "portal.citypower.example", "check": "TLS 1.0 enabled",
                                                                              "severity": "High", "cwe": "CWE-326"}}, url)
     assert s["title"] == "Attack-surface finding on portal.citypower.example: TLS 1.0 enabled" and "CWE-326" in s["lines"]
+    assert s["link"].endswith("?view=intel&tab=graph")  # no graph node for a surface finding yet
     # ...and the shipped policy routes all four
     import fnmatch
     kinds = notify.load_config(env={})["routing"]["kinds"]
