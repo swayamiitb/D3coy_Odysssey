@@ -5,7 +5,9 @@ import { IndiaHex } from './map/IndiaHex'
 import { originsFromData, routesFor, snapshotLabel, targetsFrom, type OriginFilter } from './map/data'
 import { OriginRail } from './map/OriginRail'
 import { SiteView } from './map/SiteView'
-import { WorldMap } from './map/WorldMap'
+import { GlobeFrame, imageryLine } from './map/GlobeFrame'
+import { liveArcs, type Detection } from './map/livearcs'
+import type { ImageryInfo } from './map/ThreatGlobe'
 
 /* Threat activity (ui-08): the Now page's signature card. World: a real 2D map (world-atlas countries; India from its
    official outline, by state) with the real attack origins (SANS ISC DShield top attacking IPs located by RIPEstat;
@@ -27,8 +29,10 @@ const DARK = {
 
 const FILTERS: [OriginFilter, string][] = [['all', 'All origins'], ['attack', 'Attack sources'], ['c2', 'Botnet C2']]
 
-export function ThreatMap({ orgs, onOrg }: { orgs?: OrgRow[]; onOrg: (id: string) => void }) {
+export function ThreatMap({ orgs, onOrg, live }: { orgs?: OrgRow[]; onOrg: (id: string) => void; live?: { detections?: Detection[] } }) {
   const [mode, setMode] = useState<'world' | 'india'>('world')
+  const [imagery, setImagery] = useState<ImageryInfo>()
+  const arcs = useMemo(() => liveArcs(live?.detections, orgs), [live, orgs])
   const [paths, setPaths] = useState<'hover' | 'all'>('hover')
   const [filter, setFilter] = useState<OriginFilter>('all')
   const [focus, setFocus] = useState<string>()
@@ -63,7 +67,7 @@ export function ThreatMap({ orgs, onOrg }: { orgs?: OrgRow[]; onOrg: (id: string
 
   return (
     <div className="soc-dark rounded-2xl" style={DARK}>
-      <SocCard title="Threat activity" prov={['REAL', 'SIM']} className="!bg-[#0e0e10]"
+      <SocCard title="Threat activity" prov={['REAL', 'SIM']} className="!bg-[#0e0e10]" obj={['dashboard']}
                sub={site ? `Inside ${site}: the government agencies there, and the real attack origins aimed at them`
                  : mode === 'world' ? 'Where attacks start, and the Indian operators they reach. Hover an origin for its attack paths.'
                    : 'Where the warnings are: states by their operators’ Critical warnings'}
@@ -79,8 +83,8 @@ export function ThreatMap({ orgs, onOrg }: { orgs?: OrgRow[]; onOrg: (id: string
         <div className="grid border-t border-line xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className={`relative min-w-0 overflow-hidden rounded-bl-2xl max-xl:rounded-none ${site ? 'h-[560px] sm:h-[580px]' : mode === 'world' ? 'h-[300px] sm:h-[420px] md:h-[500px]' : 'h-[520px]'} xl:h-full xl:min-h-[600px]`}>
             {mode === 'world' ? (
-              <WorldMap origins={origins} targets={targets} routes={routes} focus={focus} showAll={paths === 'all'}
-                        onFocus={setFocus} onPick={setSite} paused={!!site} topLeft={select} />
+              <GlobeFrame origins={origins} targets={targets} routes={routes} focus={focus} showAll={paths === 'all'}
+                          onFocus={setFocus} onPick={setSite} paused={!!site} topLeft={select} live={arcs} onImagery={setImagery} />
             ) : (
               <div className="h-full">{orgs ? <IndiaHex orgs={orgs} onOrg={onOrg} onSite={open} /> : <div className="h-full bg-panel-2" />}</div>
             )}
@@ -117,6 +121,12 @@ export function ThreatMap({ orgs, onOrg }: { orgs?: OrgRow[]; onOrg: (id: string
             )}
           </aside>
         </div>
+        {mode === 'world' && !site && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-line px-5 py-2.5 text-[12.5px] text-mute">
+            <span className="inline-flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${imageryLine(imagery).dot}`} />{imageryLine(imagery).text}</span>
+            {arcs.length > 0 && <span className="text-text">Live: {arcs.map((a) => `${a.state} → C2 ${a.c2}`).join(' · ')}</span>}
+          </div>
+        )}
       </SocCard>
     </div>
   )

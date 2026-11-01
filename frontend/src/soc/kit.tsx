@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { fetchJson } from '../api'
-import { Prov } from '../ui'
+import { Objectives, Prov, type ObjectiveKey } from '../ui'
 
 /* SOC kit (ui-07): the parts the console's new panels share. One card recipe, one segmented control, honest deltas,
    the screenshot set's alert cards, a semicircle gauge, a stacked share bar and ranked bars. Colour only on data;
@@ -51,8 +51,8 @@ export const countryName = (cc: string): string => {
 }
 
 /** The console's card: a title, one quiet line, actions and provenance on the right, then the content. */
-export function SocCard({ title, sub, right, prov, children, className = '', bodyClass = 'px-5 pb-5' }: {
-  title: ReactNode; sub?: ReactNode; right?: ReactNode; prov?: ('REAL' | 'SIM')[]; children: ReactNode; className?: string; bodyClass?: string
+export function SocCard({ title, sub, right, prov, obj, children, className = '', bodyClass = 'px-5 pb-5' }: {
+  title: ReactNode; sub?: ReactNode; right?: ReactNode; prov?: ('REAL' | 'SIM')[]; obj?: ObjectiveKey[]; children: ReactNode; className?: string; bodyClass?: string
 }) {
   return (
     <section className={`soc-card flex min-w-0 flex-col ${className}`}>
@@ -60,6 +60,7 @@ export function SocCard({ title, sub, right, prov, children, className = '', bod
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-[16px] font-semibold">{title}{prov?.map((p) => <Prov key={p} p={p} />)}</h2>
           {sub && <p className="mt-0.5 text-[13px] text-mute">{sub}</p>}
+          {obj && <Objectives keys={obj} className="mt-1.5" />}
         </div>
         {right}
       </header>

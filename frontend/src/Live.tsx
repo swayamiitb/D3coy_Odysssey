@@ -1,4 +1,5 @@
 import { Activity, ArrowRight, Check, Loader2, Radar, ScanSearch, ShieldAlert, Waypoints } from 'lucide-react'
+import { IncomingCves } from './soc/IncomingCves'
 import { useEffect, useState } from 'react'
 import { istTime } from './proactive'
 import { ShieldSection } from './Shield'
@@ -102,7 +103,7 @@ function DrillCard({ d }: { d: any }) {
   )
 }
 
-export function Live({ s, onGo }: { s?: LiveState; onGo: (view: 'soc' | 'now', tab?: string) => void }) {
+export function Live({ s, onGo, onAlert }: { s?: LiveState; onGo: (view: 'soc' | 'now', tab?: string) => void; onAlert?: (org: string, cve: string) => void }) {
   const toast = useToast()
   const [busy, setBusy] = useState<string>()
   if (!s) return <div className="py-10 text-mute"><Loader2 size={16} className="mr-2 inline animate-spin" />Connecting to the live engine…</div>
@@ -124,7 +125,10 @@ export function Live({ s, onGo }: { s?: LiveState; onGo: (view: 'soc' | 'now', t
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-16">
       {/* The shield, the pipeline, the detections and the feeds, as a strip: open the one you want. */}
-      <TabBoxes label="Live system" defaultOpen="shield" items={[
+      <TabBoxes label="Live system" defaultOpen="incoming" items={[
+        { key: 'incoming', title: 'Incoming CVEs, ranked for you', chip: <Prov p="REAL" />, count: s.incoming ? `${s.incoming.total}` : '—',
+          preview: s.incoming?.last_check ? `${s.incoming.total} CVEs in the stream · ${s.incoming.ours} name our technologies · ${s.incoming.exploited} exploited or forecast · NVD read every 2 minutes` : 'Waiting for the first NVD read',
+          panel: <IncomingCves onAlert={onAlert} /> },
         { key: 'shield', title: 'A real app, protected', chip: <Prov p="SIM" />, preview: 'Every request to the protected app, inspected; red-team scenarios to run against it; attacks and attackers',
           panel: <div className="soc-card px-6 py-5"><ShieldSection onGo={onGo} /></div> },
         { key: 'pipeline', title: 'The pipeline, right now', count: `${p.detections_hour}`,

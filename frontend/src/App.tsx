@@ -19,6 +19,7 @@ import { AlertChip } from './soc/overview'
 import { IntelSources } from './soc/panels'
 import { Rail, RAIL_NARROW, RAIL_WIDE, useRail } from './soc/Rail'
 import { RealFeedsStrip } from './soc/realfeeds'
+import { Recommended } from './soc/Recommended'
 import { CommandPalette } from './soc/Search'
 import { Hero, Tabs, ToastProvider, WRAP, type ObjectiveKey } from './ui'
 
@@ -52,7 +53,7 @@ function initial(): { view: View; tab?: string } {
 }
 
 /** Live: the running system. One poll feeds the hero figures and the page. */
-function LivePage({ go }: { go: Go }) {
+function LivePage({ go, onAlert }: { go: Go; onAlert: (org: string, cve: string) => void }) {
   const s = useLive()
   return (
     <>
@@ -63,7 +64,7 @@ function LivePage({ go }: { go: Go }) {
         <LiveStrip s={s} onShield={() => window.scrollTo({ top: 900, behavior: 'smooth' })} />
         <LiveThreatMap s={s} />
         <Throughput s={s} />
-        <Live s={s} onGo={(v, t) => go(v, t)} />
+        <Live s={s} onGo={(v, t) => go(v, t)} onAlert={onAlert} />
       </main>
     </>
   )
@@ -157,7 +158,7 @@ export default function App() {
         <Now onOpen={(c) => setSelected(c)} tick={tick} onOrg={(id) => { setOrg(id); go('orgs') }} onGo={(v, t) => go(v, t)} />
       )}
 
-      {view === 'live' && <LivePage go={go} />}
+      {view === 'live' && <LivePage go={go} onAlert={openAlert} />}
 
       {view === 'soc' && (
         <>
@@ -193,6 +194,7 @@ export default function App() {
               <div className="flex min-w-0 flex-1 flex-col gap-14">
                 <IntelGraph focus={graphFocus} onFocus={setGraphFocus} initialNode={graphNode} />
                 <Watchlist onOpen={(id) => { setGraphNode(id); window.scrollTo({ top: 0 }) }} />
+                <Recommended onOrg={(id) => { setOrg(id); go('orgs') }} onAlert={openAlert} onGo={(v, t) => go(v, t)} />
 
               </div>
             ) : intelTab === 'overview' ? (

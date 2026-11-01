@@ -36,7 +36,7 @@ function candidates(): Candidate[] {
 
 const css = (hex: string, a = 1) => Cesium.Color.fromCssColorString(hex).withAlpha(a)
 const deg = (at: [number, number], h = 0) => Cesium.Cartesian3.fromDegrees(at[1], at[0], h)
-const WORLD = { lon: 70, lat: 14, h: 26_000_000 }  // the whole disc fits the card, India centre-right
+const WORLD = { lon: 70, lat: 14, h: 21_500_000 }  // the whole disc fits the card, India centre-right
 const INDIA = { lon: 80, lat: 21, h: 3_600_000 }
 
 function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
@@ -56,6 +56,7 @@ export interface ThreatGlobeProps {
   view: 'world' | 'india'
   paused: boolean
   onFocus: (id?: string) => void
+  onPick?: (state: string) => void
   onImagery: (info: ImageryInfo) => void
   onFail: (why: string) => void
 }
@@ -159,8 +160,9 @@ export function ThreatGlobe(props: ThreatGlobeProps) {
     handler.setInputAction((m: Cesium.ScreenSpaceEventHandler.PositionedEvent) => {
       const picked = scene.pick(m.position)
       const ent = picked?.id instanceof Cesium.Entity ? picked.id : undefined
-      const meta = ent?.properties?.getValue(Cesium.JulianDate.now()) as { origin?: string; target?: [number, number] } | undefined
-      if (meta?.target) viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(meta.target[1], meta.target[0], 1_400_000), duration: 1.4 })
+      const meta = ent?.properties?.getValue(Cesium.JulianDate.now()) as { origin?: string; target?: [number, number]; state?: string } | undefined
+      if (meta?.target && meta.state && live.current.onPick) live.current.onPick(meta.state)
+      else if (meta?.target) viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(meta.target[1], meta.target[0], 1_400_000), duration: 1.4 })
       else if (meta?.origin) live.current.onFocus(meta.origin)
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 
@@ -232,7 +234,7 @@ export function ThreatGlobe(props: ThreatGlobeProps) {
         id: `t-${t.state}`, position: deg(t.at, 0),
         point: { pixelSize: 6 + Math.min(10, t.critical * 1.6), color: css(color, 0.95), outlineColor: css('#ffffff', 0.9), outlineWidth: 1.5 },
         label: label(t.state, '#ffffff', -13, !t.compromise),
-        properties: { title: t.state, target: t.at,
+        properties: { title: t.state, target: t.at, state: t.state,
                       lines: [`${t.orgs.length} operator${t.orgs.length > 1 ? 's' : ''} · ${t.critical} Critical warnings${t.compromise ? ' · suspected compromise' : ''}`,
                               'SIM · operators and landing points are simulated'] },
       })

@@ -45,6 +45,7 @@ FEEDS = {
 # A feed's own cadence where the 15-minute cycle would be impolite or pointless: DShield's API is a community service
 # and its port history is daily; CISA's advisory feed changes a few times a day. Everything else runs every cycle.
 FEED_CADENCE_S = {"SANS ISC DShield": 3600, "CISA advisories": 3600}
+NVD_EVERY_S = 120  # the NVD API allows 5 requests per 30 s without a key; one every two minutes is near real time and polite
 DSHIELD_SOURCES = "https://isc.sans.edu/api/sources/attacks/100?json"
 UA = "Odyssey-EWS/0.2 (D3COY 1.0 hackathon research; passive feed snapshot)"  # the same identification scripts/snapshot_feeds.py sends
 STDLIB_FEEDS = {"CISA advisories"}  # read with the standard library, exactly as the snapshot script reads them
@@ -176,6 +177,10 @@ class Live:
         self.ioc_sets: dict[str, set[str]] = {"ipv4-addr": set(), "domain-name": set()}  # bulk-imported indicators, matched per tick
         self.next_feed = time.time() + 8
         self._feed_thread: threading.Thread | None = None
+        from .engine.incoming import Incoming
+        self.incoming = Incoming()  # every CVE NVD publishes or changes, ranked for the analyst (engine/incoming.py)
+        self.next_nvd = time.time() + 14
+        self._nvd_thread: threading.Thread | None = None
         self.drill: dict | None = None
         self.drills: collections.deque = collections.deque(maxlen=12)
         from .engine.adaptive import Adaptive
@@ -371,6 +376,10 @@ class Live:
             self.next_feed = time.time() + self.adaptive.feed_interval(now)
             self._feed_thread = threading.Thread(target=self._check_feeds, args=(now,), daemon=True)
             self._feed_thread.start()
+        if time.time() >= self.next_nvd and not (self._nvd_thread and self._nvd_thread.is_alive()):
+            self.next_nvd = time.time() + NVD_EVERY_S
+            self._nvd_thread = threading.Thread(target=self._check_nvd, args=(now,), daemon=True)
+            self._nvd_thread.start()
         self.last_tick = _iso(now)
         self.tick_ms.append(round((time.perf_counter() - started) * 1000, 1))
 
@@ -665,7 +674,6 @@ class Live:
                 f["status"], f["last_ok"] = "fresh", _iso(now)
             except Exception as exc:  # noqa: BLE001 - a feed outage is reported, never fatal
                 f["status"], f["detail"] = "offline", f"{type(exc).__name__}: {str(exc)[:120]}; serving the snapshot"
-        self._check_nvd(now)
 
     def _check_nvd(self, now: dt.datetime) -> None:
         """New real CVEs since the last check, taken into the running system (engine/intake.py)."""
@@ -678,11 +686,18 @@ class Live:
             f["ms"] = round((time.perf_counter() - t0) * 1000)
             taken = self.ingest(cves, now)
             self.nvd_since = now
+            conn = self.connect()
+            try:
+                self.incoming.observe(conn, cves, now, taken, self.kev_live)
+            finally:
+                conn.close()
+            inc = self.incoming.summary()
             f.update(items=len(cves), new=len(taken), matched=[t["cve"] for t in taken],
-                     status="fresh", last_ok=_iso(now),
-                     detail=f"{len(cves)} CVEs published or changed since the last check; {len(taken)} name a product we "
-                            f"run and were taken in" + (f", {sum(1 for t in taken if t['exposed'])} with exposed assets"
-                                                         if taken else ""))
+                     status="fresh", last_ok=_iso(now), every_s=NVD_EVERY_S,
+                     detail=f"{len(cves)} CVEs published or changed since the last check ({NVD_EVERY_S // 60} min); {len(taken)} name a "
+                            f"product we run and were taken in" + (f", {sum(1 for t in taken if t['exposed'])} with exposed assets"
+                                                                   if taken else "")
+                            + f"; {inc['total']} in the incoming stream, {inc['ours']} touching the inventory")
         except Exception as exc:  # noqa: BLE001
             f["status"], f["detail"] = "offline", f"{type(exc).__name__}: {str(exc)[:120]}; the snapshot keeps serving"
 
@@ -849,6 +864,7 @@ class Live:
                 "detections": list(self.detections)[:30],
                 "feeds": list(self.feeds.values()),
                 "intakes": list(self.intakes),
+                "incoming": self.incoming.summary(),
                 "adaptive": self.adaptive.status(dt.datetime.now(dt.timezone.utc)),
                 "drill": drill, "drills": list(self.drills),
                 "catalogue": [{"id": k, **{x: v[x] for x in ("title", "what")}} for k, v in DRILLS.items()],
