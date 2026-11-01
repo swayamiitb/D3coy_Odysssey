@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { countryName } from '../kit'
 import { ATTACK, C2, COMP, CRIT, type Origin, type Route, type Target } from './data'
 
-/* The live threat map on a satellite-view world (CesiumJS globe), ui-15. The same data as the 2D map, on imagery:
+/* The live threat map on a satellite-view world (CesiumJS, flat 2D scene on Web Mercator), ui-15. The same data as the 2D map, on imagery:
    REAL attack origins (SANS ISC DShield's top attacking IPs, located by RIPEstat) and botnet C2 countries (abuse.ch
    Feodo Tracker), the Indian operator states they are drawn reaching (SIM landing points), and the live engine's
    beacon detections as arcs from the operator's state to the C2's country, with the attack paths animated as
@@ -36,8 +36,9 @@ function candidates(): Candidate[] {
 
 const css = (hex: string, a = 1) => Cesium.Color.fromCssColorString(hex).withAlpha(a)
 const deg = (at: [number, number], h = 0) => Cesium.Cartesian3.fromDegrees(at[1], at[0], h)
-const WORLD = { lon: 70, lat: 14, h: 21_500_000 }  // the whole disc fits the card, India centre-right
-const INDIA = { lon: 80, lat: 21, h: 3_600_000 }
+// A flat satellite map (Cesium's 2D scene on Web Mercator), framed like the canvas map: the world crop, and India.
+const WORLD = Cesium.Rectangle.fromDegrees(-135, -52, 172, 74)
+const INDIA = Cesium.Rectangle.fromDegrees(58, 3, 102, 39)
 
 function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -81,6 +82,7 @@ export function ThreatGlobe(props: ThreatGlobeProps) {
         baseLayer: false, animation: false, timeline: false, baseLayerPicker: false, geocoder: false, homeButton: false,
         sceneModePicker: false, navigationHelpButton: false, fullscreenButton: false, infoBox: false, selectionIndicator: false,
         vrButton: false, skyBox: false, creditContainer: credit.current!, requestRenderMode: false,
+        sceneMode: Cesium.SceneMode.SCENE2D, mapProjection: new Cesium.WebMercatorProjection(),
         contextOptions: { webgl: { powerPreference: 'high-performance', antialias: true, failIfMajorPerformanceCaveat: false } },
       })
     } catch (e) {
@@ -99,8 +101,7 @@ export function ThreatGlobe(props: ThreatGlobeProps) {
     ctl.minimumZoomDistance = 420_000   // about level 8 imagery at most: enough to read a state, cheap on credits
     ctl.maximumZoomDistance = 32_000_000
     ctl.enableTilt = false
-    viewer.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(WORLD.lon, WORLD.lat, WORLD.h),
-                            orientation: { heading: 0, pitch: -Cesium.Math.PI_OVER_TWO, roll: 0 } })
+    viewer.camera.setView({ destination: WORLD })
 
     // ---- imagery: the candidates in turn, each with a short clock; tile failures move to the next
     let cancelled = false
@@ -162,7 +163,7 @@ export function ThreatGlobe(props: ThreatGlobeProps) {
       const ent = picked?.id instanceof Cesium.Entity ? picked.id : undefined
       const meta = ent?.properties?.getValue(Cesium.JulianDate.now()) as { origin?: string; target?: [number, number]; state?: string } | undefined
       if (meta?.target && meta.state && live.current.onPick) live.current.onPick(meta.state)
-      else if (meta?.target) viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(meta.target[1], meta.target[0], 1_400_000), duration: 1.4 })
+      else if (meta?.target) viewer.camera.flyTo({ destination: Cesium.Rectangle.fromDegrees(meta.target[1] - 7, meta.target[0] - 5, meta.target[1] + 7, meta.target[0] + 5), duration: 1.4 })
       else if (meta?.origin) live.current.onFocus(meta.origin)
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 
@@ -190,9 +191,7 @@ export function ThreatGlobe(props: ThreatGlobeProps) {
   useEffect(() => {
     const v = viewerRef.current
     if (!v || v.isDestroyed()) return
-    const to = props.view === 'india' ? INDIA : WORLD
-    v.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(to.lon, to.lat, to.h),
-                     orientation: { heading: 0, pitch: -Cesium.Math.PI_OVER_TWO, roll: 0 }, duration: STILL() ? 0 : 1.6 })
+    v.camera.flyTo({ destination: props.view === 'india' ? INDIA : WORLD, duration: STILL() ? 0 : 1.4 })
   }, [props.view])
 
   // ---- entities: origins, targets, routes, live arcs, and the projectile pool
@@ -211,7 +210,7 @@ export function ThreatGlobe(props: ThreatGlobeProps) {
       text, font, fillColor: css(color), outlineColor: css('#000000', 0.9), outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
       pixelOffset: new Cesium.Cartesian2(0, dy), verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
       translucencyByDistance: new Cesium.NearFarScalar(2.5e6, 1, 3e7, 0.6), disableDepthTestDistance: 0,
-      distanceDisplayCondition: near ? new Cesium.DistanceDisplayCondition(0, 11_000_000) : undefined,
+      distanceDisplayCondition: near ? new Cesium.DistanceDisplayCondition(0, 16_000_000) : undefined,
     })
 
     for (const o of origins) {
@@ -232,7 +231,7 @@ export function ThreatGlobe(props: ThreatGlobeProps) {
       const color = t.compromise ? COMP : CRIT
       ents.add({
         id: `t-${t.state}`, position: deg(t.at, 0),
-        point: { pixelSize: 6 + Math.min(10, t.critical * 1.6), color: css(color, 0.95), outlineColor: css('#ffffff', 0.9), outlineWidth: 1.5 },
+        point: { pixelSize: 5 + Math.min(6, t.critical * 0.8), color: css(color, 0.95), outlineColor: css('#ffffff', 0.9), outlineWidth: 1.5 },
         label: label(t.state, '#ffffff', -13, !t.compromise),
         properties: { title: t.state, target: t.at, state: t.state,
                       lines: [`${t.orgs.length} operator${t.orgs.length > 1 ? 's' : ''} · ${t.critical} Critical warnings${t.compromise ? ' · suspected compromise' : ''}`,
@@ -279,31 +278,49 @@ export function ThreatGlobe(props: ThreatGlobeProps) {
       }
       return g
     }
+    const launch = (slot: number, now: number) => {
+      const r = pool[Math.floor(Math.random() * pool.length)]
+      const { len } = geo(r)
+      shots.current[slot] = { id: `shot-${slot}`, r, t0: now, dur: 1600 + len / 8000 + Math.random() * 1600 }
+      nextLaunch = now + (focus ? 90 + Math.random() * 260 : 160 + Math.random() * 900)
+    }
+    const at = (r: Route, f: number) => {
+      const c = geo(r).g.interpolateUsingFraction(Math.max(0, Math.min(1, f)))
+      return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, 50_000)
+    }
+    const current = (slot: number): { r: Route; f: number } | undefined => {
+      const now = performance.now()
+      let s = shots.current[slot]
+      if ((!s || now - s.t0 > s.dur) && now >= nextLaunch) { launch(slot, now); s = shots.current[slot] }
+      if (!s || now - s.t0 > s.dur) return undefined
+      const t = (now - s.t0) / s.dur
+      return { r: s.r, f: t * t * (3 - 2 * t) }
+    }
+    const shotColor = (slot: number) => new Cesium.CallbackProperty(() => {
+      const s = shots.current[slot]
+      return css(s ? (s.r.o.kind === 'attack' ? ATTACK : C2) : '#000000', s ? 1 : 0)
+    }, false) as unknown as Cesium.Color
     for (let i = 0; i < POOL; i++) {
       const slot = i
       ents.add({
         id: `shot-${slot}`,
-        position: new Cesium.CallbackProperty(() => {
-          const now = performance.now()
-          let s = shots.current[slot]
-          if ((!s || now - s.t0 > s.dur) && now >= nextLaunch) {
-            const r = pool[Math.floor(Math.random() * pool.length)]
-            const { len } = geo(r)
-            s = { id: `shot-${slot}`, r, t0: now, dur: 1400 + len / 9000 + Math.random() * 1800 }
-            shots.current[slot] = s
-            nextLaunch = now + (focus ? 90 + Math.random() * 260 : 160 + Math.random() * 900)
-          }
-          if (!s || now - s.t0 > s.dur) return undefined
-          const f = (now - s.t0) / s.dur
-          const { g, len } = geo(s.r)
-          const c = g.interpolateUsingFraction(f)
-          const h = 90_000 + Math.sin(Math.PI * f) * Math.min(1_400_000, len * 0.12)
-          return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, h)
-        }, false) as unknown as Cesium.Cartesian3,
-        point: { pixelSize: 4.5, color: new Cesium.CallbackProperty(() => {
-          const s = shots.current[slot]
-          return css(s ? (s.r.o.kind === 'attack' ? ATTACK : C2) : '#000000', s ? 1 : 0)
-        }, false) as unknown as Cesium.Color, disableDepthTestDistance: 0 },
+        position: new Cesium.CallbackProperty(() => { const c = current(slot); return c ? at(c.r, c.f) : undefined }, false) as unknown as Cesium.Cartesian3,
+        point: { pixelSize: 5, color: shotColor(slot), disableDepthTestDistance: 0 },
+      })
+      ents.add({
+        id: `tail-${slot}`,
+        polyline: {
+          positions: new Cesium.CallbackProperty(() => {
+            const c = current(slot)
+            if (!c) return []
+            const n = 14, back = Math.min(c.f, 0.22)
+            const out: Cesium.Cartesian3[] = []
+            for (let k = 0; k <= n; k++) out.push(at(c.r, c.f - back * (k / n)))  // head first, so the glow tapers toward the tail
+            return out
+          }, false) as unknown as Cesium.Cartesian3[],
+          width: 3, arcType: Cesium.ArcType.NONE,
+          material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.35, taperPower: 0.5, color: shotColor(slot) }),
+        },
       })
     }
     ents.resumeEvents()
