@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import { api, type Card, type Feed, type ForecastView, type Soc } from './api'
 import { CertInReportModal } from './ExportPanel'
 import { ApprovalQueue } from './proactive'
-import { AlertCard, nf, SocCard, useJson } from './soc/kit'
+import { AlertCard, Delta, nf, SocCard, useJson } from './soc/kit'
+import { Insight, ScoreCard, SectorExposure, SecurityKpis, TierDonut } from './soc/overview'
 import { IntelSources, LiveThreats, PostureGauges, TechThreats, ThreatTrend } from './soc/panels'
 import { ThreatMap } from './soc/ThreatMap'
 import { Band, Figures, Row, TIER_FILL, TierPill, useToast, WRAP } from './ui'
@@ -132,10 +133,11 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
     : feed.counts.needs_action > 0 ? `${feed.counts.needs_action} warnings need you.` : 'All quiet. Nothing needs you.'
   const compCard = feed.cards.find((c) => c.tier === 'Compromise')
   const fresh = live ? live.feeds.filter((f: { status: string }) => f.status === 'fresh').length : undefined
+  const today = soc?.pressure.at(-1), yesterday = soc?.pressure.at(-2)
 
   return (
     <>
-      <section className="border-b border-line bg-band">
+      <section className="soc-dark border-b border-line">
         <div className={`${WRAP} grid items-center gap-10 py-10 xl:grid-cols-[1fr_520px]`}>
           <div className="min-w-0">
             <p className="text-[13px] text-mute">National CERT duty desk · {new Date(feed.issued_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} IST</p>
@@ -145,7 +147,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
               {' '}{soc?.pending ?? '…'} decisions wait for you; Odyssey handles the rest.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <button onClick={() => onGo('soc', 'overview')} className="rounded-full bg-white px-6 py-3.5 text-[15px] font-semibold text-black transition-colors hover:bg-white/85">
+              <button onClick={() => onGo('soc', 'overview')} className="rounded-full bg-text px-6 py-3.5 text-[15px] font-semibold text-ink transition-opacity hover:opacity-85">
                 Review {soc?.pending ?? ''} decisions
               </button>
               <button onClick={() => onGo('soc', 'cases')} className="rounded-full border border-line-2 bg-panel-2 px-6 py-3.5 text-[15px] font-semibold text-text transition-colors hover:bg-panel-3">
@@ -156,7 +158,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
           </div>
 
           {hero ? (
-            <article className={`rounded-2xl border bg-panel p-6 ${hero.tier === 'Compromise' ? 'border-comp/50' : 'border-line-2'}`}>
+            <article className={`soc-light rounded-2xl border p-6 ${hero.tier === 'Compromise' ? 'border-comp/60' : 'border-line-2'}`}>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <TierPill tier={hero.tier} />
                 {hero.kev && <span className="rounded-full bg-crit/15 px-2.5 py-0.5 text-xs font-medium text-crit-ink">exploited in the wild</span>}
@@ -211,20 +213,25 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
                      sub={`of ${nf(soc?.risk.tickets)} change tickets across ${nf(soc?.risk.assets_at_risk)} assets at risk`} />
         </div>
 
-        <div className="soc-seams grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-          {[
-            { label: 'Suspected compromise', value: nf(soc?.tiers.Compromise ?? 0), sub: (soc?.tiers.Compromise ?? 0) > 0 ? 'incident response under way' : 'none right now', dot: 'bg-comp' },
-            { label: 'Critical warnings', value: nf(soc?.tiers.Critical), sub: soc ? `${nf(soc.tiers.High)} High · ${nf(soc.tiers.Medium)} Medium` : undefined, dot: 'bg-crit' },
-            { label: 'Open cases', value: nf(metrics?.open), sub: metrics ? `${metrics.incidents} incident response · ${metrics.unassigned} unassigned` : undefined },
-            { label: 'Decisions waiting', value: nf(soc?.pending), sub: 'only a person can approve these' },
-            { label: 'Detections this hour', value: nf(live?.pipeline?.detections_hour), sub: live ? `${live.sensors} decoy sensors (SIM) · ${fresh}/${live.feeds.length} real feeds fresh` : undefined, dot: 'soc-live bg-ok' },
-          ].map((k) => (
-            <div key={k.label} className="px-5 py-4">
-              <div className="flex items-center gap-2 text-[13px] font-medium text-mute">{k.dot && <span className={`h-2 w-2 shrink-0 rounded-full ${k.dot}`} />}{k.label}</div>
-              <div className="mt-2 text-[30px] font-semibold leading-none tracking-tight tabular-nums">{k.value}</div>
-              {k.sub && <div className="mt-2 text-[12.5px] leading-snug text-faint">{k.sub}</div>}
-            </div>
-          ))}
+        <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+          <ScoreCard />
+          <div className="soc-seams grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+            {[
+              { label: 'Suspected compromise', value: nf(soc?.tiers.Compromise ?? 0), dot: 'bg-comp',
+                sub: today && yesterday ? <Delta now={today.Compromise} before={yesterday.Compromise} good="down" window="vs yesterday" /> : ((soc?.tiers.Compromise ?? 0) > 0 ? 'incident response under way' : 'none right now') },
+              { label: 'Critical warnings', value: nf(soc?.tiers.Critical), dot: 'bg-crit',
+                sub: today && yesterday ? <><Delta now={today.Critical} before={yesterday.Critical} good="down" window="open, vs yesterday" /><span className="block">{nf(soc?.tiers.High)} High · {nf(soc?.tiers.Medium)} Medium</span></> : undefined },
+              { label: 'Open cases', value: nf(metrics?.open), sub: metrics ? `${metrics.incidents} incident response · ${metrics.unassigned} unassigned` : undefined },
+              { label: 'Decisions waiting', value: nf(soc?.pending), sub: 'only a person can approve these' },
+              { label: 'Detections this hour', value: nf(live?.pipeline?.detections_hour), sub: live ? `${live.sensors} decoy sensors (SIM) · ${fresh}/${live.feeds.length} real feeds fresh` : undefined, dot: 'soc-live bg-ok' },
+            ].map((k) => (
+              <div key={k.label} className="px-5 py-4">
+                <div className="flex items-center gap-2 text-[13px] font-medium text-mute">{k.dot && <span className={`h-2 w-2 shrink-0 rounded-full ${k.dot}`} />}{k.label}</div>
+                <div className="mt-2 text-[30px] font-semibold leading-none tracking-tight tabular-nums">{k.value}</div>
+                {k.sub && <div className="mt-2 text-[12.5px] leading-snug text-faint">{k.sub}</div>}
+              </div>
+            ))}
+          </div>
         </div>
 
         <ThreatMap orgs={soc?.orgs} onOrg={onOrg} />
@@ -246,7 +253,16 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
           <ThreatTrend soc={soc} />
+          <div className="grid gap-6">
+            <SocCard title="Threat distribution" prov={['REAL', 'SIM']} sub="Open warnings by tier"><TierDonut soc={soc} /></SocCard>
+            <SocCard title="Security insight" sub="This page, in four sentences"><Insight soc={soc} feed={feed} /></SocCard>
+          </div>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-3">
           <PostureGauges soc={soc} />
+          <SocCard title="Exposure by sector" prov={['REAL', 'SIM']} sub="Critical warnings and suspected compromises per sector"><SectorExposure /></SocCard>
+          <SocCard title="Security KPIs" sub="Each with its basis"><SecurityKpis soc={soc} /></SocCard>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
@@ -261,7 +277,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
             <h2 className="text-[26px] font-semibold tracking-tight">Odyssey at work</h2>
             <p className="mt-1.5 text-[15px] text-mute">Proactive by design: it warns, predicts and notifies on its own, and asks a person before anything consequential.</p>
           </div>
-          <button onClick={() => onGo('soc', 'log')} className="flex items-center gap-2 rounded-full bg-white px-5 py-3 text-[15px] font-semibold text-black transition-colors hover:bg-white/85">
+          <button onClick={() => onGo('soc', 'log')} className="flex items-center gap-2 rounded-full bg-text px-5 py-3 text-[15px] font-semibold text-ink transition-opacity hover:opacity-85">
             See everything it did <ArrowRight size={16} />
           </button>
         </div>

@@ -1,7 +1,19 @@
-import { ShieldCheck } from 'lucide-react'
+import { Moon, Search, ShieldCheck, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, type Health, type Soc, type Technology } from './api'
-import { Figures, WRAP } from './ui'
+import { Figures, FiguresSkeleton, WRAP } from './ui'
+
+/** The night-shift switch: the whole console goes SOC black. Remembered per browser; main.tsx applies it before paint. */
+export function useNight(): [boolean, () => void] {
+  const [night, setNight] = useState(() => document.documentElement.classList.contains('night'))
+  const toggle = () => {
+    const on = !night
+    setNight(on)
+    document.documentElement.classList.toggle('night', on)
+    try { localStorage.setItem('odyssey-night', on ? '1' : '0') } catch { /* private mode */ }
+  }
+  return [night, toggle]
+}
 
 /* The frame around every page: the top bar (pill navigation, live status, the decisions count, the analyst), the
    page's own header with its figures, and the footer. SOC black throughout (ui-07). */
@@ -11,23 +23,24 @@ export type Go = (view: View, tab?: string) => void
 
 const NAV: [View, string][] = [['now', 'Now'], ['live', 'Live'], ['soc', 'SOC'], ['intel', 'Intel'], ['orgs', 'Organisations'], ['proof', 'Proof']]
 
-export function TopNav({ view, go, pending, connected, status, health }: {
-  view: View; go: Go; pending?: number; connected: boolean; status: string; health?: Health
+export function TopNav({ view, go, pending, connected, status, health, onSearch }: {
+  view: View; go: Go; pending?: number; connected: boolean; status: string; health?: Health; onSearch: () => void
 }) {
   const [menu, setMenu] = useState(false)
+  const [night, toggleNight] = useNight()
   const dot = connected ? 'soc-live bg-ok' : status === 'static' ? 'bg-watch' : 'bg-crit'
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-band text-text">
+    <header className="soc-dark sticky top-0 z-30 border-b border-line">
       <div className={`${WRAP} flex h-16 items-center gap-3 sm:gap-5`}>
         <button onClick={() => go('now')} className="flex shrink-0 items-center gap-2.5 rounded-lg" aria-label="Odyssey: Now">
           <img src="/mark.svg" alt="" className="h-8 w-8" />
-          <span className="hidden text-[18px] font-semibold tracking-tight sm:inline">Odyssey</span>
+          <span className="hidden text-[18px] font-semibold tracking-tight lg:inline">Odyssey</span>
         </button>
         <nav aria-label="Console" className="min-w-0 overflow-x-auto [scrollbar-width:none]">
           <div className="flex w-max items-center gap-1 rounded-full border border-line bg-panel p-1">
             {NAV.map(([k, label]) => (
               <button key={k} onClick={() => go(k)} aria-current={view === k ? 'page' : undefined}
-                      className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[14px] font-medium transition-colors ${view === k ? 'bg-white text-black' : 'text-mute hover:bg-panel-2 hover:text-text'}`}>
+                      className={`flex items-center gap-2 rounded-full px-2.5 py-1.5 text-[13px] font-medium transition-colors lg:px-3.5 lg:text-[14px] ${view === k ? 'bg-text text-ink' : 'text-mute hover:bg-panel-2 hover:text-text'}`}>
                 {k === 'live' && <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'soc-live bg-ok' : 'bg-watch'}`} />}
                 {label}
               </button>
@@ -35,21 +48,35 @@ export function TopNav({ view, go, pending, connected, status, health }: {
           </div>
         </nav>
         <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+          <button onClick={onSearch} aria-label="Search threats, operators or CVEs (Ctrl+K)"
+                  className="flex h-10 items-center gap-2 rounded-full border border-line bg-panel px-3 text-[13px] text-mute transition-colors hover:border-line-2 hover:text-text xl:w-[230px] 2xl:w-[300px]">
+            <Search size={15} className="shrink-0" />
+            <span className="hidden min-w-0 flex-1 truncate text-left xl:inline">Search threats, CVEs…</span>
+            <kbd className="hidden rounded-md border border-line bg-panel-2 px-1.5 py-0.5 font-sans text-[11px] text-faint xl:inline">⌘K</kbd>
+          </button>
           <span className="hidden items-center gap-2 rounded-full border border-line px-3 py-1.5 text-[13px] text-mute lg:flex">
             <span className={`h-2 w-2 rounded-full ${dot}`} />
             {status === 'live' ? 'Live' : status === 'static' ? 'Static view' : 'Offline'}
           </span>
-          <button onClick={() => go('soc', 'overview')} className="rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-black transition-colors hover:bg-white/85">
-            {pending != null ? <><span className="tabular-nums">{pending}</span> decisions</> : 'Decisions'}
+          <button onClick={() => go('live')} className="hidden rounded-full border border-line-2 bg-panel-2 px-4 py-2 text-[14px] font-semibold text-text transition-colors hover:bg-panel-3 2xl:inline">
+            Run a drill
+          </button>
+          <button onClick={() => go('soc', 'overview')} className="rounded-full bg-text px-4 py-2 text-[14px] font-semibold text-ink transition-opacity hover:opacity-85">
+            {pending != null ? <><span className="tabular-nums">{pending}</span><span className="hidden sm:inline"> decisions</span></> : 'Decisions'}
+          </button>
+          <button onClick={toggleNight} aria-pressed={night} aria-label={night ? 'Night shift on: switch to the white console' : 'Night shift: turn the whole console black'}
+                  title={night ? 'Night shift on' : 'Night shift'}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-line text-mute transition-colors hover:bg-panel-2 hover:text-text">
+            {night ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <div className="relative">
             <button onClick={() => setMenu(!menu)} title="Analyst menu" aria-expanded={menu}
-                    className="flex items-center gap-2.5 rounded-full p-1 transition-colors hover:bg-panel-2 xl:pr-3">
+                    className="flex items-center gap-2.5 rounded-full p-1 transition-colors hover:bg-panel-2 2xl:pr-3">
               <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-panel-3 text-[12px] font-semibold">
                 AN
                 <span className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-band ${dot}`} />
               </span>
-              <span className="hidden text-left leading-tight xl:block">
+              <span className="hidden text-left leading-tight 2xl:block">
                 <span className="block text-[13px] font-medium">Analyst on duty</span>
                 <span className="block text-[12px] text-faint">SOC analyst</span>
               </span>
@@ -82,7 +109,7 @@ const FOOT: [string, [string, View, string?][]][] = [
 
 export function Footer({ go, health }: { go: Go; health?: Health }) {
   return (
-    <footer className="border-t border-line bg-band text-text">
+    <footer className="soc-dark border-t border-line">
       <div className={`${WRAP} pt-12 pb-10`}>
         <div className="flex items-center gap-2.5"><img src="/mark.svg" alt="" className="h-7 w-7" /><span className="text-[20px] font-semibold tracking-tight">Odyssey</span></div>
         <p className="mt-3 max-w-md text-band-mute">National cyber threat early warning for India's critical infrastructure, running entirely on this laptop.</p>
@@ -133,7 +160,7 @@ export function SocFigures({ tick }: { tick: number }) {
     fetch('/api/soc/metrics').then((r) => r.json()).then(setM).catch(() => undefined)
     api.soc().then(setD).catch(() => undefined)
   }, [tick])
-  if (!m || !d) return <div className="h-[118px]" />
+  if (!m || !d) return <FiguresSkeleton />
   return (
     <Figures items={[
       { value: n(m.open), label: 'open cases', sub: `${m.incidents} incident response · ${m.unassigned} unassigned` },
@@ -150,7 +177,7 @@ export function IntelFigures({ tick }: { tick: number }) {
   const [tech, setTech] = useState<Technology[]>()
   useEffect(() => { api.soc().then(setD).catch(() => undefined) }, [tick])
   useEffect(() => { api.technologies().then(setTech).catch(() => undefined) }, [])
-  if (!d || !tech) return <div className="h-[118px]" />
+  if (!d || !tech) return <FiguresSkeleton />
   const real = d.autopilot.lead?.real_signals_only
   return (
     <Figures items={[
@@ -166,7 +193,7 @@ export function IntelFigures({ tick }: { tick: number }) {
 export function OrgsFigures() {
   const [d, setD] = useState<Soc>()
   useEffect(() => { api.soc().then(setD).catch(() => undefined) }, [])
-  if (!d) return <div className="h-[118px]" />
+  if (!d) return <FiguresSkeleton />
   const sectors = new Set(d.orgs.map((o) => o.sector)).size
   const langs = new Set(d.orgs.map((o) => o.lang)).size
   const states = new Set(d.orgs.map((o) => o.state)).size
@@ -190,7 +217,7 @@ export function ProofFigures({ health }: { health?: Health }) {
     fetch('/api/scorecard').then((r) => r.json()).then(setD).catch(() => undefined)
     fetch('/api/telemetry').then((r) => r.json()).then(setT).catch(() => undefined)
   }, [])
-  if (!d) return <div className="h-[118px]" />
+  if (!d) return <FiguresSkeleton />
   return (
     <Figures items={[
       { value: `${d.funnel.noise_reduction_x}×`, label: 'noise reduction',

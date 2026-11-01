@@ -155,8 +155,8 @@ export function TechThreats({ onOpen }: { onOpen: () => void }) {
   )
 }
 
-// Identities, not tiers: white, sky, blue, slate and greys, so no source reads as a risk level.
-const SOURCE_COLORS = ['#f4f4f5', '#64d2ff', '#4f8cf7', '#9aa4b2', '#5b5b63', '#3a3a40']
+// Identities, not tiers: the text colour, sky, blue, slate and greys, so no source reads as a risk level.
+const SOURCE_COLORS = ['var(--color-text)', '#64d2ff', '#4f8cf7', '#9aa4b2', 'var(--color-faint)', 'var(--color-panel-3)']
 /** Intelligence sources: what each feed contributed that touched the constituency's inventory. */
 export function IntelSources() {
   const { data, error } = useJson<IntelSource[]>('/api/intel/sources')

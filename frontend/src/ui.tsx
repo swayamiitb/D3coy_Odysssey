@@ -2,18 +2,21 @@ import { ChevronRight, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Tier } from './api'
 
-/* SOC-black building blocks (ui-07): one dark theme, Uber black and white. Elevation is lightness alone: the page is
-   black, cards one step up with a 1px hairline, wells another step. The one primary action per screen is a white pill;
-   chips and inputs are grey-filled; colour carries meaning only (risk tiers as tinted pills, green = done, blue = link
-   and selection). Headings are short, semibold, sentence case. Token names are the lead's; index.css re-points them. */
+/* Uber black-and-white building blocks with SOC accents (ui-07/08), "Oreo" layering: black bands (nav, page header,
+   feature bands, footer) around a white body. A band carries .soc-dark, which re-points every token to the SOC-black
+   set, so the same components work inside and outside it; .soc-light puts a white card back on a band. Elevation is
+   lightness alone: cards one step up with a 1px hairline, wells another step. The one primary action per screen is a
+   solid pill in the text colour (black on white, white on black); chips and inputs are grey-filled; colour carries
+   meaning only (risk tiers as tinted pills, green = done, blue = link and selection). Headings are short, semibold,
+   sentence case. Token names are the lead's; index.css re-points them. */
 
 /** Page width: one centred column, gutters that shrink on small screens. */
 export const WRAP = 'mx-auto w-full max-w-[1680px] px-4 sm:px-6 lg:px-10'
 
-/** Page header: where you are, the page's title and one line, tabs on the right, the page's figures below. */
+/** Page header on a black band: where you are, the page's title and one line, tabs on the right, the figures below. */
 export function Hero({ title, sub, tabs, children }: { title: ReactNode; sub?: ReactNode; tabs?: ReactNode; children?: ReactNode }) {
   return (
-    <section className="border-b border-line bg-band text-text">
+    <section className="soc-dark border-b border-line">
       <div className={`${WRAP} pt-8 pb-8`}>
         <div className="flex flex-wrap items-end justify-between gap-5">
           <div className="min-w-0 max-w-3xl">
@@ -48,10 +51,25 @@ export function Figures({ items }: { items: { value: ReactNode; label: string; s
   )
 }
 
-/** A full-width section of a page. On the dark theme the tones differ by one lightness step and a hairline. */
+/** The figure strip while its numbers load: the same four cells, grey bars where the figures will be. */
+export function FiguresSkeleton() {
+  return (
+    <div className="soc-seams grid-cols-2 xl:grid-cols-4" aria-busy="true" aria-label="Loading figures">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="px-5 py-4">
+          <div className="h-3.5 w-28 rounded bg-panel-2" />
+          <div className="mt-3 h-7 w-16 rounded bg-panel-2" />
+          <div className="mt-3 h-3 w-40 rounded bg-panel-2" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** A full-width section of a page: white, soft grey, or a black band (the Oreo layers inside a page). */
 export function Band({ tone = 'white', children, className = '' }: { tone?: 'white' | 'soft' | 'black'; children: ReactNode; className?: string }) {
-  const bg = tone === 'black' ? 'bg-band' : tone === 'soft' ? 'bg-soft' : 'bg-ink'
-  return <section className={`${bg} border-t border-line/70 text-text`}><div className={`${WRAP} py-10 ${className}`}>{children}</div></section>
+  const bg = tone === 'black' ? 'soc-dark' : tone === 'soft' ? 'bg-soft' : 'bg-ink'
+  return <section className={`${bg} border-t border-line text-text`}><div className={`${WRAP} py-10 ${className}`}>{children}</div></section>
 }
 
 /* Risk tiers are a scale, not a rainbow: one hue each, used identically everywhere. Pills are a pale tint with the
@@ -98,13 +116,13 @@ export function Prov({ p, label }: { p?: string | null; label?: string }) {
   )
 }
 
-/** Segmented tabs: one section at a time. The chosen one is the white pill; the rest are grey text on the track. */
+/** Segmented tabs: one section at a time. The chosen one is the solid pill (black on white, white on a band). */
 export function Tabs<T extends string>({ value, onChange, items }: { value: T; onChange: (v: T) => void; items: [T, string][]; dark?: boolean }) {
   return (
     <div className="flex max-w-full flex-wrap gap-1 rounded-[22px] border border-line bg-panel p-1">
       {items.map(([k, label]) => (
         <button key={k} onClick={() => onChange(k)} aria-pressed={value === k}
-                className={`rounded-full px-4 py-1.5 text-[14px] font-medium transition-colors ${value === k ? 'bg-white text-black' : 'text-mute hover:bg-panel-2 hover:text-text'}`}>
+                className={`rounded-full px-4 py-1.5 text-[14px] font-medium transition-colors ${value === k ? 'bg-text text-ink' : 'text-mute hover:bg-panel-2 hover:text-text'}`}>
           {label}
         </button>
       ))}

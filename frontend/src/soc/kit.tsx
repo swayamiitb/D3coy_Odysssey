@@ -6,13 +6,28 @@ import { Prov } from '../ui'
    the screenshot set's alert cards, a semicircle gauge, a stacked share bar and ranked bars. Colour only on data;
    text stays in text tokens. */
 
-/** Fetch JSON, optionally re-polling; keeps the last good value and reports an error. */
+/* Several panels ask for the same URL within the same second (two poll /api/live, two read the technologies). One
+   in-flight or just-finished fetch serves them all, so the engine on :8000 (single process, a live engine ticking
+   beside it) is not asked twice. */
+const RECENT = new Map<string, { t: number; p: Promise<unknown> }>()
+const SHARE_MS = 1500
+function fetchJson(url: string): Promise<unknown> {
+  const now = Date.now()
+  const hit = RECENT.get(url)
+  if (hit && now - hit.t < SHARE_MS) return hit.p
+  const p = fetch(url).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${url}`))))
+  RECENT.set(url, { t: now, p })
+  p.catch(() => RECENT.delete(url))
+  return p
+}
+
+/** Fetch JSON, optionally re-polling; keeps the last good value and reports an error. An empty URL fetches nothing. */
 export function useJson<T>(url: string, deps: unknown[] = [], everyMs?: number): { data?: T; error?: string } {
   const [state, setState] = useState<{ data?: T; error?: string }>({})
   useEffect(() => {
+    if (!url) return
     let alive = true
-    const pull = () => fetch(url)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${url}`))))
+    const pull = () => fetchJson(url)
       .then((d) => { if (alive) setState({ data: d as T }) })
       .catch((e) => { if (alive) setState((s) => ({ ...s, error: String(e) })) })
     pull()
@@ -20,7 +35,7 @@ export function useJson<T>(url: string, deps: unknown[] = [], everyMs?: number):
     return () => { alive = false; if (id) window.clearInterval(id) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, everyMs, ...deps])
-  return state
+  return url ? state : {}
 }
 
 export const nf = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('en-IN'))

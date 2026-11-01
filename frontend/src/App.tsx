@@ -11,7 +11,9 @@ import { Footer, IntelFigures, OrgsFigures, ProofFigures, SocFigures, TopNav, ty
 import { Soc } from './Soc'
 import { CaseBoard, OpsLog, OpsOverview, SystemView, WarningList } from './SocOps'
 import { AttackTelemetry, CaseLoad, Throughput } from './soc/extras'
+import { AlertBanner } from './soc/overview'
 import { IntelSources } from './soc/panels'
+import { CommandPalette } from './soc/Search'
 import { Hero, Tabs, ToastProvider, WRAP } from './ui'
 
 /* Five destinations, one question each (Uber-like): what needs me now, how operations run, what is happening, who
@@ -62,8 +64,18 @@ export default function App() {
   const [tick, setTick] = useState(0)
   const [connected, setConnected] = useState(false)
   const [pending, setPending] = useState<number>()
+  const [search, setSearch] = useState(false)
   const esRef = useRef<EventSource | null>(null)
   const staticMode = new URLSearchParams(window.location.search).has('nolive')
+
+  // Ctrl/⌘K opens the search from anywhere in the console.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearch((s) => !s) }
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [])
 
   useEffect(() => {
     api.health().then((h) => { setHealth(h); setError(undefined) }).catch((e) => setError(String(e)))
@@ -107,7 +119,9 @@ export default function App() {
   return (
     <ToastProvider>
     <div className="flex min-h-screen flex-col bg-ink">
-      <TopNav view={view} go={go} pending={pending} connected={connected} status={status} health={health} />
+      <TopNav view={view} go={go} pending={pending} connected={connected} status={status} health={health} onSearch={() => setSearch(true)} />
+      <AlertBanner tick={tick} onOpen={(c) => setSelected({ id: c.id, org_id: c.org_id, cve_id: c.cve_id })} />
+      <CommandPalette open={search} onClose={() => setSearch(false)} go={go} onOrg={(id) => { setOrg(id); go('orgs') }} onAlert={openAlert} />
 
       {error && <div className="bg-crit px-6 py-2 text-sm font-medium text-white">Cannot reach the engine ({error}). Start the API on :8000.</div>}
 

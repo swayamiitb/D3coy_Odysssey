@@ -200,32 +200,50 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .globe-label-alert { background: var(--color-compromise); color: var(--color-ground); font-weight: 500; }
 @supports not (anchor-name: --a) { .globe-label { display: none; } }
 
-/* ===== Console (ui-07): SOC black. The console keeps the lead's token names; html.soc (set by main.tsx on console
-   URLs only) re-points them to one dark theme: Uber black and white, red for threat, small colours for the risk tiers.
+/* ===== Console (ui-07/ui-08): Uber black and white, SOC accents. The console keeps the lead's token names; html.soc
+   (set by main.tsx on console URLs only) gives them the Uber Base light set: a white body with black bands (nav, page
+   header, feature bands, footer). Inside a band, .soc-dark re-points the same tokens to the SOC-black set, so every
+   utility and component follows without knowing which band it sits in; .soc-light puts a white card back inside a
+   black band (the Oreo). html.soc.night turns the whole console black (the night-shift toggle in the top bar).
    Elevation is lightness alone (no shadows, no glow); colour sits on data and status, never on chrome; figures, IDs,
-   IPs and clocks are mono so digits stack. From the soc-skill-pack playbook (true-black-flat), ui-ux-pro-max (data-
-   dense, real-time monitoring) and hallmark (hairline panels cut from one surface; tokens only; focus-visible). */
+   IPs and clocks are mono so digits stack. From the soc-skill-pack playbook, ui-ux-pro-max (data-dense, real-time
+   monitoring) and hallmark (hairline panels cut from one surface; tokens only; focus-visible). */
 @theme {
-  --color-crit-ink: #ff6b66; --color-high-ink: #ff9d6b; --color-med-ink: #f7d26b; --color-comp-ink: #b49cff;
-  --color-ok-ink: #4fd486; --color-line-2: #2e2e33; --color-panel-4: #141416;
+  --color-crit-ink: #b31500; --color-high-ink: #b84a1f; --color-med-ink: #7a5a00; --color-comp-ink: #5a3f9e;
+  --color-ok-ink: #047a40; --color-line-2: #cbcbcb; --color-panel-4: #fafafa;
+}
+html.soc, html.soc .soc-light {
+  --color-ink: #ffffff; --color-panel: #ffffff; --color-soft: #f6f6f6; --color-panel-2: #f3f3f3; --color-panel-3: #e6e6e6;
+  --color-panel-4: #fafafa; --color-line: #e2e2e2; --color-line-2: #cbcbcb;
+  --color-mute: #545454; --color-faint: #757575; --color-text: #000000; --color-action: #000000;
+  --color-band: #000000; --color-band-2: #111113; --color-band-3: #222225; --color-band-mute: #a1a1a8;
+  --color-accent: #276ef1; --color-map: #f6f6f6;
+  --color-crit: #e11900; --color-high: #ff6937; --color-med: #ffc043; --color-watch: #8e8e93; --color-ok: #05a357; --color-comp: #7356bf;
+  --color-crit-ink: #b31500; --color-high-ink: #b84a1f; --color-med-ink: #7a5a00; --color-comp-ink: #5a3f9e; --color-ok-ink: #047a40;
+  color-scheme: light;
 }
 html.soc {
+  --font-sans: "Inter Variable", "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, ui-monospace, monospace;
+  overflow-x: clip;
+}
+html.soc.night, html.soc .soc-dark {
   --color-ink: #000000; --color-panel: #0e0e10; --color-soft: #060607; --color-panel-2: #1a1a1d; --color-panel-3: #26262a;
   --color-panel-4: #141416; --color-line: #222225; --color-line-2: #2e2e33;
-  --color-mute: #a1a1a8; --color-faint: #76767d; --color-text: #f4f4f5; --color-action: #ffffff;
+  --color-mute: #a1a1a8; --color-faint: #8a8a91; --color-text: #f4f4f5; --color-action: #ffffff;
   --color-band: #000000; --color-band-2: #111113; --color-band-3: #222225; --color-band-mute: #a1a1a8;
   --color-accent: #4f8cf7; --color-map: #0e0e10;
   --color-crit: #e5383b; --color-high: #ff7a3d; --color-med: #f5c242; --color-watch: #8e8e93; --color-ok: #22b45f; --color-comp: #8a63e8;
   --color-crit-ink: #ff6b66; --color-high-ink: #ff9d6b; --color-med-ink: #f7d26b; --color-comp-ink: #b49cff; --color-ok-ink: #4fd486;
-  --font-sans: "Inter Variable", "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, ui-monospace, monospace;
-  color-scheme: dark; overflow-x: clip;
+  color-scheme: dark;
 }
-html.soc body { overflow-x: clip; letter-spacing: -0.006em; font-optical-sizing: auto; }
+html.soc .soc-dark { background: var(--color-ink); color: var(--color-text); }
+html.soc .soc-light { background: var(--color-panel); color: var(--color-text); }
+html.soc body { overflow-x: clip; letter-spacing: -0.006em; font-optical-sizing: auto; background: var(--color-ink); color: var(--color-text); }
 html.soc h1, html.soc h2, html.soc h3 { letter-spacing: -0.022em; }
 html.soc ::selection { background: color-mix(in oklab, var(--color-accent) 45%, transparent); color: var(--color-text); }
 html.soc :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-html.soc ::-webkit-scrollbar-thumb { background: #2c2c31; background-clip: padding-box; }
+html.soc ::-webkit-scrollbar-thumb { background: var(--color-line-2); background-clip: padding-box; }
 html.soc ::-webkit-scrollbar-track { background: transparent; }
 html.soc .tabular-nums { font-variant-numeric: tabular-nums slashed-zero; }
 html.soc .font-mono { font-variant-numeric: tabular-nums slashed-zero; letter-spacing: 0; }

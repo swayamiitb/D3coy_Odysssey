@@ -1,4 +1,4 @@
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { Attacks } from '../api'
 import { TIER_FILL } from '../ui'
 import { BarList, Gauge, nf, Pending, SocCard, useJson } from './kit'
@@ -46,35 +46,44 @@ export function AttackTelemetry() {
   )
 }
 
-/** Live: flows the decoy grid sees per detection cycle, as the system runs. */
-export function Throughput({ s }: { s?: { flows: { per_tick: number[]; hosts: number }; tick_s: number; sensors: number } }) {
+type Tag = { tag: string; label: string; series: { s: number; z: number; d: boolean }[] }
+/** Live: flows the decoy grid sees per detection cycle, and the three busiest products' sessions as lines (the one
+ *  under a surge in red, like a throughput chart on a gateway console). */
+export function Throughput({ s }: { s?: { flows: { per_tick: number[]; hosts: number }; tick_s: number; sensors: number; tags?: Tag[] } }) {
   if (!s) return <Pending what="throughput" h={250} />
-  const data = s.flows.per_tick.map((v, i) => ({ i: i - s.flows.per_tick.length + 1, flows: v }))
+  const tags = [...(s.tags ?? [])].sort((a, b) => (b.series.at(-1)?.s ?? 0) - (a.series.at(-1)?.s ?? 0)).slice(0, 3)
+  const surge = [...(s.tags ?? [])].sort((a, b) => (b.series.at(-1)?.z ?? 0) - (a.series.at(-1)?.z ?? 0))[0]
+  const lines = tags.map((t) => t.tag).includes(surge?.tag ?? '') || !surge || (surge.series.at(-1)?.z ?? 0) < 3 ? tags : [surge, ...tags.slice(0, 2)]
+  const n = s.flows.per_tick.length
+  const data = s.flows.per_tick.map((v, i) => {
+    const row: Record<string, number> = { i: i - n + 1, flows: v }
+    for (const t of lines) row[t.tag] = t.series[t.series.length - n + i]?.s ?? 0
+    return row
+  })
   const now = s.flows.per_tick.at(-1) ?? 0
-  const mean = s.flows.per_tick.reduce((a, b) => a + b, 0) / Math.max(1, s.flows.per_tick.length)
+  const mean = s.flows.per_tick.reduce((a, b) => a + b, 0) / Math.max(1, n)
+  const sessions = lines.reduce((a, t) => a + (t.series.at(-1)?.s ?? 0), 0)
+  const colour = (t: Tag, i: number) => ((t.series.at(-1)?.z ?? 0) >= 3 ? TIER_FILL.Critical : i === 0 ? 'var(--color-text)' : i === 1 ? 'var(--color-faint)' : 'var(--color-line-2)')
   return (
-    <SocCard title="Throughput" prov={['SIM']} sub={`Flows the decoy grid sees per ${s.tick_s}-second cycle, last ${s.flows.per_tick.length} cycles`}>
+    <SocCard title="Throughput" prov={['SIM']} sub={`Decoy sessions per ${s.tick_s}-second cycle for the three busiest products, last ${n} cycles; a product under a surge turns red`}>
       <div className="flex flex-wrap items-baseline gap-x-3">
-        <span className="text-[30px] font-semibold leading-none tracking-tight tabular-nums">{nf(now)}</span>
-        <span className="text-[13px] text-mute">flows this cycle · mean {Math.round(mean)} · {nf(s.flows.hosts)} hosts · {s.sensors} sensors</span>
+        <span className="text-[30px] font-semibold leading-none tracking-tight tabular-nums">{nf(sessions)}</span>
+        <span className="text-[13px] text-mute">sessions this cycle on those three · {nf(now)} flows grid-wide (mean {Math.round(mean)}) · {nf(s.flows.hosts)} hosts · {s.sensors} sensors</span>
       </div>
-      <div className="mt-3 h-[170px]">
+      <div className="mt-3 flex flex-wrap gap-4 text-[12px] text-mute">
+        {lines.map((t, i) => <span key={t.tag} className="flex items-center gap-1.5"><span className="h-[3px] w-3.5 rounded-full" style={{ background: colour(t, i) }} />{t.label}{(t.series.at(-1)?.z ?? 0) >= 3 ? ` · surge z ${t.series.at(-1)?.z}` : ''}</span>)}
+      </div>
+      <div className="mt-2 h-[190px]">
         <ResponsiveContainer>
-          <AreaChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: -18 }}>
-            <defs>
-              <linearGradient id="tp-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f4f4f5" stopOpacity={0.22} />
-                <stop offset="100%" stopColor="#f4f4f5" stopOpacity={0} />
-              </linearGradient>
-            </defs>
+          <ComposedChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: -18 }}>
             <CartesianGrid stroke="var(--color-line)" vertical={false} />
             <XAxis dataKey="i" tick={{ fill: 'var(--color-faint)', fontSize: 11 }} tickFormatter={(v: number) => (v === 0 ? 'now' : `${v * s.tick_s}s`)} minTickGap={36} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: 'var(--color-faint)', fontSize: 11 }} allowDecimals={false} axisLine={false} tickLine={false} width={44} />
             <Tooltip cursor={{ stroke: 'var(--color-line-2)' }} labelFormatter={(v) => (Number(v) === 0 ? 'this cycle' : `${-Number(v) * s.tick_s} s ago`)}
                      contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line-2)', borderRadius: 10, fontSize: 12 }}
                      labelStyle={{ color: 'var(--color-text)', fontWeight: 600 }} itemStyle={{ color: 'var(--color-text)' }} />
-            <Area type="monotone" dataKey="flows" stroke="#f4f4f5" strokeWidth={1.8} fill="url(#tp-fill)" isAnimationActive={false} />
-          </AreaChart>
+            {lines.map((t, i) => <Line key={t.tag} type="monotone" dataKey={t.tag} name={t.label} stroke={colour(t, i)} strokeWidth={i === 0 || colour(t, i) === TIER_FILL.Critical ? 2 : 1.5} dot={false} isAnimationActive={false} />)}
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </SocCard>
