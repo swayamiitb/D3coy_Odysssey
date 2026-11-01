@@ -1,103 +1,144 @@
 import { useEffect, useRef } from 'react'
+import * as THREE from 'three'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
-/* The motion behind every page header (ui-09): a dark honeycomb, hexagons slowly rising and sinking with a little
-   light on their rims, after the team's reference clip. Drawn on a canvas at a low contrast so figures and headings
-   stay the subject; a hex lifts about once a second; still under reduced motion and when the tab is hidden. */
+/* The motion behind every page header (ui-09), after the team's reference clip: a wall of dark metal hexagonal tiles,
+   bevelled, lit from the top left, tiles rising towards the camera and sinking back over about a second and a half,
+   several in motion at any moment. Real 3D (three.js, one instanced mesh), drawn only while the header is on screen
+   and the tab is visible; a single still frame under reduced motion; nothing at all without WebGL. */
 
-const R = 26                 // hex radius in CSS px
+const R = 40                       // tile radius in px
+const DEPTH = 16                   // tile thickness
+const RISE = 44                    // the furthest a tile comes towards the camera
 const SQ3 = Math.sqrt(3)
-const LIFT_MS = 2600
 
-interface Cell { x: number; y: number; base: number; t0: number; from: number; to: number }
+interface Tile { x: number; y: number; from: number; to: number; t0: number; dur: number }
 
 export function Honeycomb({ className = '' }: { className?: string }) {
-  const ref = useRef<HTMLCanvasElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    const cv = ref.current!
-    const ctx = cv.getContext('2d')!
+    const box = ref.current!
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    let cells: Cell[] = []
-    let W = 0, H = 0, dpr = 1, raf = 0, visible = true, last = 0
+    let renderer: THREE.WebGLRenderer
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'low-power' })
+    } catch { return }
+    renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1))
+    renderer.setClearColor(0x000000, 1)
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 0.9
+    renderer.outputColorSpace = THREE.SRGBColorSpace
+    const cv = renderer.domElement
+    cv.style.position = 'absolute'
+    cv.style.inset = '0'
+    box.appendChild(cv)
+
+    const scene = new THREE.Scene()
+    const pmrem = new THREE.PMREMGenerator(renderer)
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    scene.environment = env
+    const camera = new THREE.PerspectiveCamera(26, 1, 10, 6000)
+    const key = new THREE.DirectionalLight(0xffffff, 2.6)
+    key.position.set(-0.9, 1.1, 1.4)
+    const fill = new THREE.DirectionalLight(0xffffff, 0.5)
+    fill.position.set(1, -0.6, 0.8)
+    scene.add(key, fill, new THREE.AmbientLight(0xffffff, 0.2))
+
+    // one bevelled hexagonal prism, pointy-top, in px units
+    const shape = new THREE.Shape()
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 180) * (60 * i - 90)
+      const px = R * 0.9 * Math.cos(a), py = R * 0.9 * Math.sin(a)
+      if (i === 0) shape.moveTo(px, py); else shape.lineTo(px, py)
+    }
+    shape.closePath()
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: DEPTH, bevelEnabled: true, bevelThickness: 5, bevelSize: 3.6, bevelSegments: 3, curveSegments: 1 })
+    const mat = new THREE.MeshStandardMaterial({ color: 0x232327, metalness: 0.88, roughness: 0.4, envMapIntensity: 1.0 })
+    let mesh: THREE.InstancedMesh | undefined
+    let tiles: Tile[] = []
+    let W = 0, H = 0, raf = 0, visible = true
+    const m4 = new THREE.Matrix4()
+    const col = new THREE.Color()
     const seed = (x: number, y: number) => { const s = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453; return s - Math.floor(s) }
+
     const build = () => {
-      dpr = Math.min(2, window.devicePixelRatio || 1)
-      const box = cv.parentElement!
       W = box.clientWidth
       H = box.clientHeight
-      cv.width = Math.round(W * dpr)
-      cv.height = Math.round(H * dpr)
-      cv.style.width = `${W}px`
-      cv.style.height = `${H}px`
-      cells = []
+      if (!W || !H) return
+      renderer.setSize(W, H, false)
+      camera.aspect = W / H
+      // the plane of the tile tops fills the box; the camera sits a little above centre, so the tiles' sides show
+      const dist = (H / 2) / Math.tan((camera.fov * Math.PI) / 360)
+      camera.position.set(0, H * 0.16, dist)
+      camera.lookAt(0, 0, 0)
+      camera.updateProjectionMatrix()
+      if (mesh) { scene.remove(mesh); mesh.dispose() }
       const w = SQ3 * R, h = 1.5 * R
-      for (let row = -1; row * h < H + R; row++) {
-        for (let col = -1; col * w < W + w; col++) {
-          const x = col * w + (row % 2 ? w / 2 : 0), y = row * h
-          const b = 0.35 + 0.65 * seed(col, row)
-          cells.push({ x, y, base: b, t0: -1e9, from: 0, to: 0 })
-        }
+      const cols = Math.ceil(W / w) + 4, rows = Math.ceil(H / h) + 4
+      mesh = new THREE.InstancedMesh(geo, mat, cols * rows)
+      tiles = []
+      let i = 0
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const x = (c - cols / 2) * w + (r % 2 ? w / 2 : 0), y = (r - rows / 2) * h
+        tiles.push({ x, y, from: 0, to: 0, t0: -1e9, dur: 1500 })
+        col.setHSL(0, 0, 0.1 + 0.12 * seed(c, r))
+        mesh.setColorAt(i++, col)
       }
+      scene.add(mesh)
     }
-    const hex = (x: number, y: number, r: number) => {
-      ctx.beginPath()
-      for (let i = 0; i < 6; i++) {
-        const a = (Math.PI / 180) * (60 * i - 90)
-        const px = x + r * Math.cos(a), py = y + r * Math.sin(a)
-        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py)
-      }
-      ctx.closePath()
-    }
-    const draw = (now: number) => {
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ctx.clearRect(0, 0, W, H)
-      // metallic tiles: a light from the top left, so every tile has a bright edge and a dark one, and a lifted
-      // tile catches more of it (the look of the clip)
-      for (const c of cells) {
-        const p = Math.min(1, (now - c.t0) / LIFT_MS)
+    const place = (now: number) => {
+      if (!mesh) return
+      tiles.forEach((t, i) => {
+        const p = Math.min(1, (now - t.t0) / t.dur)
         const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2
-        const lift = c.from + (c.to - c.from) * e
-        const r = R - 2 - lift * 1.2
-        const top = 0.06 + c.base * 0.1 + lift * 0.3, bottom = 0.02 + c.base * 0.04 + lift * 0.1
-        const g = ctx.createLinearGradient(c.x - r, c.y - r, c.x + r, c.y + r)
-        g.addColorStop(0, `rgba(255,255,255,${top.toFixed(3)})`)
-        g.addColorStop(1, `rgba(255,255,255,${bottom.toFixed(3)})`)
-        hex(c.x, c.y, r)
-        ctx.fillStyle = g
-        ctx.fill()
-        ctx.strokeStyle = `rgba(255,255,255,${(0.1 + lift * 0.45).toFixed(3)})`
-        ctx.lineWidth = lift > 0.02 ? 1.4 : 1
-        ctx.stroke()
-      }
-      // the seams between tiles
-      ctx.strokeStyle = 'rgba(0,0,0,0.55)'
-      ctx.lineWidth = 2
-      for (const c of cells) { hex(c.x, c.y, R - 1); ctx.stroke() }
+        m4.makeTranslation(t.x, t.y, t.from + (t.to - t.from) * e - DEPTH)
+        mesh!.setMatrixAt(i, m4)
+      })
+      mesh.instanceMatrix.needsUpdate = true
     }
+    const render = () => renderer.render(scene, camera)
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame)
-      if (!visible || document.hidden) return
-      if (now - last < 1000 / 30) return
-      last = now
-      // a few tiles a second start to rise or sink
-      if (Math.random() < 0.09 && cells.length) {
-        const c = cells[Math.floor(Math.random() * cells.length)]
-        const p = Math.min(1, (now - c.t0) / LIFT_MS)
-        c.from = c.from + (c.to - c.from) * p
-        c.to = c.to > 0.5 ? 0 : 0.6 + Math.random() * 0.4
-        c.t0 = now
+      if (!visible || document.hidden || !mesh) return
+      // a few tiles a second start to rise, or to sink back
+      if (Math.random() < 0.06 && tiles.length) {
+        const t = tiles[Math.floor(Math.random() * tiles.length)]
+        const p = Math.min(1, (now - t.t0) / t.dur)
+        const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2
+        t.from = t.from + (t.to - t.from) * e
+        t.to = t.to > RISE * 0.3 ? 0 : RISE * (0.45 + 0.55 * Math.random())
+        t.dur = 1200 + Math.random() * 900
+        t.t0 = now
       }
-      draw(now)
+      place(now)
+      render()
     }
     build()
-    const ro = new ResizeObserver(() => { build(); draw(performance.now()) })
-    ro.observe(cv.parentElement!)
+    const ro = new ResizeObserver(() => { build(); place(performance.now()); render() })
+    ro.observe(box)
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting })
-    io.observe(cv)
+    io.observe(box)
     if (still) {
-      for (const c of cells) if (seed(c.x, c.y) > 0.8) { c.to = 0.7; c.t0 = -1e9; c.from = 0.7 }
-      draw(0)
+      for (const t of tiles) if (seed(t.x, t.y) > 0.82) { t.from = t.to = RISE * 0.6 }
+      place(0)
+      render()
     } else raf = requestAnimationFrame(frame)
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect() }
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+      io.disconnect()
+      if (mesh) { scene.remove(mesh); mesh.dispose() }
+      geo.dispose()
+      mat.dispose()
+      env.dispose()
+      pmrem.dispose()
+      renderer.dispose()
+      cv.remove()
+    }
   }, [])
-  return <canvas ref={ref} aria-hidden className={`pointer-events-none absolute inset-0 ${className}`} />
+  return (
+    <div ref={ref} aria-hidden className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}>
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.12),rgba(0,0,0,0.42))]" style={{ zIndex: 1 }} />
+    </div>
+  )
 }
