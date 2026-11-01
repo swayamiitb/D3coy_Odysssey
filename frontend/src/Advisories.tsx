@@ -191,13 +191,13 @@ export function Advisories() {
         {err && <div className="mb-4 rounded-2xl bg-crit/10 px-4 py-3 text-crit">{err}</div>}
         {pasted ? (
           <>
-            <h2 className="mb-8 text-4xl font-bold tracking-tight">Pasted advisory</h2>
+            <h2 className="mb-8 text-[28px] font-semibold tracking-tight">Pasted advisory</h2>
             <AnalysisView key="pasted" a={pasted} text={paste} />
           </>
         ) : (
           <>
             <div className="mb-2 flex items-center gap-2"><Prov p={current.provenance} /><span className="font-mono text-sm text-faint">{current.id} · {current.published?.slice(0, 10)}</span></div>
-            <h2 className="text-4xl font-bold tracking-tight">{current.title}</h2>
+            <h2 className="min-w-0 break-words text-[28px] font-semibold tracking-tight">{current.title}</h2>
             <p className="mt-2 mb-8 text-mute">{current.note}</p>
             <AnalysisView key={current.id} a={current.analysis} text={current.text} />
           </>

@@ -85,7 +85,7 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
     <div className="flex min-w-0 flex-1 flex-col gap-12">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-4xl font-bold tracking-tight">{p.org.name}</h2>
+          <h2 className="min-w-0 break-words text-[30px] font-semibold tracking-tight">{p.org.name}</h2>
           {!!p.org.cii && <Badge>Critical Information Infrastructure</Badge>}
         </div>
         <p className="mt-2 text-lg text-mute">

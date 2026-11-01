@@ -215,7 +215,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
 
         <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
           <ScoreCard />
-          <div className="soc-seams grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+          <div className="soc-seams grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             {[
               { label: 'Suspected compromise', value: nf(soc?.tiers.Compromise ?? 0), dot: 'bg-comp',
                 sub: today && yesterday ? <Delta now={today.Compromise} before={yesterday.Compromise} good="down" window="vs yesterday" /> : ((soc?.tiers.Compromise ?? 0) > 0 ? 'incident response under way' : 'none right now') },
@@ -223,6 +223,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
                 sub: today && yesterday ? <><Delta now={today.Critical} before={yesterday.Critical} good="down" window="open, vs yesterday" /><span className="block">{nf(soc?.tiers.High)} High · {nf(soc?.tiers.Medium)} Medium</span></> : undefined },
               { label: 'Open cases', value: nf(metrics?.open), sub: metrics ? `${metrics.incidents} incident response · ${metrics.unassigned} unassigned` : undefined },
               { label: 'Decisions waiting', value: nf(soc?.pending), sub: 'only a person can approve these' },
+              { label: 'Assets at risk', value: nf(soc?.risk.assets_at_risk), sub: soc ? `${nf(soc.risk.tickets)} change tickets would clear them` : undefined },
               { label: 'Detections this hour', value: nf(live?.pipeline?.detections_hour), sub: live ? `${live.sensors} decoy sensors (SIM) · ${fresh}/${live.feeds.length} real feeds fresh` : undefined, dot: 'soc-live bg-ok' },
             ].map((k) => (
               <div key={k.label} className="px-5 py-4">

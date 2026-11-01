@@ -32,7 +32,7 @@ export function TopNav({ view, go, pending, connected, status, health, onSearch 
   return (
     <header className="soc-dark sticky top-0 z-30 border-b border-line">
       <div className={`${WRAP} flex h-16 items-center gap-3 sm:gap-5`}>
-        <button onClick={() => go('now')} className="flex shrink-0 items-center gap-2.5 rounded-lg" aria-label="Odyssey: Now">
+        <button onClick={() => go('now')} className="flex shrink-0 items-center gap-2.5 rounded-lg xl:hidden" aria-label="Odyssey: Now">
           <img src="/mark.svg" alt="" className="h-8 w-8" />
           <span className="hidden text-[18px] font-semibold tracking-tight lg:inline">Odyssey</span>
         </button>

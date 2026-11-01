@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
 import { HowItWorks } from './HowItWorks'
@@ -13,6 +13,7 @@ import { CaseBoard, OpsLog, OpsOverview, SystemView, WarningList } from './SocOp
 import { AttackTelemetry, CaseLoad, Throughput } from './soc/extras'
 import { AlertBanner } from './soc/overview'
 import { IntelSources } from './soc/panels'
+import { Rail, RAIL_NARROW, RAIL_WIDE, useRail } from './soc/Rail'
 import { CommandPalette } from './soc/Search'
 import { Hero, Tabs, ToastProvider, WRAP } from './ui'
 
@@ -65,6 +66,7 @@ export default function App() {
   const [connected, setConnected] = useState(false)
   const [pending, setPending] = useState<number>()
   const [search, setSearch] = useState(false)
+  const [railWide, toggleRail] = useRail()
   const esRef = useRef<EventSource | null>(null)
   const staticMode = new URLSearchParams(window.location.search).has('nolive')
 
@@ -116,9 +118,12 @@ export default function App() {
     window.scrollTo({ top: 0 })
   }
 
+  const tab = view === 'soc' ? socTab : view === 'intel' ? intelTab : view === 'proof' ? proofTab : undefined
+
   return (
     <ToastProvider>
-    <div className="flex min-h-screen flex-col bg-ink">
+    <Rail view={view} tab={tab} go={go} wide={railWide} onToggle={toggleRail} connected={connected} health={health} />
+    <div className="flex min-h-screen flex-col bg-ink xl:pl-[var(--rail)]" style={{ '--rail': `${railWide ? RAIL_WIDE : RAIL_NARROW}px` } as CSSProperties}>
       <TopNav view={view} go={go} pending={pending} connected={connected} status={status} health={health} onSearch={() => setSearch(true)} />
       <AlertBanner tick={tick} onOpen={(c) => setSelected({ id: c.id, org_id: c.org_id, cve_id: c.cve_id })} />
       <CommandPalette open={search} onClose={() => setSearch(false)} go={go} onOrg={(id) => { setOrg(id); go('orgs') }} onAlert={openAlert} />

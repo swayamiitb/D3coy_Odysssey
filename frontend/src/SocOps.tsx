@@ -216,7 +216,7 @@ export function CaseBoard({ tick, onAlert }: { tick: number; onAlert: (orgId: st
                 <span className="rounded-full bg-panel-2 px-2.5 py-0.5 text-xs font-medium">{STATUS_LABEL[c.status]}</span>
                 <span className="text-sm text-mute">{c.id} · {c.kind === 'incident' ? 'incident response' : 'remediation'}</span>
               </div>
-              <h2 className="text-4xl font-bold leading-tight tracking-tight">{c.title}</h2>
+              <h2 className="min-w-0 break-words text-[28px] font-semibold leading-tight tracking-tight">{c.title}</h2>
               <p className="mt-2 text-lg text-mute">{c.org_name}{c.assets?.length ? ` · ${c.assets.slice(0, 2).join(', ')}${c.assets.length > 2 ? ` +${c.assets.length - 2} more` : ''}` : ''}</p>
               <div className="mt-6 rounded-3xl bg-panel-2 p-6">
                 {open && c.due_at ? (
