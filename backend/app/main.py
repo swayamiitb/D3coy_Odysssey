@@ -1010,15 +1010,122 @@ def adaptive_view() -> dict:
     return _engine().adaptive.status(_dt.datetime.now(_dt.timezone.utc))
 
 
+def _instant(value: str | None):
+    import datetime as _dt
+    if not value:
+        return None
+    try:
+        at = _dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(400, "as_of must be an ISO-8601 instant") from exc
+    return at if at.tzinfo else at.replace(tzinfo=_dt.timezone.utc)
+
+
 @app.get("/api/graph")
-def intel_graph_view(focus: str | None = None) -> dict:
-    """The intelligence graph: every entity Odyssey knows about and how they connect, breathing with live evidence."""
+def intel_graph_view(focus: str | None = None, as_of: str | None = None) -> dict:
+    """The intelligence graph: every entity Odyssey knows about and how they connect, breathing with live evidence.
+    `as_of` replays the record as it stood at that instant."""
     from . import live
     from .engine.graph import intel_graph
     try:
-        return intel_graph(db(), focus or None, live.ENGINE.status() if live.ENGINE else None)
+        return intel_graph(db(), focus or None, live.ENGINE.status() if live.ENGINE else None, as_of=_instant(as_of))
     except KeyError as exc:
         raise HTTPException(404, "unknown organisation") from exc
+
+
+@app.get("/api/graph/replay")
+def intel_graph_replay() -> dict:
+    """The instants the interface offers for replaying the graph."""
+    from .engine.graph import replay_steps
+    return {"steps": replay_steps(db())}
+
+
+# ------------------------------------------------------------------------------------------- watchlists
+@app.get("/api/watches")
+def watches_view() -> dict:
+    """Every watch with its rule and recent firings, the latest events, and suggestions worth watching now."""
+    from . import live
+    from .engine import watch
+    conn = db()
+    status = live.ENGINE.status() if live.ENGINE else None
+    return {"watches": watch.list_watches(conn), "events": watch.events(conn, 40), "suggestions": watch.suggestions(conn, status),
+            "rules": watch.RULE_KINDS, "default_rule": watch.DEFAULT_RULE}
+
+
+@app.post("/api/watches")
+def watches_add(body: dict = Body(...)) -> dict:
+    """Watch a graph entity: body {target, rule?: {kind, pulse, tier}, owner?, label?, note?}."""
+    from . import live
+    from .engine import watch
+    try:
+        return watch.add(db(), body["target"], body.get("rule"), body.get("owner"), body.get("label"), body.get("note"),
+                         live.ENGINE.status() if live.ENGINE else None)
+    except KeyError as exc:
+        raise HTTPException(404, f"no such entity in the graph: {exc}") from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/watches/evaluate")
+def watches_evaluate() -> dict:
+    """Evaluate every active watch now (the live engine also does this every 15 seconds)."""
+    from . import live
+    from .engine import watch
+    return {"fired": watch.evaluate(db(), live.ENGINE.status() if live.ENGINE else None)}
+
+
+@app.post("/api/watches/{watch_id}/{action}")
+def watches_action(watch_id: int, action: str) -> dict:
+    from .engine import watch
+    status = {"pause": "paused", "resume": "active", "delete": "deleted"}.get(action)
+    if not status:
+        raise HTTPException(400, "action must be pause, resume or delete")
+    try:
+        return {"watch": watch.set_status(db(), watch_id, status), "status": status}
+    except KeyError as exc:
+        raise HTTPException(404, "unknown watch") from exc
+
+
+# ------------------------------------------------------------------------------------------- indicators
+def _live_with_flows() -> dict | None:
+    from . import live
+    if not live.ENGINE:
+        return None
+    s = live.ENGINE.status()
+    with live.ENGINE.lock:
+        s["flow_rows"] = list(live.ENGINE.flows)
+    return s
+
+
+@app.post("/api/iocs/import")
+def iocs_import(body: dict = Body(...)) -> dict:
+    """Bulk indicator import: body {text, source?, tlp?, tags?}. Extracts, stores, matches against telemetry and exposure."""
+    from .engine import iocs
+    text = body.get("text") or ""
+    if not text.strip():
+        raise HTTPException(400, "nothing to import")
+    if len(text) > 2_000_000:
+        raise HTTPException(413, "paste at most 2 MB at a time")
+    return iocs.import_text(db(), text, body.get("source") or "analyst paste", body.get("tlp") or "AMBER", _live_with_flows(), tags=body.get("tags"))
+
+
+@app.get("/api/iocs")
+def iocs_view(matched_only: bool = False, limit: int = 200) -> dict:
+    from .engine import iocs
+    return iocs.list_iocs(db(), matched_only, min(limit, 2000))
+
+
+@app.get("/api/iocs/export")
+def iocs_export(format: str = "csv", matched_only: bool = False):
+    """The imported indicators with their matches, as CSV or as STIX 2.1 indicators."""
+    from fastapi.responses import PlainTextResponse
+    from .engine import export, iocs
+    if format == "stix":
+        from . import taxii
+        objs = [o for o in taxii.objects_for("indicators") if o["type"] != "indicator" or "imported" in o.get("labels", [])]
+        return {"type": "bundle", "id": f"bundle--{__import__('uuid').uuid4()}", "objects": objs}
+    return PlainTextResponse(export.to_csv(iocs.export_rows(db(), matched_only)), media_type="text/csv",
+                             headers={"Content-Disposition": 'attachment; filename="odyssey-indicators.csv"'})
 
 
 @app.get("/api/graph/node")
@@ -1269,3 +1376,19 @@ def notify_enabled(name: str, on: bool = Query(...)) -> dict:
 def notify_reload() -> dict:
     """Re-read config/notify.json and config/notify.local.json, so a pasted webhook URL works without a restart."""
     return _notify().reload()
+
+
+# ------------------------------------------------------------------------------------ TAXII 2.1 and the OSINT router
+from . import taxii as _taxii  # noqa: E402
+
+_taxii.connect = db
+_taxii.live_status = lambda: (__import__("backend.app.live", fromlist=["ENGINE"]).ENGINE.status()
+                              if __import__("backend.app.live", fromlist=["ENGINE"]).ENGINE else None)
+app.include_router(_taxii.router)
+try:
+    from . import osint_api as _osint  # brand and social monitoring, consented attack-surface scans
+
+    _osint.connect = db
+    app.include_router(_osint.router)
+except ImportError:  # the module arrives with its own thread's work
+    pass

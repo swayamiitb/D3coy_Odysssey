@@ -56,7 +56,7 @@ def _parse(ts: str | None) -> dt.datetime | None:
 
 
 def defang(value: str) -> str:
-    v = re.sub(r"^(h)(ttps?)://", r"hxx\2://", value, flags=re.I)
+    v = re.sub(r"^https?://", lambda m: m.group(0).replace("http", "hxxp"), value, flags=re.I)
     return v.replace(".", "[.]")
 
 

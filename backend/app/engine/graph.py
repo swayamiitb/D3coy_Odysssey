@@ -567,21 +567,33 @@ class _Builder:
                 if not tag or tag not in products_here:
                     continue
                 target, tier = f"product:{tag}", "High"
-            elif kind in ("beacon", "anomaly"):
+            elif kind in ("beacon", "anomaly", "ioc", "watch"):
                 host = d.get("asset")
+                if kind == "watch":
+                    target, tier = (d.get("target") if d.get("target") in self.nodes else None), {"Critical": "Critical", "High": "High"}.get(d.get("severity"), "Medium")
+                    sid = f"signal:{d['id']}"
+                    self.node(sid, "signal", d.get("title", "watch")[:110], provenance=MIXED, source="watchlist rule (analyst) on the live graph",
+                              sub="live · watchlist fired", tier=tier, risk={"Critical": 85.0, "High": 65.0}.get(tier, 45.0),
+                              facts={"signal": "watch", "detection": d.get("id"), "ts": d.get("ts"), "target": d.get("target"), "severity": d.get("severity")})
+                    self.touch(sid, d.get("ts"))
+                    if target:
+                        self.edge(sid, target, "on", "the watched entity", MIXED, 1.5, d.get("ts"))
+                    continue
                 org_id = d.get("org_id") or host_org.get(host)
                 if not org_id or f"org:{org_id}" not in self.nodes:
                     continue
                 aid = host_asset.get(host)
                 target = f"asset:{aid}" if aid and f"asset:{aid}" in self.nodes else f"org:{org_id}"
                 tier = "Compromise" if kind == "beacon" else "High"
+                if kind == "ioc" and d.get("value") and f"indicator:{d['value']}" in self.nodes:
+                    self.edge(f"signal:{d['id']}", f"indicator:{d['value']}", "seen", "the imported indicator this flow matched", SIM, 1.6, d.get("ts"))
             elif kind == "intake":
                 target, tier = None, "Medium"
             else:
                 continue
             sid = f"signal:{d['id']}"
             n = self.node(sid, "signal", d.get("title", kind)[:110], provenance=SIM, source="live detector (5-second ticks)", sub=f"live · {kind}" + (
-                f" · drill {d['drill']}" if d.get("drill") else ""), tier=tier, risk={"beacon": 95.0, "anomaly": 70.0, "surge": 75.0, "intake": 50.0}[kind],
+                f" · drill {d['drill']}" if d.get("drill") else ""), tier=tier, risk={"beacon": 95.0, "anomaly": 70.0, "surge": 75.0, "intake": 50.0, "ioc": 80.0}[kind],
                           facts={"signal": kind, "detection": d.get("id"), "ts": d.get("ts"), "drill": d.get("drill"),
                                  "seconds_to_detect": d.get("seconds_to_detect"), "z": d.get("z"), "c2": d.get("c2"), "asset": d.get("asset")})
             self.touch(sid, d.get("ts"))
@@ -711,7 +723,9 @@ class _Builder:
         for n in nodes:
             phases[n["phase"]] += 1
         hour_ago = time.time() - 3600
-        rate = self.conn.execute("SELECT COUNT(*) FROM ledger WHERE ingested >= ?", (hour_ago,)).fetchone()[0]
+        # events of the last hour: ingested in it and dated in it, so a rebuild's back-dated history does not count
+        rate = self.conn.execute("SELECT COUNT(*) FROM ledger WHERE ingested >= ? AND ts >= ?",
+                                 (hour_ago, _iso(self.now - dt.timedelta(hours=1)))).fetchone()[0]
         last_event = self.conn.execute("SELECT ts FROM ledger ORDER BY seq DESC LIMIT 1").fetchone()
         focus = {"kind": "org", "id": self.focus, "label": orgs[self.focus]["name"]} if self.focus else {"kind": "national", "id": None, "label": "India, all operators"}
         return {
