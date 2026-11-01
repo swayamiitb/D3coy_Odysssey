@@ -291,7 +291,7 @@ def main() -> int:
                 shot("intel-graph")
                 page.locator("[data-node^='cve:']").first.click()
                 page.get_by_text("What this is", exact=True).wait_for()  # the card sheet; the side panel is an aside too
-                page.get_by_text("Evidence", exact=True).wait_for()
+                page.locator("aside h3").filter(has_text="Evidence").first.wait_for()  # the footer has an "Evidence" link too
                 shot("intel-graph-card")
                 page.keyboard.press("Escape")
                 page.get_by_text("What this is", exact=True).wait_for(state="detached")
