@@ -165,6 +165,32 @@ def card(event: dict, public_url: str) -> dict | None:
         sev, title = "Critical", p.get("title") or kind
         if p.get("alert"):
             link = f"{public_url}/?alert={p['alert']}"
+    # kinds the graph, indicator, brand-monitoring and attack-surface engines write (values arrive defanged)
+    elif kind == "watch.fired":
+        sev = p.get("severity") if p.get("severity") in RANK else "High"
+        title = f"Watchlist: {p.get('label') or 'rule'} fired on {p.get('target', subject)}"
+        lines = [p.get("reason", "")]
+        link = f"{public_url}/?view=intel&tab=graph"
+    elif kind == "ioc.match":
+        sev = p.get("severity") if p.get("severity") in RANK else "High"
+        title = f"Indicator matched: {p.get('type', 'indicator')} {p.get('value', subject)} seen in {p.get('where', 'our telemetry')}"
+        lines = [f"source: {p['source']}" if p.get("source") else ""]
+        link = f"{public_url}/?view=intel&tab=graph"
+    elif kind == "brand.hit":
+        try:
+            score = float(p.get("score") or 0)
+        except (TypeError, ValueError):
+            score = 0.0
+        sev = "Critical" if score >= 90 else "High"  # the engine emits at score >= 70; 90 and above is a Critical hit
+        title = (f"Brand hit for {p.get('org_id') or 'an organisation'}: {p.get('kind') or 'mention'} on "
+                 f"{p.get('source') or '?'} names {p.get('term', '')} (score {score:g})")
+        lines = [p.get("value", "")]
+        link = f"{public_url}/?view=orgs&org={p['org_id']}" if p.get("org_id") else f"{public_url}/?view=orgs"
+    elif kind == "surface.finding":
+        sev = p.get("severity") if p.get("severity") in RANK else "High"
+        title = f"Attack-surface finding on {p.get('host', subject)}: {p.get('check', '')}"
+        lines = [p.get("cwe", ""), "consented attack-surface scan"]
+        link = f"{public_url}/?view=intel&tab=graph"
     else:
         return None
     return {"seq": event.get("seq"), "ts": event.get("ts"), "kind": kind, "subject": subject, "severity": sev,

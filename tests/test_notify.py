@@ -107,6 +107,24 @@ def test_cards_from_the_events_people_should_hear_about():
     assert notify.card({"kind": "auto.case_opened", "subject": "CASE-0191", "payload": {"title": "Web attack", "severity": "Compromise", "owner": "m.khan", "due_hours": 6}}, url)["title"].startswith("Case CASE-0191 opened")
     assert notify.card({"kind": "vuln.published", "subject": "CVE-2026-2", "payload": {}}, url) is None
     assert notify.card({"kind": "notify.sent", "subject": "console:x", "payload": {}}, url) is None
+    # kinds written by the graph, indicator, brand-monitoring and attack-surface engines
+    w = notify.card({"kind": "watch.fired", "subject": "w1", "payload": {"target": "vpn-gw01", "label": "C2 contact",
+                                                                        "reason": "beacon to a listed C2", "severity": "Critical"}}, url)
+    assert w["title"] == "Watchlist: C2 contact fired on vpn-gw01" and w["severity"] == "Critical" and w["lines"] == ["beacon to a listed C2"]
+    i = notify.card({"kind": "ioc.match", "subject": "i1", "payload": {"value": "198[.]51[.]100[.]7", "type": "ip", "source": "bulk import",
+                                                                       "where": "firewall flows", "severity": "High"}}, url)
+    assert i["title"] == "Indicator matched: ip 198[.]51[.]100[.]7 seen in firewall flows" and i["severity"] == "High"
+    hit = {"term": "CityPower", "org_id": "PWR-01", "source": "pastebin", "kind": "credential dump", "value": "hxxp://p[.]example/x"}
+    assert notify.card({"kind": "brand.hit", "subject": "b1", "payload": {**hit, "score": 92}}, url)["severity"] == "Critical"
+    b = notify.card({"kind": "brand.hit", "subject": "b2", "payload": {**hit, "score": 71}}, url)
+    assert b["severity"] == "High" and b["link"].endswith("?view=orgs&org=PWR-01") and "score 71" in b["title"]
+    s = notify.card({"kind": "surface.finding", "subject": "s1", "payload": {"host": "portal.citypower.example", "check": "TLS 1.0 enabled",
+                                                                             "severity": "High", "cwe": "CWE-326"}}, url)
+    assert s["title"] == "Attack-surface finding on portal.citypower.example: TLS 1.0 enabled" and "CWE-326" in s["lines"]
+    # ...and the shipped policy routes all four
+    import fnmatch
+    kinds = notify.load_config(env={})["routing"]["kinds"]
+    assert all(any(fnmatch.fnmatch(k, pat) for pat in kinds) for k in ("watch.fired", "ioc.match", "brand.hit", "surface.finding"))
 
 
 def test_one_card_five_shapes():

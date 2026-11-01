@@ -6,7 +6,8 @@
     "min_severity": "High",
     "kinds": [
       "shield.detect.*", "shield.block", "live.detect.*", "live.intake", "live.rescore", "live.drill.end",
-      "auto.escalate", "auto.case_opened", "auto.proposed"
+      "auto.escalate", "auto.case_opened", "auto.proposed",
+      "watch.fired", "ioc.match", "brand.hit", "surface.finding"
     ],
     "dedupe_minutes": 10,
     "per_minute_cap": 20
