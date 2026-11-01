@@ -141,7 +141,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
     <>
       <section className="soc-dark relative overflow-hidden border-b border-line">
         <Honeycomb />
-        <div className={`${WRAP} relative grid items-center gap-10 py-10 xl:grid-cols-[1fr_520px]`}>
+        <div className={`${WRAP} relative z-10 grid items-center gap-10 py-10 xl:grid-cols-[1fr_520px]`}>
           <div className="min-w-0">
             <p className="text-[13px] text-mute">National CERT duty desk · {new Date(feed.issued_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} IST</p>
             <h1 className="mt-4 max-w-3xl text-[40px] font-semibold leading-[1.05] tracking-tight sm:text-[52px]">{headline}</h1>
@@ -296,7 +296,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
             See everything it did <ArrowRight size={16} />
           </button>
         </div>
-        <Figures items={[
+        <Figures glass items={[
           { value: auto != null ? auto.toLocaleString('en-IN') : '—', label: 'actions on its own', sub: `since go-live on ${soc?.autopilot.go_live ?? '…'}` },
           { value: lead?.median_lead_days != null ? `${lead.median_lead_days} d` : '—', label: 'ahead of CISA KEV',
             sub: lead ? `median on real signals · ${lead.acted_before_kev} CVEs · up to ${lead.max_lead_days} d` : undefined },

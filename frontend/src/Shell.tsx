@@ -113,7 +113,7 @@ export function Footer({ go, health }: { go: Go; health?: Health }) {
   return (
     <footer className="soc-dark relative overflow-hidden border-t border-line">
       <Honeycomb />
-      <div className={`${WRAP} relative pt-12 pb-10`}>
+      <div className={`${WRAP} relative z-10 pt-12 pb-10`}>
         <div className="flex items-center gap-2.5"><img src="/mark.svg" alt="" className="h-7 w-7" /><span className="text-[20px] font-semibold tracking-tight">Odyssey</span></div>
         <p className="mt-3 max-w-md text-band-mute">National cyber threat early warning for India's critical infrastructure, running entirely on this laptop.</p>
         <div className="mt-10 grid gap-10 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.6fr]">

@@ -21,7 +21,7 @@ export function Hero({ title, sub, tabs, children }: { title: ReactNode; sub?: R
   return (
     <section className="soc-dark relative overflow-hidden border-b border-line">
       <Honeycomb />
-      <div className={`${WRAP} relative pt-8 pb-8`}>
+      <div className={`${WRAP} relative z-10 pt-8 pb-8`}>
         <div className="flex flex-wrap items-end justify-between gap-5">
           <div className="min-w-0 max-w-3xl">
             <p className="flex items-center gap-1.5 text-[13px] text-faint">Odyssey <ChevronRight size={13} aria-hidden /> <span className="text-mute">{title}</span></p>
@@ -38,11 +38,9 @@ export function Hero({ title, sub, tabs, children }: { title: ReactNode; sub?: R
 
 /** A page's headline figures: one surface cut into equal cells by 1px seams; grey label above, the figure below. A dot
  *  only where the number means risk or health; a delta only when it was measured. */
-export function Figures({ items }: { items: { value: ReactNode; label: string; sub?: ReactNode; dot?: string; delta?: ReactNode }[] }) {
+export function Figures({ items, glass }: { items: { value: ReactNode; label: string; sub?: ReactNode; dot?: string; delta?: ReactNode }[]; glass?: boolean }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-black">
-      <Plexus />
-      <div className="soc-seams is-glass relative grid-cols-2 xl:grid-cols-4">
+    <div className={`soc-seams grid-cols-2 xl:grid-cols-4 ${glass ? 'is-glass' : ''}`}>
       {items.map((k) => (
         <div key={k.label} className="px-5 py-4">
           <div className="flex items-center gap-2 text-[13px] font-medium text-mute">{k.dot && <span className={`h-2 w-2 shrink-0 rounded-full ${k.dot}`} />}{k.label}</div>
@@ -53,7 +51,6 @@ export function Figures({ items }: { items: { value: ReactNode; label: string; s
           {k.sub && <div className="mt-2 text-[13px] leading-snug text-faint">{k.sub}</div>}
         </div>
       ))}
-      </div>
     </div>
   )
 }
@@ -74,13 +71,13 @@ export function FiguresSkeleton() {
 }
 
 /** A full-width section of a page: white, soft grey, or a black band (the Oreo layers inside a page). The black band
- *  carries the same honeycomb as the page header, so the page ends the way it began. */
+ *  is where a page's results sit; the plexus (the team's second clip) moves behind them. */
 export function Band({ tone = 'white', children, className = '' }: { tone?: 'white' | 'soft' | 'black'; children: ReactNode; className?: string }) {
   if (tone === 'black') {
     return (
       <section className="soc-dark relative overflow-hidden border-t border-line text-text">
-        <Honeycomb />
-        <div className={`${WRAP} relative py-10 ${className}`}>{children}</div>
+        <Plexus />
+        <div className={`${WRAP} relative z-10 py-10 ${className}`}>{children}</div>
       </section>
     )
   }

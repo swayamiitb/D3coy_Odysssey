@@ -148,8 +148,9 @@ export function Honeycomb({ className = '' }: { className?: string }) {
       cv.remove()
     }
   }, [])
+  // z-0 makes this layer its own stacking context: the shade below darkens the tiles only, never the content on top
   return (
-    <div ref={ref} aria-hidden className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}>
+    <div ref={ref} aria-hidden className={`pointer-events-none absolute inset-0 z-0 overflow-hidden ${className}`}>
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.12),rgba(0,0,0,0.42))]" style={{ zIndex: 1 }} />
     </div>
   )
