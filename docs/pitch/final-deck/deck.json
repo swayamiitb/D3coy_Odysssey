@@ -1,0 +1,18 @@
+{
+  "v": 4,
+  "createdOnFiles": {"v": 1, "at": "2026-11-01T06:10:00Z"},
+  "lists": "css",
+  "title": "Odyssey final deck",
+  "order": ["cover", "problem", "line", "sources", "advisory", "patterns", "first", "action", "screens", "offline"],
+  "sections": {
+    "problem": {"description": "The warning was public and the decision was late: the problem Odyssey exists for.", "start": "cover"},
+    "pipeline": {"description": "From every source to a recommendation: aggregate, analyse, warn, prioritise, act.", "start": "sources"},
+    "proof": {"description": "The dashboard, and the proof that it runs here, offline, on measured claims.", "start": "screens"}
+  },
+  "faces": {
+    "big-shoulders": {"family": "Big Shoulders", "src": "/_blob/52ee9fa3df3efd99bc5440035c01f053"},
+    "instrument-sans": {"family": "Instrument Sans", "href": "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&display=swap"},
+    "jetbrains-mono": {"family": "JetBrains Mono", "href": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap"}
+  },
+  "designSystems": []
+}

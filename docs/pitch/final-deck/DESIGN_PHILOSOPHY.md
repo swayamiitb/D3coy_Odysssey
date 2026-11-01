@@ -1,0 +1,13 @@
+# Sovereign Signal
+
+A design movement for instruments that watch over something larger than themselves.
+
+**Space and form.** The field is black, not as absence but as the night a radar screen lives in. Form is drawn the way an observatory draws: rings, spokes, hairlines, ticks, the grid of a specimen plate. Every mark sits where a surveyor would have put it. Nothing is decorative; every line is a measurement that happens to be beautiful. The work must read as though a master draughtsman spent countless hours on it, each alignment refined until it could not be moved by a pixel.
+
+**Color and material.** Two materials only: the matte black of the field and the bone white of the instrument. Grey is white at a distance. One colour is allowed to speak, a signal red, and it speaks only when there is a signal: a point that matters, a figure that decides, a moment of breach. Red is never a decoration, a bar, a stripe. The eye should find it the way an operator finds the blip. White cards appear where a decision is made, like a page pulled from the printer in a dark room.
+
+**Scale and rhythm.** Numbers are the architecture. A figure may fill half a plate, condensed and heavy, set with the confidence of a stencil on a hull. Beside it, text whispers in a monospaced hand at the size of a reference marker: a plate number, a source, a unit. The rhythm alternates between the monumental and the minute, with nothing in between: either the thing is enormous or it is a label. Dense fields of repeated dots and ticks reward sustained looking; the viewer should sense a count was taken.
+
+**Composition and balance.** Each plate is one idea held in tension: the monument on one side, the evidence on the other, a hairline between them. Asymmetry is deliberate and balanced by weight, not by centering. Margins are generous and exact. Systematic reference markers (figure numbers, coordinates, provenance tags) run along the edges like the margin notes of an atlas, so that the composition could pass for a page from a discipline that does not yet exist. The craftsmanship must be unmistakable: every gap repeated, every tick equal, the whole suite legible as one instrument.
+
+**Visual hierarchy.** First the signal, then the figure, then the ring, then the label. Words are the last thing seen and the fewest. When a sentence is needed it is short, set small, and placed where a caption would go. The result should feel like evidence that something fleeting, an attack that has not yet happened, can be observed, measured and charted with the reverence usually reserved for the sky. Meticulously crafted, painstakingly aligned, the product of deep expertise.

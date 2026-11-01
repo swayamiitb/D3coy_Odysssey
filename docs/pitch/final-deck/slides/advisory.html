@@ -1,0 +1,61 @@
+<section id="advisory" data-transition="fade" style="background:#070708;color:#f2f2ef;font-family:'Instrument Sans', Arial, sans-serif;padding:96px 96px 160px;display:flex;flex-direction:column;gap:36px">
+<div style="display:flex;flex-direction:row;justify-content:space-between;align-items:end">
+<div style="display:flex;flex-direction:column;gap:14px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:4px;text-transform:uppercase;color:#9a9a9a">Plate 05 · The use case</p>
+<h2 style="font-size:66px;font-weight:600;line-height:1.05;letter-spacing:-1px">One advisory, start to finish</h2>
+</div>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;padding:8px 16px;border:1px solid rgba(242,242,239,0.3);border-radius:6px;white-space:nowrap">Siemens WinCC · CISA ICS advisory · real</p>
+</div>
+<div style="position:relative;width:1728px;height:520px">
+<svg aria-label="A pipeline of five stations on one line; the fourth station, where risk is assigned, is red; the fifth, where a person decides, is white" viewBox="0 0 1728 120" style="position:absolute;left:0;top:0;width:1728px;height:120px">
+<line x1="150" y1="60" x2="1578" y2="60" stroke="#3a3a3e" stroke-width="3"/>
+<circle cx="150" cy="60" r="22" fill="#070708" stroke="#f2f2ef" stroke-width="3"/>
+<circle cx="507" cy="60" r="22" fill="#070708" stroke="#f2f2ef" stroke-width="3"/>
+<circle cx="864" cy="60" r="22" fill="#070708" stroke="#f2f2ef" stroke-width="3"/>
+<circle cx="1221" cy="60" r="24" fill="#e11900" stroke="#e11900" stroke-width="3"/>
+<circle cx="1578" cy="60" r="22" fill="#f2f2ef" stroke="#f2f2ef" stroke-width="3"/>
+<circle cx="150" cy="60" r="7" fill="#f2f2ef"/>
+<circle cx="507" cy="60" r="7" fill="#f2f2ef"/>
+<circle cx="864" cy="60" r="7" fill="#f2f2ef"/>
+<circle cx="1578" cy="60" r="7" fill="#070708"/>
+</svg>
+<div style="position:absolute;left:0;top:140px;width:300px;display:flex;flex-direction:column;gap:12px">
+<p style="font-family:'Big Shoulders', Arial, sans-serif;font-size:110px;font-weight:700;line-height:0.9;color:#3a3a3e">01</p>
+<p style="font-size:30px;font-weight:700;line-height:1.2">A real advisory arrives</p>
+<p style="font-size:24px;line-height:1.4;color:#9a9a9a">CISA’s ICS advisory for Siemens WinCC, read by the security LLM. It works even when the advisory carries no CVE id.</p>
+</div>
+<div style="position:absolute;left:357px;top:140px;width:300px;display:flex;flex-direction:column;gap:12px">
+<p style="font-family:'Big Shoulders', Arial, sans-serif;font-size:110px;font-weight:700;line-height:0.9;color:#3a3a3e">02</p>
+<p style="font-size:30px;font-weight:700;line-height:1.2">Versions parsed</p>
+<p style="font-size:24px;line-height:1.4;color:#9a9a9a">Machine-readable ranges lifted from the text: vers:intdot/&lt;8.0.0.11 and vers:all/*.</p>
+</div>
+<div style="position:absolute;left:714px;top:140px;width:300px;display:flex;flex-direction:column;gap:12px">
+<p style="font-family:'Big Shoulders', Arial, sans-serif;font-size:110px;font-weight:700;line-height:0.9;color:#3a3a3e">03</p>
+<p style="font-size:30px;font-weight:700;line-height:1.2">Exposure found</p>
+<p style="font-size:24px;line-height:1.4;color:#9a9a9a">13 WinCC assets at 7 operators, checked against the inventory version by version. Patched hosts are marked safe.</p>
+</div>
+<div style="position:absolute;left:1071px;top:140px;width:300px;display:flex;flex-direction:column;gap:12px">
+<p style="font-family:'Big Shoulders', Arial, sans-serif;font-size:110px;font-weight:700;line-height:0.9;color:#e11900">04</p>
+<p style="font-size:30px;font-weight:700;line-height:1.2">Risk assigned</p>
+<p style="font-size:24px;line-height:1.4;color:#9a9a9a">A score with its working, an SSVC tier, a CERT-In deadline. Patch where a fix exists, mitigation where none does.</p>
+</div>
+<div style="position:absolute;left:1428px;top:140px;width:300px;display:flex;flex-direction:column;gap:12px">
+<p style="font-family:'Big Shoulders', Arial, sans-serif;font-size:110px;font-weight:700;line-height:0.9;color:#f2f2ef">05</p>
+<p style="font-size:30px;font-weight:700;line-height:1.2">People decide</p>
+<p style="font-size:24px;line-height:1.4;color:#9a9a9a">A notice proposed to each operator in its own language. An analyst approves. Every step lands in the audit trail.</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:row;gap:28px;align-items:center;flex-wrap:wrap">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#9a9a9a">The same path for every input</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;padding:8px 16px;border:1px solid rgba(242,242,239,0.18);border-radius:6px;color:#f2f2ef">a KEV entry</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;padding:8px 16px;border:1px solid rgba(242,242,239,0.18);border-radius:6px;color:#f2f2ef">a new CVE from NVD</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;padding:8px 16px;border:1px solid rgba(242,242,239,0.18);border-radius:6px;color:#f2f2ef">a decoy surge</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;padding:8px 16px;border:1px solid rgba(242,242,239,0.18);border-radius:6px;color:#f2f2ef">a partner’s indicators</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;padding:8px 16px;border:1px solid rgba(242,242,239,0.18);border-radius:6px;color:#f2f2ef">a SACHET alert</p>
+<div style="display:flex;flex-direction:row;align-items:center;gap:10px"><x-shape kind="ellipse" style="width:14px;height:14px;background:#e11900"></x-shape><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#9a9a9a">the score</p></div>
+<div style="display:flex;flex-direction:row;align-items:center;gap:10px"><x-shape kind="ellipse" style="width:14px;height:14px;background:#f2f2ef"></x-shape><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#9a9a9a">the person</p></div>
+</div>
+<p style="position:absolute;left:96px;bottom:64px;width:1300px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8a8a8a">Odyssey · D3COY 1.0 · DJS ISACA · PS-01</p>
+<p style="position:absolute;right:96px;bottom:64px;width:200px;text-align:right;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;color:#8a8a8a">05 / 10</p>
+<aside>This is the walk-through in the demo. A real CISA advisory for Siemens WinCC comes in. The model reads it, the version ranges are parsed, thirteen assets at seven operators are found exposed, each gets a risk with its working and a deadline, and the notices are proposed in Marathi, Gujarati and Hindi for a person to approve. The red station is the score; the white one is the person. Then: the same path for every input.</aside>
+</section>
