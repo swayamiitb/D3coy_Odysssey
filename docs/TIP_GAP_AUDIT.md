@@ -98,6 +98,19 @@ samples).
    risk lists are scored and sourced, the STIX bundle has no dangling reference. One new product flow in
    `scripts/e2e_check.py`, one new browser step in `scripts/ui_audit.py`.
 
+**Paired with national systems** (added 1 Nov 2026, 08:20 to 09:00 IST). None of the audited platforms reads India's
+national disaster alert feed; Odyssey now does. `backend/app/sachet.py` reads NDMA's SACHET CAP 1.2 feed (public
+domain) every 15 minutes, read-only and snapshot-backed, infers the state each alert concerns with a stated basis and
+a confidence, matches it to the operators in that state, and the graph draws matched alerts as REAL `signal` nodes on
+those operators (`facts.signal = 'disaster'`): context for "weather or attack?", never a cyber finding. Odyssey's own
+warnings leave as SACHET-compatible CAP 1.2 (`GET /api/warnings/{org}/{cve}/cap`, one `<info>` per validated
+language, `status=Exercise`), the format an authorised agency would route; it is not connected to SACHET. The inbound
+guard at `POST /api/sensor/cap` refuses, in order, flood, oversize, any DTD or entity before parsing, malformed,
+missing fields, untrusted sender, replay and stale, each a `cap.ingest.refused` ledger event, and
+`backend/app/engine/capredteam.py` proves it with ten hostile cases against Odyssey's own loopback endpoint (10 of 10
+in 0.36 s this morning, the planted secret never leaked). Measured on the live feed: 100 items, 99 with a state, 80
+on operators. Nothing is sent to NDMA or any third party. Section 21 of `docs/THREAD_CONTEXT.md` has the detail.
+
 ## 5. Out of scope by design, with the plug-in point
 
 | Capability | Why not here | Where it would plug in |

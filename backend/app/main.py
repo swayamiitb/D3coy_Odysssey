@@ -1424,17 +1424,6 @@ async def cap_ingest(request: Request) -> dict:
     return _cap_guard().ingest(body, source_ip=src, redteam=redteam)
 
 
-@app.post("/api/sensor/cap/redteam")
-def cap_redteam(request: Request) -> dict:
-    """Fire the hostile CAP cases at this Odyssey's own ingest on loopback and score the guard."""
-    from .engine import capredteam
-    port = request.url.port or 8000
-    try:
-        return capredteam.run(db, f"http://127.0.0.1:{port}/api/sensor/cap")
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-
-
 @app.get("/api/warnings/{org_id}/{cve_id}/cap")
 def warning_cap(org_id: str, cve_id: str, langs: str = "", status: str = "Exercise"):
     """Odyssey's warning as a CAP 1.2 message, one <info> per language (English always; others through the local
