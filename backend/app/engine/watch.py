@@ -97,14 +97,21 @@ def add(conn: sqlite3.Connection, target: str, rule: dict | None = None, owner: 
     if node is None:
         raise KeyError(target)
     state = _state(node, found[1])
-    cur = conn.execute("INSERT INTO watches (created_at, owner, target, label, kind, rule, note, last_state, last_eval) VALUES (?,?,?,?,?,?,?,?,?)",
-                       (_iso(now), owner or "analyst", target, label or node["label"], node["kind"], json.dumps(rule), note,
-                        json.dumps(state), _iso(now)))
+    ledger = Ledger(conn=conn)  # built before the write: its schema script would otherwise commit the transaction below
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
+    # An id is never reused. A deleted watch leaves its events and ledger rows behind (they are the audit trail), and the
+    # table's rowid would hand the next watch the same id and so the other watch's firings; the ledger never forgets an id.
+    used = conn.execute("""SELECT MAX(x) FROM (SELECT MAX(id) AS x FROM watches UNION ALL SELECT MAX(watch_id) FROM watch_events
+                           UNION ALL SELECT MAX(json_extract(payload, '$.watch_id')) FROM ledger WHERE kind = 'watch.added')""").fetchone()[0]
+    wid = int(used or 0) + 1
+    conn.execute("INSERT INTO watches (id, created_at, owner, target, label, kind, rule, note, last_state, last_eval) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                 (wid, _iso(now), owner or "analyst", target, label or node["label"], node["kind"], json.dumps(rule), note,
+                  json.dumps(state), _iso(now)))
+    ledger.append(ts=_iso(now), kind="watch.added", subject=target, source="ANALYST", provenance="HUMAN",
+                  payload={"watch_id": wid, "label": label or node["label"], "rule": rule, "owner": owner or "analyst"})
     conn.commit()
-    Ledger(conn=conn).append(ts=_iso(now), kind="watch.added", subject=target, source="ANALYST", provenance="HUMAN",
-                             payload={"watch_id": cur.lastrowid, "label": label or node["label"], "rule": rule, "owner": owner or "analyst"})
-    conn.commit()
-    return get(conn, cur.lastrowid)
+    return get(conn, wid)
 
 
 def get(conn: sqlite3.Connection, watch_id: int) -> dict:

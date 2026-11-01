@@ -493,6 +493,7 @@ class _Builder:
                 self.touch(n["id"], r["last_seen"] or r["ts"])
                 self.edge(n["id"], f"org:{r['org_id']}", "impersonates" if r["kind"] != "mention" else "mentions",
                           r["evidence"] or "brand monitoring hit", REAL, 1.2, r["last_seen"] or r["ts"])
+        self._disasters(orgs)
         if self._has("surface_scans"):
             seen_hosts = set()
             for r in self.cur.execute("SELECT * FROM surface_scans WHERE status = 'done' ORDER BY ts DESC LIMIT 20"):
@@ -512,6 +513,56 @@ class _Builder:
                     self.edge(n["id"], f"org:{r['org_id']}", "on", "a system this organisation owns, scanned with consent", REAL, 1.2, r["ts"])
                 if len(seen_hosts) >= 5:
                     break
+
+    def _disasters(self, orgs) -> None:
+        """SACHET alerts (public domain, REAL) on the states where operators sit: context for 'weather or attack?'."""
+        try:
+            from .. import sachet
+        except ImportError:
+            return
+        eng = sachet.ENGINE
+        if eng is None:
+            return
+        try:
+            feed = eng.read_feed(live=False)
+        except Exception:  # noqa: BLE001
+            return
+        cut = _iso(self.as_of) if self.as_of is not None else None
+        shown = 0
+        for it in feed.get("items", []):
+            if not it.get("orgs") or (cut and (it.get("published") or "") > cut):
+                continue
+            org_ids = [o["org_id"] for o in it["orgs"] if f"org:{o['org_id']}" in self.nodes]
+            if not org_ids:
+                continue
+            state = it["states"][0]["state"] if it.get("states") else "India"
+            sid = f"signal:sachet:{it['identifier']}"
+            title = it["title"].strip().split("\n")[0]
+            n = self.node(sid, "signal", f"SACHET: {title[:70]}{'…' if len(title) > 70 else ''}", provenance=REAL,
+                          source="NDMA SACHET public CAP feed (public domain), read-only",
+                          sub=f"disaster alert · {state} · {it.get('category') or 'alert'} · {(it.get('published') or '')[:16]}", tier="Medium", risk=35.0,
+                          facts={"signal": "disaster", "identifier": it["identifier"], "title": it["title"][:300], "author": it.get("author"), "category": it.get("category"),
+                                 "published": it.get("published"), "link": it.get("link"), "states": it.get("states", [])[:3], "operators": [o["name"] for o in it["orgs"]],
+                                 "basis": it["states"][0]["basis"] if it.get("states") else None})
+            self.touch(sid, it.get("published"))
+            for oid in org_ids:
+                self.edge(sid, f"org:{oid}", "on", "a disaster alert for the state this operator sits in (context, not a cyber signal)", REAL, 1.0, it.get("published"))
+            shown += 1
+            if shown >= 8:
+                break
+        for a in eng.inbound_alerts(10):
+            if cut and a["ts"] > cut:
+                continue
+            org_ids = [o["org_id"] for o in a.get("orgs", []) if f"org:{o['org_id']}" in self.nodes]
+            sid = f"signal:cap:{a['identifier']}"
+            n = self.node(sid, "signal", f"Inbound CAP: {a.get('event') or a['identifier']}"[:90], provenance="SIM" if a.get("redteam") else REAL,
+                          source="CAP ingest (validated: sender, replay, expiry, DTD refused)" + (" · red-team exercise" if a.get("redteam") else ""),
+                          sub=f"accepted from {a.get('sender')} · {a['ts'][:16]}", tier="Medium", risk=30.0,
+                          facts={"signal": "cap_inbound", "identifier": a["identifier"], "sender": a.get("sender"), "status": a.get("status"), "event": a.get("event"),
+                                 "severity": a.get("severity"), "states": a.get("states", [])[:3], "redteam": a.get("redteam")})
+            self.touch(sid, a["ts"])
+            for oid in org_ids:
+                self.edge(sid, f"org:{oid}", "on", "an accepted inbound alert for this operator's state", REAL, 1.0, a["ts"])
 
     def _suppliers(self, orgs) -> None:
         for s in supplier_graph():

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import datetime as dt
 import sqlite3
 import threading
 from pathlib import Path
@@ -960,6 +961,10 @@ async def _start_live() -> None:
     from . import shield
     try:
         shield.ENGINE = shield.Shield(db)  # HTTP shield is event-driven (no background loop); always on for the sensor API
+        if os.environ.get("ODYSSEY_SACHET", "1") != "0":
+            from . import sachet as _sachet
+            _sachet.ENGINE = _sachet.CapGuard(db)  # SACHET reader + CAP ingest guard; the feed is read lazily, snapshot-backed
+            threading.Thread(target=lambda: _sachet.ENGINE.read_feed(live=True), daemon=True).start()
     except Exception as exc:  # noqa: BLE001 - the dashboard must come up even if an optional engine cannot
         print(f"HTTP shield failed to start: {exc!r}", flush=True)
     if os.environ.get("ODYSSEY_LIVE", "1") == "0":
@@ -1376,6 +1381,110 @@ def notify_enabled(name: str, on: bool = Query(...)) -> dict:
 def notify_reload() -> dict:
     """Re-read config/notify.json and config/notify.local.json, so a pasted webhook URL works without a restart."""
     return _notify().reload()
+
+
+# ------------------------------------------------------------------------------------------------- SACHET / CAP
+def _cap_guard():
+    from . import sachet
+    if sachet.ENGINE is None:
+        sachet.ENGINE = sachet.CapGuard(db)
+    return sachet.ENGINE
+
+
+@app.get("/api/sachet")
+def sachet_view(live: bool = True, limit: int = 40) -> dict:
+    """India's SACHET alert feed (public domain, read-only) matched to the operators' states, the inbound CAP decisions,
+    and the guard's counters."""
+    g = _cap_guard()
+    feed = g.read_feed(live=live)
+    items = feed.pop("items")
+    status = g.status()
+    return {"feed": feed, "alerts": items[:limit], "matched_alerts": [i for i in items if i["orgs"]][:limit], "inbound": g.inbound_alerts(20),
+            "decisions": g.decisions(30), "ingest": status["ingest"], "trusted": status["trusted"], "limits": status["limits"], "how": status["how"],
+            "endpoint": "/api/sensor/cap", "provenance": {"feed": "REAL", "inbound": "REAL unless marked as an exercise"}}
+
+
+@app.get("/api/sachet/alert")
+def sachet_alert(url: str) -> dict:
+    """One SACHET alert's full CAP message (fetched only from sachet.ndma.gov.in), with the states it concerns."""
+    try:
+        return _cap_guard().fetch_cap(url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(502, f"could not fetch the alert: {type(exc).__name__}") from exc
+
+
+@app.post("/api/sensor/cap")
+async def cap_ingest(request: Request) -> dict:
+    """Inbound CAP 1.2 from any upstream. Validate, don't trust: every decision is a ledger event."""
+    body = await request.body()
+    redteam = request.headers.get("x-odyssey-redteam")
+    src = request.client.host if request.client else None
+    return _cap_guard().ingest(body, source_ip=src, redteam=redteam)
+
+
+@app.post("/api/sensor/cap/redteam")
+def cap_redteam(request: Request) -> dict:
+    """Fire the hostile CAP cases at this Odyssey's own ingest on loopback and score the guard."""
+    from .engine import capredteam
+    port = request.url.port or 8000
+    try:
+        return capredteam.run(db, f"http://127.0.0.1:{port}/api/sensor/cap")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.get("/api/warnings/{org_id}/{cve_id}/cap")
+def warning_cap(org_id: str, cve_id: str, langs: str = "", status: str = "Exercise"):
+    """Odyssey's warning as a CAP 1.2 message, one <info> per language (English always; others through the local
+    translator). SACHET-compatible format; Exercise unless an authorised desk routes it as Actual."""
+    from fastapi.responses import Response
+    from . import sachet
+    if status not in ("Exercise", "Actual", "Test", "Draft"):
+        raise HTTPException(400, "status must be Exercise, Actual, Test or Draft")
+    detail = alert_detail(org_id, cve_id)
+    brief = alert_brief(org_id, cve_id)
+    b = brief.get("brief") or {}
+    v = detail["vulnerability"]
+    headline = b.get("headline") or f"{v['id']} on {detail['org']['name']}: {(v.get('description') or '')[:120]}"
+    why = " ".join(x["text"] for x in b.get("why_it_matters", [])) or (v.get("description") or "")[:600]
+    todo = " ".join(x["text"] for x in b.get("what_to_do", [])) or " ".join(a["step"] for a in detail.get("actions", [])[:4])
+    infos = [{"language": "en-IN", "headline": headline, "description": why, "instruction": todo}]
+    missing = []
+    for lang in [x.strip() for x in langs.split(",") if x.strip()]:
+        try:
+            t = brief_translate(org_id, cve_id, lang)
+            ok = lambda x: isinstance(x, dict) and x.get("text") and x.get("status", "validated") == "validated"  # noqa: E731
+            head = (t.get("headline") or {}).get("text") if isinstance(t.get("headline"), dict) else None
+            why_t = [x["text"] for x in t.get("why_it_matters", []) if ok(x)]
+            todo_t = [x["text"] for x in t.get("what_to_do", []) if ok(x)]
+            withheld = sum(1 for x in t.get("why_it_matters", []) + t.get("what_to_do", []) if not ok(x))
+            if head and (why_t or todo_t):  # validated sentences only; withheld ones are dropped, never guessed
+                infos.append({"language": f"{lang}-IN", "headline": head, "description": " ".join(why_t),
+                              "instruction": " ".join(todo_t) or todo})
+                if withheld:
+                    missing.append(f"{lang} ({withheld} sentence(s) withheld, English kept for those)")
+            else:
+                missing.append(lang)
+        except HTTPException:
+            missing.append(lang)
+    org = detail["org"]
+    rank = {"Compromise": 4, "Critical": 3, "High": 2, "Medium": 1, "Watch": 0}
+    assets = detail.get("assets") or []
+    tier = max((a.get("tier") or "High" for a in assets), key=lambda t: rank.get(t, 0), default="High")
+    risk = max((a.get("risk") or 0 for a in assets), default=0)
+    deadline = min((a["deadline_hours"] for a in assets if a.get("deadline_hours") is not None), default=None)
+    alert = {"identifier": f"ODY-{org_id}-{cve_id}-{dt.datetime.now(dt.timezone.utc):%Y%m%d%H%M}", "tier": tier,
+             "event": f"Cyber threat warning: {v['id']} on {org['name']}", "areas": [f"{org['name']}, {org.get('state') or 'India'}"],
+             "web": f"http://127.0.0.1:5173/?view=soc&tab=warnings", "contact": "duty officer, Odyssey SOC (prototype)",
+             "note": "SACHET-compatible CAP produced by the Odyssey prototype; not an NDMA/SACHET message." + (
+                 f" Translation notes: {'; '.join(missing)}." if missing else ""),
+             "parameters": {"odyssey:risk": round(risk, 1), "odyssey:tier": tier, "odyssey:deadline_hours": deadline,
+                            "cve": v["id"], "kev": bool(v.get("kev"))}}
+    xml = sachet.write_cap(alert, infos, status=status)
+    return Response(content=xml, media_type="application/cap+xml",
+                    headers={"Content-Disposition": f'attachment; filename="odyssey-{org_id}-{cve_id}.cap.xml"', "X-Odyssey-Languages": ",".join(i["language"] for i in infos)})
 
 
 # ------------------------------------------------------------------------------------ TAXII 2.1 and the OSINT router

@@ -21,13 +21,25 @@ from .ledger import Ledger
 
 RAW = Path(__file__).resolve().parents[3] / "data" / "raw"
 _IPV4 = re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b")
-_DOMAIN = re.compile(r"\b(?=.{4,253}\b)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,24})\b", re.I)
+_LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", re.I)
+_DOMAIN = re.compile(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,24})", re.I)  # checked per token, see _domains
+_DOMAIN_TOKEN = re.compile(r"[A-Za-z0-9_.-]{4,253}")  # one linear scan; the strict pattern never backtracks across the text
 _URL = re.compile(r"\bhttps?://[^\s'\"<>|,;]+", re.I)  # stops at CSV separators too
 _SHA256 = re.compile(r"\b[a-f0-9]{64}\b", re.I)
 _SHA1 = re.compile(r"\b[a-f0-9]{40}\b", re.I)
 _MD5 = re.compile(r"\b[a-f0-9]{32}\b", re.I)
+_HEX = re.compile(r"[a-f0-9]{64}|[a-f0-9]{40}|[a-f0-9]{32}", re.I)
 _CVE = re.compile(r"\bCVE-\d{4}-\d{4,7}\b", re.I)
-_FILE_EXT = {"json", "txt", "csv", "exe", "dll", "zip", "pdf", "doc", "xls", "py", "js", "html", "php", "png", "jpg", "log", "md", "yml", "yaml"}
+_STIX_PAT = re.compile(r"(ipv4-addr|domain-name|url|file):(?:value|hashes\.'?([A-Za-z0-9-]+)'?)\s*=\s*'([^']+)'")
+_DOTS = re.compile(r"[\[({](?:\.|dot)[\])}]", re.I)  # [.] (.) {.} [dot] (dot) {dot}
+_HXXP = re.compile(r"\bhxxp(s?)(?=://)", re.I)
+_FILE_EXT = {"json", "txt", "csv", "exe", "dll", "zip", "pdf", "doc", "xls", "py", "js", "html", "php", "png", "jpg", "log", "md", "yml", "yaml",
+             "bat", "cmd", "sh", "vbs", "vbe", "wsf", "hta", "msi", "msp", "lnk", "scr", "sys", "ocx", "cpl", "drv", "inf", "reg", "chm", "jar",
+             "class", "swf", "elf", "iso", "img", "dmg", "apk", "pkg", "deb", "rpm", "rar", "gz", "tgz", "tar", "bin", "dat", "ini", "cfg", "conf",
+             "tmp", "bak", "rtf", "xml", "docx", "docm", "xlsx", "xlsm", "ppt", "pptx", "pptm", "odt", "jpeg", "gif", "bmp", "ico", "svg", "css",
+             "ts", "tsx", "jsx", "avi", "ttf", "woff"}
+_TLP = ("CLEAR", "WHITE", "GREEN", "AMBER", "AMBER+STRICT", "RED")
+_ORDER = {"Critical": 3, "High": 2, "Medium": 1, "Low": 0}
 TYPES = ("ipv4-addr", "domain-name", "url", "file:sha256", "file:sha1", "file:md5", "vulnerability")
 
 
@@ -46,20 +58,115 @@ def ensure(conn: sqlite3.Connection) -> None:
 
 
 def refang(text: str) -> str:
-    return (text.replace("[.]", ".").replace("(.)", ".").replace("{.}", ".").replace("[dot]", ".").replace("\\.", ".")
-            .replace("hxxp://", "http://").replace("hxxps://", "https://").replace("[:]", ":").replace("[://]", "://"))
+    text = _DOTS.sub(".", text).replace("\\.", ".")
+    text = text.replace("[://]", "://").replace("[:]", ":")  # before the scheme, so hxxp[:]// and hxxp[://] become URLs too
+    return _HXXP.sub(lambda m: "http" + m.group(1).lower(), text)
 
 
 def defang(value: str, type_: str) -> str:
     if type_ in ("ipv4-addr", "domain-name"):
         return value.replace(".", "[.]")
     if type_ == "url":
+        m = re.match(r"^(https?://)([^/?#]*)(.*)$", value, flags=re.I | re.S)
+        if m:  # the scheme is broken and every dot of the host is bracketed; the path keeps its own dots
+            return re.sub(r"^http", "hxxp", m.group(1), flags=re.I) + m.group(2).replace(".", "[.]") + m.group(3)
         return re.sub(r"^http", "hxxp", value, flags=re.I).replace(".", "[.]", 1) if "." in value else value
     return value
 
 
 def _iso(d: dt.datetime) -> str:
     return d.astimezone(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _host(url: str) -> str:
+    """The host of a URL (or of a bare host name): no scheme, userinfo, port, path or trailing dot, lower-cased."""
+    h = re.sub(r"^[a-z][a-z0-9+.-]*://", "", url.strip(), flags=re.I)
+    h = re.split(r"[/?#]", h, maxsplit=1)[0].rpartition("@")[2]
+    if h.count(":") == 1:
+        h = h.split(":", 1)[0]
+    return h.rstrip(".").lower()
+
+
+def _tlp(tlp: str | None) -> str:
+    """TLP is a controlled vocabulary; anything else (including a spreadsheet formula) is stored as the default."""
+    t = (tlp or "AMBER").strip().upper()
+    return t if t in _TLP else "AMBER"
+
+
+def _worst(matches: list[dict]) -> str | None:
+    return max((m.get("severity") for m in matches), key=lambda s: _ORDER.get(s, 0), default=None)
+
+
+def _json_list(text: str | None) -> list:
+    try:
+        v = json.loads(text or "[]")
+    except ValueError:
+        return []
+    return v if isinstance(v, list) else []
+
+
+def _domains(body: str):
+    """Domain names in free text in one linear pass: candidate tokens first, the strict check per token. A regex over the
+    whole text backtracks quadratically on hostile input (megabytes of 'a.a.a.'), which would hold the import for hours."""
+    for m in _DOMAIN_TOKEN.finditer(body):
+        labels = m.group(0).strip(".-").lower().split(".")
+        if len(labels) < 2 or not _DOMAIN.fullmatch(labels[-2] + "." + labels[-1]):
+            continue  # the registrable part is not a domain, so no longer suffix is either
+        i = len(labels) - 2
+        while i > 0 and _LABEL.fullmatch(labels[i - 1]):
+            i -= 1
+        yield ".".join(labels[i:])
+
+
+def _typed(found: dict, kind: str, raw: str) -> None:
+    """A STIX value is kept only when it is what its type says it is: a bundle is data, not something to trust."""
+    v = raw.strip()
+    if kind == "ipv4-addr":
+        v = v.removesuffix("/32")
+        if _IPV4.fullmatch(v) and not v.startswith(("0.", "255.")):
+            found[(v, "ipv4-addr")] = None
+    elif kind == "domain-name":
+        v = v.lower().rstrip(".")
+        if _DOMAIN.fullmatch(v):
+            found[(v, "domain-name")] = None
+    elif kind == "url":
+        if re.fullmatch(r"https?://\S+", v, flags=re.I):
+            found[(v, "url")] = None
+    elif kind == "file":
+        v = v.lower()
+        if _HEX.fullmatch(v):  # the length decides the algorithm, whatever the label says
+            found[(v, {64: "file:sha256", 40: "file:sha1"}.get(len(v), "file:md5"))] = None
+
+
+def _stix(bundle) -> dict[tuple[str, str], None] | None:
+    """Indicators of a STIX 2.1 bundle (patterns, cyber-observables, vulnerabilities), or None when this is not a bundle."""
+    objs = bundle.get("objects") if isinstance(bundle, dict) else None
+    if not isinstance(objs, list):
+        return None
+    found: dict[tuple[str, str], None] = {}
+    for o in objs:
+        if not isinstance(o, dict):
+            continue
+        t = o.get("type")
+        if t == "indicator" and isinstance(o.get("pattern"), str):
+            for m in _STIX_PAT.finditer(o["pattern"]):
+                _typed(found, m.group(1), m.group(3))
+        elif t in ("ipv4-addr", "domain-name", "url") and isinstance(o.get("value"), str):
+            _typed(found, t, o["value"])
+        elif t == "file" and isinstance(o.get("hashes"), dict):
+            for h in o["hashes"].values():
+                if isinstance(h, str):
+                    _typed(found, "file", h)
+        elif t == "vulnerability":
+            refs = o.get("external_references")
+            for ref in refs if isinstance(refs, list) else []:
+                if isinstance(ref, dict) and ref.get("source_name") == "cve" and isinstance(ref.get("external_id"), str):
+                    for m in _CVE.finditer(ref["external_id"]):
+                        found[(m.group(0).upper(), "vulnerability")] = None
+            if isinstance(o.get("name"), str):
+                for m in _CVE.finditer(o["name"]):
+                    found[(m.group(0).upper(), "vulnerability")] = None
+    return found
 
 
 def parse(text: str) -> tuple[list[tuple[str, str]], str]:
@@ -70,45 +177,32 @@ def parse(text: str) -> tuple[list[tuple[str, str]], str]:
     stripped = text.strip()
     if stripped.startswith("{"):
         try:
-            bundle = json.loads(stripped)
-            fmt = "stix"
-            for o in bundle.get("objects", []):
-                if o.get("type") == "indicator" and o.get("pattern"):
-                    for m in re.finditer(r"\[?(ipv4-addr|domain-name|url|file):(?:value|hashes\.'?(SHA-256|SHA-1|MD5)'?)\s*=\s*'([^']+)'", o["pattern"]):
-                        kind, hsh, val = m.group(1), m.group(2), m.group(3)
-                        t = {"ipv4-addr": "ipv4-addr", "domain-name": "domain-name", "url": "url"}.get(kind) or {"SHA-256": "file:sha256", "SHA-1": "file:sha1", "MD5": "file:md5"}.get(hsh or "", "file:sha256")
-                        found[(val.lower() if t != "url" else val, t)] = None
-                if o.get("type") == "vulnerability":
-                    for ref in o.get("external_references", []):
-                        if ref.get("source_name") == "cve" and ref.get("external_id"):
-                            found[(ref["external_id"].upper(), "vulnerability")] = None
-                    for m in _CVE.finditer(o.get("name", "")):
-                        found[(m.group(0).upper(), "vulnerability")] = None
-            return list(found), fmt
-        except ValueError:
-            pass
+            stix = _stix(json.loads(stripped))
+        except (ValueError, RecursionError):
+            stix = None
+        if stix is not None:
+            return list(stix), "stix"
+        # valid JSON that is not a bundle, or broken JSON: read it as free text
     body = refang(text)
     if "," in body and "\n" in body:
         fmt = "csv"
     for m in _URL.finditer(body):
-        found[(m.group(0).rstrip(".,;)"), "url")] = None
+        found[(m.group(0).rstrip(".,;:)]}!?*"), "url")] = None
     for m in _IPV4.finditer(body):
         v = m.group(0)
         if not v.startswith(("0.", "255.")):
             found[(v, "ipv4-addr")] = None
+    # the word boundaries already keep a shorter hash from being read inside a longer one
     for m in _SHA256.finditer(body):
         found[(m.group(0).lower(), "file:sha256")] = None
     for m in _SHA1.finditer(body):
-        if not any(k[0] == m.group(0).lower() for k in found):
-            found[(m.group(0).lower(), "file:sha1")] = None
+        found[(m.group(0).lower(), "file:sha1")] = None
     for m in _MD5.finditer(body):
-        if not any(m.group(0).lower() in k[0] for k in found if k[1].startswith("file:")):
-            found[(m.group(0).lower(), "file:md5")] = None
+        found[(m.group(0).lower(), "file:md5")] = None
     for m in _CVE.finditer(body):
         found[(m.group(0).upper(), "vulnerability")] = None
-    urls_hosts = {re.sub(r"^https?://", "", k[0], flags=re.I).split("/")[0].lower() for k in found if k[1] == "url"}
-    for m in _DOMAIN.finditer(body):
-        d = m.group(0).lower()
+    urls_hosts = {_host(k[0]) for k in found if k[1] == "url"}
+    for d in _domains(body):
         if d.rsplit(".", 1)[-1] in _FILE_EXT or _IPV4.fullmatch(d) or d in urls_hosts:
             continue
         found[(d, "domain-name")] = None
@@ -139,14 +233,18 @@ def _telemetry(conn, live: dict | None) -> dict:
     top = {(s.get("ip") or s.get("ipv4")): s for s in dshield().get("top_sources", []) if (s.get("ip") or s.get("ipv4"))}
     phish = set()
     if (RAW / "openphish.txt").exists():
-        phish = {re.sub(r"^[a-z]+://", "", u).split("/")[0].lower() for u in (RAW / "openphish.txt").read_text(encoding="utf-8").split()}
+        phish = {_host(u) for u in (RAW / "openphish.txt").read_text(encoding="utf-8").split()}
     variants = {}
     for o in orgs.values():
         for v in lookalikes(o["domain"]):
             variants[v] = o["id"]
     kev = {r[0] for r in conn.execute("SELECT id FROM vulns WHERE kev IS NOT NULL AND kev != 'null'")}
+    # the exposure record once for every CVE (assessments has no cve_id index: a query per pasted CVE is a table scan each)
+    exposure = {r[0]: tuple(r[1:]) for r in conn.execute("""SELECT cve_id, COUNT(*), COUNT(DISTINCT org_id), MAX(CASE tier WHEN 'Compromise' THEN 4
+                           WHEN 'Critical' THEN 3 WHEN 'High' THEN 2 WHEN 'Medium' THEN 1 ELSE 0 END), MAX(risk) FROM assessments
+                           WHERE R > 0 AND tier != 'Watch' GROUP BY cve_id""")}
     return {"orgs": orgs, "assets": assets, "flows": flows, "sightings": sightings, "shield": shield, "feodo": feodo, "dshield": top,
-            "phish": phish, "variants": variants, "kev": kev}
+            "phish": phish, "variants": variants, "kev": kev, "exposure": exposure}
 
 
 def match_one(conn, value: str, type_: str, tel: dict) -> tuple[list[dict], list[dict], str | None]:
@@ -175,32 +273,34 @@ def match_one(conn, value: str, type_: str, tel: dict) -> tuple[list[dict], list
             s = tel["dshield"][value]
             enrich.append({"source": "SANS ISC DShield", "detail": f"top attack source: {s.get('attacks')} records against {s.get('targets')} targets", "provenance": "REAL"})
     elif type_ in ("domain-name", "url"):
-        host = re.sub(r"^https?://", "", value, flags=re.I).split("/")[0].lower() if type_ == "url" else value
-        for org in tel["orgs"].values():
-            if host == org["domain"] or host.endswith("." + org["domain"]):
-                matches.append({"where": "constituency domain", "detail": f"{host} is {org['name']}'s own domain", "provenance": "SIM", "org_id": org["id"], "severity": "High"})
-        for v, org_id in tel["variants"].items():
-            if v in host and host != tel["orgs"][org_id]["domain"]:
-                matches.append({"where": "look-alike", "detail": f"resembles {tel['orgs'][org_id]['domain']} ({tel['orgs'][org_id]['name']})", "provenance": "REAL",
-                                "org_id": org_id, "severity": "High"})
-                break
+        host = _host(value)
+        own = [org for org in tel["orgs"].values() if host == org["domain"] or host.endswith("." + org["domain"])]
+        for org in own:
+            matches.append({"where": "constituency domain", "detail": f"{host} is {org['name']}'s own domain", "provenance": "SIM", "org_id": org["id"], "severity": "High"})
+        if not own:  # our own hosts (vpn.vgwc.example) are not look-alikes of ourselves
+            for v, org_id in tel["variants"].items():
+                if v in host:
+                    matches.append({"where": "look-alike", "detail": f"resembles {tel['orgs'][org_id]['domain']} ({tel['orgs'][org_id]['name']})", "provenance": "REAL",
+                                    "org_id": org_id, "severity": "High"})
+                    break
         if host in tel["phish"]:
             enrich.append({"source": "OpenPhish", "detail": "host in the live phishing feed", "provenance": "REAL"})
     elif type_ == "vulnerability":
-        rows = conn.execute("""SELECT COUNT(*), COUNT(DISTINCT org_id), MAX(CASE tier WHEN 'Compromise' THEN 4 WHEN 'Critical' THEN 3
-                               WHEN 'High' THEN 2 WHEN 'Medium' THEN 1 ELSE 0 END), MAX(risk) FROM assessments
-                               WHERE cve_id = ? AND R > 0 AND tier != 'Watch'""", (value,)).fetchone()
+        if "exposure" in tel:
+            rows = tel["exposure"].get(value)
+        else:
+            rows = conn.execute("""SELECT COUNT(*), COUNT(DISTINCT org_id), MAX(CASE tier WHEN 'Compromise' THEN 4 WHEN 'Critical' THEN 3
+                                   WHEN 'High' THEN 2 WHEN 'Medium' THEN 1 ELSE 0 END), MAX(risk) FROM assessments
+                                   WHERE cve_id = ? AND R > 0 AND tier != 'Watch'""", (value,)).fetchone()
         if rows and rows[0]:
             worst = {4: "Compromise", 3: "Critical", 2: "High", 1: "Medium", 0: "Watch"}[rows[2] or 0]
-            matches.append({"where": "exposure record", "detail": f"{rows[0]} exposed asset(s) at {rows[1]} organisation(s), worst {worst}, risk {rows[3]:.0f}",
+            matches.append({"where": "exposure record", "detail": f"{rows[0]} exposed asset(s) at {rows[1]} organisation(s), worst {worst}, risk {rows[3] or 0:.0f}",
                             "provenance": "REAL · SIM", "severity": "Critical" if worst in ("Compromise", "Critical") else "High", "assets": rows[0], "orgs": rows[1]})
         if value in tel["kev"]:
             enrich.append({"source": "CISA KEV", "detail": "exploited in the wild", "provenance": "REAL"})
     else:
         enrich.append({"source": "Odyssey", "detail": "no file telemetry is collected; hash kept for exchange and export", "provenance": "SIM"})
-    order = {"Critical": 3, "High": 2, "Medium": 1, "Low": 0}
-    severity = max((m["severity"] for m in matches), key=lambda s: order.get(s, 0), default=None)
-    return matches, enrich, severity
+    return matches, enrich, _worst(matches)
 
 
 def import_text(conn: sqlite3.Connection, text: str, source: str = "analyst paste", tlp: str = "AMBER", live: dict | None = None,
@@ -210,6 +310,7 @@ def import_text(conn: sqlite3.Connection, text: str, source: str = "analyst past
     ensure(conn)
     t0 = time.perf_counter()
     now = now or dt.datetime.now(dt.timezone.utc)
+    tlp = _tlp(tlp)
     found, fmt = parse(text)
     tel = _telemetry(conn, live)
     ledger = Ledger(conn=conn)
@@ -218,15 +319,21 @@ def import_text(conn: sqlite3.Connection, text: str, source: str = "analyst past
     for value, type_ in found:
         by_type[type_] = by_type.get(type_, 0) + 1
         matches, enrich, severity = match_one(conn, value, type_, tel)
-        existing = conn.execute("SELECT id, matched FROM iocs WHERE value = ? AND type = ?", (value, type_)).fetchone()
+        existing = conn.execute("SELECT id, matched, matches FROM iocs WHERE value = ? AND type = ?", (value, type_)).fetchone()
         if existing:
+            # what the live engine saw since the last import (mark_live_match) is not in this import's telemetry view:
+            # keep it, or re-importing the same advisory would silently un-match the indicator and re-ledger it later
+            live_hits = [m for m in _json_list(existing[2]) if m.get("where") == "live flows"]
+            if live_hits:
+                matches = matches + live_hits
+                severity = _worst(matches)
             conn.execute("UPDATE iocs SET last_seen = ?, matches = ?, enrich = ?, matched = ?, severity = ? WHERE id = ?",
                          (_iso(now), json.dumps(matches), json.dumps(enrich), int(bool(matches)), severity, existing[0]))
             ioc_id, was_matched = existing[0], bool(existing[1])
         else:
             cur = conn.execute("""INSERT INTO iocs (value, type, defanged, source, tlp, tags, added_at, first_seen, last_seen, matched, matches, enrich, severity)
                                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                               (value, type_, defang(value, type_), source, tlp.upper(), json.dumps(tags or []), _iso(now), _iso(now), _iso(now),
+                               (value, type_, defang(value, type_), source, tlp, json.dumps(tags or []), _iso(now), _iso(now), _iso(now),
                                 int(bool(matches)), json.dumps(matches), json.dumps(enrich), severity))
             ioc_id, was_matched, new = cur.lastrowid, False, new + 1
         if matches:
@@ -235,27 +342,28 @@ def import_text(conn: sqlite3.Connection, text: str, source: str = "analyst past
                 conn.commit()
                 ledger.append(ts=_iso(now), kind="ioc.match", subject=f"ioc:{value}", source="IOC_IMPORT",
                               provenance="SIM" if all(m["provenance"] == "SIM" for m in matches) else "REAL · SIM",
-                              payload={"value": defang(value, type_), "type": type_, "source": source, "tlp": tlp.upper(), "severity": severity,
+                              payload={"value": defang(value, type_), "type": type_, "source": source, "tlp": tlp, "severity": severity,
                                        "where": [m["where"] for m in matches], "matches": matches, "org_id": next((m.get("org_id") for m in matches if m.get("org_id")), None)})
         rows.append({"id": ioc_id, "value": value, "defanged": defang(value, type_), "type": type_, "matched": bool(matches), "severity": severity,
                      "matches": matches, "enrich": enrich})
     conn.commit()
     seconds = round(time.perf_counter() - t0, 2)
     conn.execute("INSERT INTO ioc_imports (ts, source, tlp, format, found, new, matched, by_type, seconds) VALUES (?,?,?,?,?,?,?,?,?)",
-                 (_iso(now), source, tlp.upper(), fmt, len(found), new, matched, json.dumps(by_type), seconds))
+                 (_iso(now), source, tlp, fmt, len(found), new, matched, json.dumps(by_type), seconds))
     conn.commit()
     if found:
         ledger.append(ts=_iso(now), kind="ioc.import", subject=source, source="ANALYST", provenance="HUMAN",
-                      payload={"format": fmt, "found": len(found), "new": new, "matched": matched, "by_type": by_type, "tlp": tlp.upper()})
+                      payload={"format": fmt, "found": len(found), "new": new, "matched": matched, "by_type": by_type, "tlp": tlp})
         conn.commit()
     order = {"Critical": 3, "High": 2, "Medium": 1, "Low": 0, None: -1}
     rows.sort(key=lambda r: (-int(r["matched"]), -order.get(r["severity"], -1), r["type"], r["value"]))
-    return {"source": source, "tlp": tlp.upper(), "format": fmt, "found": len(found), "new": new, "matched": matched, "by_type": by_type,
+    return {"source": source, "tlp": tlp, "format": fmt, "found": len(found), "new": new, "matched": matched, "by_type": by_type,
             "seconds": seconds, "indicators": rows}
 
 
 def list_iocs(conn: sqlite3.Connection, matched_only: bool = False, limit: int = 200) -> dict:
     ensure(conn)
+    limit = max(0, int(limit))  # a negative LIMIT means "no limit" to SQLite
     cur = conn.cursor()
     cur.row_factory = sqlite3.Row
     q = "SELECT * FROM iocs" + (" WHERE matched = 1" if matched_only else "") + " ORDER BY matched DESC, CASE severity WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END, id DESC LIMIT ?"
@@ -298,8 +406,14 @@ def mark_live_match(conn: sqlite3.Connection, value: str, detail: dict, now: dt.
     conn.commit()
 
 
+def _cell(v):
+    """A CSV cell a spreadsheet will not execute: a leading = + - @ tab or CR is quoted (CSV formula injection)."""
+    return "'" + v if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r") else v
+
+
 def export_rows(conn: sqlite3.Connection, matched_only: bool = False) -> list[dict]:
     d = list_iocs(conn, matched_only, limit=100000)
-    return [{"value": r["value"], "defanged": r["defanged"], "type": r["type"], "source": r["source"], "tlp": r["tlp"], "severity": r["severity"],
-             "matched": r["matched"], "where": "; ".join(m["where"] for m in r["matches"]), "enrichment": "; ".join(e["detail"] for e in r["enrich"]),
-             "first_seen": r["first_seen"], "last_seen": r["last_seen"]} for r in d["indicators"]]
+    return [{k: _cell(v) for k, v in {"value": r["value"], "defanged": r["defanged"], "type": r["type"], "source": r["source"], "tlp": r["tlp"],
+                                      "severity": r["severity"], "matched": r["matched"], "where": "; ".join(m["where"] for m in r["matches"]),
+                                      "enrichment": "; ".join(e["detail"] for e in r["enrich"]), "first_seen": r["first_seen"], "last_seen": r["last_seen"]}.items()}
+            for r in d["indicators"]]

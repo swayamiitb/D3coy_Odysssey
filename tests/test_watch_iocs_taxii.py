@@ -555,3 +555,405 @@ def test_taxii_bearer_token_when_configured(client, monkeypatch):
     assert client.get("/taxii2/odyssey/collections/", headers={"Authorization": "Bearer secret"}).status_code == 200
     monkeypatch.delenv("ODYSSEY_TAXII_TOKEN")
     assert client.get("/taxii2/").status_code == 200, "no token configured: open, as the demo runs it"
+
+
+# ------------------------------------------------------------------------------ watchlists: adversarial review regressions
+def test_watch_add_rejects_malformed_rules_and_fields(copy, client):
+    """A rule that cannot be evaluated must be refused at the door (400), never stored: `_reasons` would otherwise raise on
+    it at every evaluation and silence every watch behind it."""
+    for rule in ({"kind": "fresh", "pulse": "abc"}, {"kind": "fresh", "pulse": None}, {"kind": "any", "pulse": float("nan")},
+                 {"kind": "any", "pulse": [1]}, {"kind": "any", "pulse": 1.5}, {"kind": "any", "pulse": -0.1}, {"kind": "any", "pulse": True},
+                 "x", [], {"kind": ["any"]}, {"kind": "any", "tier": []}, {"kind": "any", "tier": None}):
+        with pytest.raises(ValueError):
+            watch.add(copy, "product:fortios", rule)
+    for kw in (dict(label={"a": 1}), dict(owner=5), dict(note=[])):
+        with pytest.raises(ValueError):
+            watch.add(copy, "product:fortios", None, **kw)
+    with pytest.raises(ValueError):
+        watch.add(copy, 5)  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        watch.add(copy, "   ")
+    assert client.post("/api/watches", json={"target": "product:fortios", "rule": {"kind": "fresh", "pulse": "abc"}}).status_code == 400
+    assert client.post("/api/watches", json={"target": "product:fortios", "rule": "x"}).status_code == 400
+    assert client.post("/api/watches", json={"target": "product:fortios", "rule": {"kind": "any", "tier": []}}).status_code == 400
+    assert client.post("/api/watches", json={"target": "product:fortios", "label": {"a": 1}}).status_code == 400
+    assert client.post("/api/watches", json={"target": 5}).status_code == 400
+    # the boundaries stay open: a pulse of 0 or 1 and an int are numbers
+    w = watch.add(copy, "product:fortios", {"kind": "fresh", "pulse": 1, "tier": "Watch"})
+    assert w["rule"] == {"kind": "fresh", "pulse": 1, "tier": "Watch"}
+    assert watch.set_status(copy, w["id"], "deleted") is None
+
+
+def test_watch_one_malformed_row_cannot_halt_evaluation(copy, capsys):
+    """A stored rule that raises (a tampered or legacy row) is skipped and reported; the watches behind it still fire."""
+    now = _iso(_now())
+    state = json.dumps({"pulse": 0.1, "tier": "High", "last_seen": "2026-10-01T00:00:00Z", "degree": 1, "neighbours": ["x:y"], "risk": 10})
+    cur = copy.execute("INSERT INTO watches (created_at, target, rule, status, last_state, last_eval) VALUES (?,?,?,?,?,?)",
+                       (now, "product:fortios", json.dumps({"kind": "fresh", "pulse": "abc"}), "active", state, "2026-10-01T00:00:00Z"))
+    copy.commit()
+    bad = cur.lastrowid  # a raw rowid: it may be one an earlier, deleted watch used, so its ledger rows are counted as deltas
+    bad_rows_before = len(_fired_rows(copy, bad))
+    good = watch.add(copy, "product:fortios", {"kind": "connect"})
+    assert good["id"] > bad, "the malformed row is evaluated first"
+    fired = _mine(watch.evaluate(copy, _surge("DET-TEST-SURGE-BAD-ROW", now)), good["id"])
+    assert len(fired) == 1 and fired[0]["reasons"] == ["1 new connection(s): DET-TEST-SURGE-BAD-ROW"], "the watch behind the bad row fires"
+    b = watch.get(copy, bad)
+    assert b["fired"] == 0 and b["last_eval"] > "2026-10-01T00:00:00Z", "the bad row is skipped, not fired, and marked evaluated"
+    assert len(_fired_rows(copy, bad)) == bad_rows_before
+    assert f"watch {bad} on product:fortios" in capsys.readouterr().out
+    assert watch.set_status(copy, bad, "deleted") is None and watch.set_status(copy, good["id"], "deleted") is None
+
+
+def test_watch_concurrent_evaluations_fire_once(copy, paths, monkeypatch):
+    """The live engine (its own connection, every 15 s) and an analyst's 'evaluate now' both read the same recorded state;
+    the one that advances it first owns the firing. Before the compare-and-set, one change produced two events."""
+    other = sqlite3.connect(paths / "ews.db", timeout=30, check_same_thread=False)
+    try:
+        live0 = _surge("DET-TEST-RACE-0", _iso(_now()))
+        w = watch.add(copy, "product:fortios", {"kind": "connect"}, live=live0)
+        assert _mine(watch.evaluate(copy, live0), w["id"]) == [], "the picture the watch was added on does not fire"
+        live1 = {**live0, "detections": live0["detections"] + [{**live0["detections"][0], "id": "DET-TEST-RACE-1"}]}
+        real, seen = watch.intel_graph, {"other_fired": None}
+
+        def interleaved(conn, focus, live, now=None):
+            g = real(conn, focus, live, now=now)
+            if conn is copy and seen["other_fired"] is None:  # the other evaluator runs to completion while this one is mid-flight
+                seen["other_fired"] = _mine(watch.evaluate(other, live), w["id"])
+            return g
+
+        monkeypatch.setattr(watch, "intel_graph", interleaved)
+        mine = _mine(watch.evaluate(copy, live1), w["id"])
+        monkeypatch.setattr(watch, "intel_graph", real)
+        assert len(seen["other_fired"]) == 1 and seen["other_fired"][0]["reasons"] == ["1 new connection(s): DET-TEST-RACE-1"]
+        assert mine == [], "the change was already claimed by the other evaluation"
+        assert copy.execute("SELECT COUNT(*) FROM watch_events WHERE watch_id = ?", (w["id"],)).fetchone()[0] == 1
+        assert watch.get(copy, w["id"])["fired"] == 1 and len(_fired_rows(copy, w["id"])) == 1, "one change, one event, one ledger row"
+        assert _mine(watch.evaluate(copy, live1), w["id"]) == [] and _mine(watch.evaluate(other, live1), w["id"]) == []
+        assert not copy.in_transaction and not other.in_transaction, "evaluation leaves no transaction open"
+        ok, bad = Ledger(conn=copy).verify()
+        assert ok and bad is None
+        assert watch.set_status(copy, w["id"], "deleted") is None
+    finally:
+        other.close()
+
+
+def test_watch_asset_focus_comes_from_the_inventory(copy):
+    """An asset lives in its organisation's graph; the organisation is read from the inventory, so an asset id that does not
+    follow the <org>-<n>-A<nnn> convention still resolves, and an unknown one falls back to the convention."""
+    from backend.app.engine.watch import _focus_for
+    assert _focus_for(copy, "product:fortios") is None and _focus_for(copy, "asset:PWR-01-A001") == "PWR-01"
+    assert _focus_for(copy, "asset:ZZZ-99-A001") == "ZZZ-99" and _focus_for(copy, "asset:") == ""
+    copy.execute("INSERT INTO assets (id, org_id, hostname) VALUES (?,?,?)", ("X-A001", "PWR-01", "x-a001.vgwc.example"))
+    copy.commit()
+    try:
+        assert _focus_for(copy, "asset:X-A001") == "PWR-01", "the inventory wins over the id convention"
+    finally:
+        copy.execute("DELETE FROM assets WHERE id = ?", ("X-A001",))
+        copy.commit()
+    with pytest.raises(KeyError):
+        watch.add(copy, "asset:ZZZ-99-A001")  # no such organisation: the graph has no such node
+    with pytest.raises(KeyError):
+        watch.add(copy, "asset:PWR-01-A999")  # known organisation, unknown asset
+
+
+# ------------------------------------------------------------------------------- TAXII 2.1: adversarial review regressions
+def test_taxii_added_after_compares_instants_not_strings(client):
+    """added_after is an RFC 3339 instant, not a string: no fraction, .000, six digits, an offset, and the '+' that URL
+    decoding turns into a space all name the same instant and filter identically; strictly after, never at. Garbage is 400."""
+    url = "/taxii2/odyssey/collections/indicators/objects/"
+    objs = client.get(url, params={"limit": 1000}).json()["objects"]
+    stamp = lambda o: o.get("modified") or o.get("created")  # noqa: E731
+    pivot = "2026-10-31T00:00:00.000Z"  # the producer identity's fixed version; every generated object is stamped later
+    at, after = [o for o in objs if stamp(o) == pivot], [o for o in objs if stamp(o) > pivot]
+    assert at and after and len(at) + len(after) == len(objs)
+    for form in ("2026-10-31T00:00:00Z", "2026-10-31T00:00:00.000Z", "2026-10-31T00:00:00.000000Z", "2026-10-31T05:30:00%2B05:30",
+                 "2026-10-31T05:30:00+05:30", "2026-10-30T19:00:00-05:00"):
+        got = client.get(f"{url}?added_after={form}&limit=1000").json()["objects"]
+        assert len(got) == len(after) and not any(stamp(o) == pivot for o in got), form
+    got = client.get(url, params={"added_after": "2026-10-31 00:00:00Z", "limit": 1000}).json()["objects"]
+    assert len(got) == len(after), "a space between date and time is tolerated"
+    assert len(client.get(url, params={"added_after": "2026-10-30T23:59:59.999Z", "limit": 1000}).json()["objects"]) == len(objs)
+    for bad in ("yesterday", "2026-13-01T00:00:00Z", "2026-10-31T00:00:00+25:00"):
+        r = client.get(url, params={"added_after": bad})
+        assert r.status_code == 400 and r.headers["content-type"] == TAXII_MEDIA and r.json()["http_status"] == "400" and r.json()["title"], bad
+
+
+def test_taxii_added_after_fraction_boundary_and_stable_order(client):
+    """An object 308 ms after a whole second is after that second (the string comparison dropped it); rows come back by
+    (date_added, id), so two requests walk the collection in the same order."""
+    from fastapi import HTTPException
+    from starlette.datastructures import QueryParams
+    from backend.app import taxii
+    objs = [{"id": "x--b", "type": "x", "spec_version": "2.1", "modified": "2026-11-01T02:35:17.308Z"},
+            {"id": "x--a", "type": "x", "spec_version": "2.1", "modified": "2026-11-01T02:35:17.308Z"},
+            {"id": "x--c", "type": "x", "spec_version": "2.1", "created": "2026-11-01T02:35:17.000Z"}]
+    ids = lambda q: [o["id"] for o in taxii._filter(QueryParams(q), objs)]  # noqa: E731
+    assert ids("added_after=2026-11-01T02:35:17Z") == ["x--a", "x--b"]
+    assert ids("added_after=2026-11-01T02:35:17.000Z") == ["x--a", "x--b"] and ids("added_after=2026-11-01T02:35:17.307Z") == ["x--a", "x--b"]
+    assert ids("added_after=2026-11-01T02:35:17.308Z") == [] and ids("added_after=2026-11-01T08:05:17.308%2B05:30") == []
+    assert ids("added_after=2026-11-01T08:05:16.999%2B05:30") == ["x--c", "x--a", "x--b"] == ids("") == ids("added_after=")
+    assert ids("match[version]=2026-11-01T02:35:17.308Z") == ["x--a", "x--b"] and ids("match[version]=2026-11-01T08:05:17%2B05:30") == ["x--c"]
+    assert ids("match[spec_version]=2.1&match[id]=x--c,x--a") == ["x--c", "x--a"] and ids("match[spec_version]=2.0") == []
+    with pytest.raises(HTTPException) as exc:
+        ids("added_after=2026-13-01T00:00:00Z")
+    assert exc.value.status_code == 400
+    with pytest.raises(HTTPException):
+        ids("match[version]=latest")
+    assert objs[0]["id"] == "x--b", "filtering never reorders or mutates the caller's list"
+    base = "/taxii2/odyssey/collections/graph/objects/"
+    a = [o["id"] for o in client.get(base, params={"limit": 1000}).json()["objects"]]
+    b = [o["id"] for o in client.get(base, params={"limit": 1000}).json()["objects"]]
+    assert a == b and len(a) > 5
+
+
+def test_taxii_next_cursor_must_be_the_servers(client):
+    """next is opaque and comes from the server: a negative offset sliced from the end of the list and paged on into nonsense."""
+    base = "/taxii2/odyssey/collections/graph/objects/"
+    bad = client.get(base, params={"limit": 2, "next": "-3"})
+    assert bad.status_code == 400 and bad.headers["content-type"] == TAXII_MEDIA
+    assert bad.json() == {"title": "next must be a value this server returned", "http_status": "400"}
+    assert client.get(base, params={"limit": 100, "next": "-1"}).status_code == 400
+    assert client.get(base, params={"limit": 2, "next": "1e2"}).status_code == 400
+    assert client.get(base, params={"limit": 2, "next": "999999"}).json() == {"more": False, "objects": []}
+    man = client.get("/taxii2/odyssey/collections/graph/manifest/", params={"limit": 2, "next": "-1"})
+    assert man.status_code == 400
+
+
+def test_taxii_match_filters_version_spec_version_and_repeats(client):
+    """match[version], match[spec_version] and a repeated match[] field (equivalent to a comma list) are honoured, on the
+    collection and on a single object."""
+    base = "/taxii2/odyssey/collections/graph/objects/"
+    n = len(client.get(base, params={"limit": 1000}).json()["objects"])
+    both = client.get(f"{base}?match[type]=intrusion-set&match[type]=malware").json()["objects"]
+    assert {o["type"] for o in both} == {"intrusion-set", "malware"}
+    assert client.get(base, params={"match[spec_version]": "2.0", "limit": 1000}).json() == {"more": False, "objects": []}
+    assert len(client.get(base, params={"match[spec_version]": "2.1", "limit": 1000}).json()["objects"]) == n
+    for v in ("first", "last", "all", "first,last"):
+        assert len(client.get(base, params={"match[version]": v, "limit": 1000}).json()["objects"]) == n, v
+    assert client.get(base, params={"match[version]": "1999-01-01T00:00:00.000Z"}).json() == {"more": False, "objects": []}
+    fixed = client.get(base, params={"match[version]": "2026-10-31T00:00:00Z", "limit": 1000}).json()["objects"]
+    assert fixed and all((o.get("modified") or o.get("created") or "2026-10-31T00:00:00.000Z") == "2026-10-31T00:00:00.000Z" for o in fixed)
+    assert client.get(base, params={"match[version]": "latest"}).status_code == 400
+    oid = both[0]["id"]
+    assert client.get(f"{base}{oid}/", params={"match[spec_version]": "2.0"}).status_code == 404
+    one = client.get(f"{base}{oid}/", params={"match[version]": "all"})
+    assert one.status_code == 200 and one.headers["X-TAXII-Date-Added-First"] == one.headers["X-TAXII-Date-Added-Last"] == one.json()["objects"][0]["modified"]
+    ver = client.get(f"{base}{oid}/versions/")
+    assert ver.headers["X-TAXII-Date-Added-First"] == ver.json()["versions"][0]
+
+
+def test_taxii_manifest_headers_error_messages_and_content_negotiation(client):
+    """Manifests carry the date-added headers; errors leave as TAXII error messages with the TAXII media type; an Accept
+    header this server cannot satisfy is 406, while browsers, curl and plain JSON clients stay welcome."""
+    r = client.get("/taxii2/odyssey/collections/graph/manifest/", params={"limit": 4})
+    man = r.json()["objects"]
+    assert len(man) == 4 and r.headers["X-TAXII-Date-Added-First"] == man[0]["date_added"] and r.headers["X-TAXII-Date-Added-Last"] == man[-1]["date_added"]
+    empty = client.get("/taxii2/odyssey/collections/graph/manifest/", params={"added_after": "9999-01-01T00:00:00Z"})
+    assert empty.json() == {"more": False, "objects": []} and "X-TAXII-Date-Added-First" not in empty.headers
+    for path, status, title in (("/taxii2/odyssey/collections/nope/", 404, "unknown collection"),
+                                ("/taxii2/odyssey/collections/graph/objects/indicator--00000000-0000-0000-0000-000000000000/", 404, "unknown object"),
+                                ("/taxii2/odyssey/collections/graph/objects/indicator--00000000-0000-0000-0000-000000000000/versions/", 404, "unknown object"),
+                                ("/taxii2/odyssey/collections/graph/objects/?limit=lots", 400, "limit and next must be integers")):
+        r = client.get(path)
+        assert r.status_code == status and r.headers["content-type"] == TAXII_MEDIA and r.json() == {"title": title, "http_status": str(status)}, path
+    for accept, status in (("application/taxii+json;version=2.1", 200), ("application/taxii+json", 200), ("*/*", 200), ("application/json", 200),
+                           ("text/html,application/xhtml+xml,*/*;q=0.8", 200), ("application/taxii+json; version=2.1, */*;q=0.1", 200),
+                           ("text/html", 406), ("application/taxii+json;version=2.0", 406), ("application/vnd.oasis.taxii+json", 406)):
+        r = client.get("/taxii2/odyssey/collections/", headers={"Accept": accept})
+        assert r.status_code == status, accept
+        if status == 406:
+            assert r.headers["content-type"] == TAXII_MEDIA and r.json()["http_status"] == "406" and TAXII_MEDIA in r.json()["title"]
+
+
+def test_taxii_bearer_scheme_is_case_insensitive_and_401_is_taxii(client, monkeypatch):
+    monkeypatch.setenv("ODYSSEY_TAXII_TOKEN", "secret")
+    for header in ("bearer secret", "BEARER secret", "Bearer secret", "Bearer  secret "):
+        assert client.get("/taxii2/", headers={"Authorization": header}).status_code == 200, header
+    for header in ("Basic secret", "Bearer", "Bearer secre", "Bearer secret2", "secret", "Bearersecret", ""):
+        r = client.get("/taxii2/", headers={"Authorization": header})
+        assert r.status_code == 401 and r.headers["www-authenticate"] == "Bearer" and r.headers["content-type"] == TAXII_MEDIA, header
+        assert r.json() == {"title": "bearer token required", "http_status": "401"}
+    assert client.get("/taxii2/odyssey/collections/nope/").status_code == 401, "the token gate comes before the lookup: no existence leak"
+    assert client.get("/taxii2/", headers={"Accept": "text/html"}).status_code == 401, "and before content negotiation"
+    monkeypatch.delenv("ODYSSEY_TAXII_TOKEN")
+    assert client.get("/taxii2/").status_code == 200
+
+
+def test_taxii_timestamps_treat_naive_records_as_utc(client, paths):
+    """NVD publication dates and DShield first-seen dates carry no zone and mean UTC: read as local time on an IST machine
+    they landed on the previous day. Unparseable records fall back to the project epoch instead of a 500."""
+    from backend.app import taxii
+    assert taxii._ts("2024-01-15") == "2024-01-15T00:00:00.000Z" and taxii._ts("2026-10-31T12:00:00") == "2026-10-31T12:00:00.000Z"
+    assert taxii._ts("2026-10-31T12:00:00+05:30") == "2026-10-31T06:30:00.000Z" == taxii._ts("2026-10-31T06:30:00Z") == taxii._ts("2026-10-31 06:30:00Z")
+    assert taxii._ts("2026-10-31T06:30:00.123456Z") == "2026-10-31T06:30:00.123Z"
+    assert taxii._ts("garbage") == taxii._ts(None) == taxii._ts("") == "2026-10-31T00:00:00.000Z"
+    vulns = [o for o in client.get("/taxii2/odyssey/collections/vulnerabilities/objects/", params={"limit": 1000}).json()["objects"] if o["type"] == "vulnerability"]
+    conn = sqlite3.connect(f"file:{paths / 'ews.db'}?mode=ro", uri=True)
+    try:
+        published = {r[0]: r[1] for r in conn.execute("SELECT id, published FROM vulns WHERE published IS NOT NULL AND published != ''")}
+    finally:
+        conn.close()
+    checked = [o for o in vulns if o["name"] in published]
+    assert checked and all(o["created"] == published[o["name"]][:10] + "T00:00:00.000Z" for o in checked), "created is the UTC publication day"
+    inds = client.get("/taxii2/odyssey/collections/indicators/objects/", params={"match[type]": "indicator", "limit": 1000}).json()["objects"]
+    assert inds and all(re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z", o["valid_from"]) for o in inds)
+    assert all(o["valid_from"].endswith("T00:00:00.000Z") for o in inds if "global_attack_source" in o["labels"]), "DShield dates are whole UTC days"
+
+
+def test_taxii_pattern_literals_are_escaped(client):
+    """A matched value holding a backslash (a sloppy producer's STIX pattern) becomes a valid STIX pattern literal."""
+    from backend.app import taxii
+    bs = chr(92)
+    assert taxii._lit(f"a{bs}b'c") == f"a{bs}{bs}b{bs}'c" and taxii._lit("plain.example") == "plain.example"
+    bundle = {"type": "bundle", "id": "bundle--00000000-0000-0000-0000-00000000c0de", "objects": [
+        {"type": "indicator", "spec_version": "2.1", "id": "indicator--00000000-0000-0000-0000-00000000c0de", "pattern_type": "stix",
+         "pattern": f"[url:value = 'http://login-{VARIANT}.com/kyc{bs}verify']", "created": "2026-01-01T00:00:00.000Z",
+         "modified": "2026-01-01T00:00:00.000Z", "valid_from": "2026-01-01T00:00:00.000Z"}]}
+    imp = client.post("/api/iocs/import", json={"text": json.dumps(bundle), "source": "review bundle", "tlp": "GREEN"}).json()
+    assert [(i["type"], i["matched"]) for i in imp["indicators"]] == [("url", True)]
+    value = imp["indicators"][0]["value"]
+    assert value.count(bs) == 1, "the record holds one backslash"
+    objs = client.get("/taxii2/odyssey/collections/indicators/objects/", params={"match[type]": "indicator", "limit": 1000}).json()["objects"]
+    pats = [o["pattern"] for o in objs if f"login-{VARIANT}.com/kyc" in o["pattern"]]
+    assert pats == [f"[url:value = '{value.replace(bs, bs + bs)}']"]
+    assert all(o["pattern"].count("'") == 2 or "hashes." in o["pattern"] for o in objs), "no stray quote in any pattern"
+
+
+def test_taxii_identity_is_a_copy_of_the_producer(client):
+    """The producer identity in a response is equal to, never the same object as, the module constant."""
+    from backend.app import taxii
+    from backend.app.engine.reports import PRODUCER
+    for alias in ("indicators", "vulnerabilities"):
+        ids = [o for o in taxii.objects_for(alias) if o["type"] == "identity" and o["id"] == PRODUCER["id"]]
+        assert len(ids) == 1 and ids[0] == PRODUCER and ids[0] is not PRODUCER, alias
+
+
+def test_watch_ids_are_never_reused_after_delete(copy):
+    """A deleted watch leaves its events and ledger rows behind (the audit trail); the next watch must not inherit its id,
+    or the interface shows the old watch's firings under a stranger."""
+    w1 = watch.add(copy, "product:fortios", {"kind": "connect"}, label="first watch")
+    fired = _mine(watch.evaluate(copy, _surge("DET-TEST-SURGE-REUSE", _iso(_now()))), w1["id"])
+    assert len(fired) == 1
+    assert watch.set_status(copy, w1["id"], "deleted") is None
+    w2 = watch.add(copy, "product:panos", {"kind": "tier"}, label="second watch")
+    assert w2["id"] > w1["id"], "the deleted watch's id stays with its events"
+    listed = next(r for r in watch.list_watches(copy) if r["id"] == w2["id"])
+    assert listed["fired"] == 0 and listed["recent"] == [], "no firing of the deleted watch is shown under the new one"
+    assert all(e["label"] == "first watch" for e in watch.events(copy, 200) if e["watch_id"] == w1["id"])
+    assert all(e["watch_id"] != w2["id"] for e in watch.events(copy, 200))
+    assert _fired_rows(copy, w2["id"]) == []
+    # deleting the newest watch and adding again still moves forward: the ledger remembers every id ever handed out
+    assert watch.set_status(copy, w2["id"], "deleted") is None
+    w3 = watch.add(copy, "product:panos", {"kind": "tier"})
+    assert w3["id"] > w2["id"]
+    assert watch.set_status(copy, w3["id"], "deleted") is None
+    ok, bad = Ledger(conn=copy).verify()
+    assert ok and bad is None
+
+
+# ------------------------------------------------------------------------------------ adversarial review of iocs.py
+def test_ioc_review_refang_order_case_and_dot_forms():
+    assert iocs.refang("hxxp[://]evil[.]com/x") == "http://evil.com/x" and iocs.refang("hxxp[:]//evil[.]com/x") == "http://evil.com/x"
+    assert iocs.refang("hXXps://evil[.]com/x") == "https://evil.com/x" and iocs.refang("evil(dot)com and bad[DOT]org") == "evil.com and bad.org"
+    found = dict(iocs.parse("hxxp[://]evil[.]com/x and hXXps://c2[.]evil[.]org/p")[0])
+    assert found == {"http://evil.com/x": "url", "https://c2.evil.org/p": "url"}, "a bracketed scheme separator is still a URL, not a bare domain"
+    for v, t in (("https://a.b.c.d/e.f", "url"), ("http://1.2.3.4:8080/x.php", "url"), ("10.1.2.3", "ipv4-addr"), ("a.b.c", "domain-name")):
+        d = iocs.defang(v, t)
+        assert iocs.refang(d) == v and "[.]" in d, (v, d)
+    assert iocs.defang("http://1.2.3.4:8080/x.php", "url") == "hxxp://1[.]2[.]3[.]4:8080/x.php", "every dot of the host is bracketed; the path keeps its own"
+    assert iocs.defang("https://a.b/c.d", "url") == "hxxps://a[.]b/c.d"
+
+
+def test_ioc_review_url_hosts_trailing_punctuation_and_file_names():
+    d = dict(iocs.parse("see [https://evil.com:8443/login], **https://evil.com/x** and https://user@evil.com/p: done")[0])
+    assert set(d) == {"https://evil.com:8443/login", "https://evil.com/x", "https://user@evil.com/p"}, d
+    assert all(t == "url" for t in d.values()), "a host with a port or userinfo is not duplicated as a domain indicator"
+    assert iocs._host("https://User@Evil.com:8443/p?q#f") == "evil.com" and iocs._host("evil.com.") == "evil.com"
+    names = "payload.bat update.xml a.vbs x.msi k.lnk doc.docx s.xlsx shell.jar img.iso r.rar t.gz b.bin c.ini d.cfg go.sh pic.jpeg k.gif"
+    assert iocs.parse(names)[0] == [], "file names are not domains"
+    assert dict(iocs.parse("drop.evil.com. and _dmarc.evil.org and foo_bar.evil.net")[0]) == {
+        "drop.evil.com": "domain-name", "evil.org": "domain-name", "evil.net": "domain-name"}
+
+
+def test_ioc_review_stix_values_are_validated_and_sco_objects_read():
+    def bundle(*objs):
+        return json.dumps({"type": "bundle", "objects": list(objs)})
+
+    def ind(p):
+        return {"type": "indicator", "pattern": p}
+
+    hostile = bundle(ind("[url:value = '=HYPERLINK(1)']"), ind("[ipv4-addr:value = 'not an ip ] OR [x']"),
+                     {"type": "vulnerability", "external_references": [{"source_name": "cve", "external_id": "garbage"}]})
+    assert iocs.parse(hostile) == ([], "stix"), "a bundle's values must be what their type says they are"
+    ok, fmt = iocs.parse(bundle(ind("[ipv4-addr:value = '203.0.113.9/32']"), ind(f"[file:hashes.MD5 = '{SHA256}']"),
+                                ind(f"[file:hashes.SHA256 = '{SHA256}']"), ind("[ipv4-addr:value != '203.0.113.10']"),
+                                {"type": "ipv4-addr", "value": "203.0.113.11"}, {"type": "domain-name", "value": "Sco.Example."},
+                                {"type": "url", "value": "https://sco.example/x"},
+                                {"type": "file", "hashes": {"SHA-256": SHA256.upper(), "SSDEEP": "3:abc:def"}}))
+    assert fmt == "stix" and set(ok) == {("203.0.113.9", "ipv4-addr"), (SHA256, "file:sha256"), ("203.0.113.11", "ipv4-addr"),
+                                         ("sco.example", "domain-name"), ("https://sco.example/x", "url")}
+    for broken in ('{"objects": "notalist"}', '{"objects": [1, 2]}', bundle({"type": "indicator", "pattern": 5}),
+                   bundle({"type": "vulnerability", "name": 5, "external_references": "x"})):
+        found, fmt = iocs.parse(broken)
+        assert found == [] and fmt in ("stix", "text"), broken
+    assert iocs.parse('{"ip": "203.0.113.12", "note": "plain JSON, not a bundle"}') == ([("203.0.113.12", "ipv4-addr")], "text")
+
+
+def test_ioc_review_hostile_pastes_parse_in_linear_time():
+    import hashlib
+    import time
+    t = time.perf_counter()
+    assert iocs.parse("a." * 200000)[0] == []  # 400 KB of 'a.a.a.': the old whole-text regex backtracked for ~30 minutes
+    a = time.perf_counter() - t
+    t = time.perf_counter()
+    found, _ = iocs.parse("\n".join(hashlib.md5(str(i).encode()).hexdigest() for i in range(20000)))
+    b = time.perf_counter() - t
+    assert len(found) == 20000 and all(t_ == "file:md5" for _, t_ in found)
+    assert a < 5 and b < 5, (a, b)
+
+
+def test_ioc_review_reimport_keeps_live_flow_evidence(copy):
+    now = _now()
+    ip = "198.18.123.45"
+    iocs.import_text(copy, f"{ip} review probe", "review", now=now)
+    detail = {"title": "flow to 198[.]18[.]123[.]45:443", "src": "10.20.17.219", "dst": ip, "dport": 443, "org_id": "PWR-01"}
+    iocs.mark_live_match(copy, ip, detail, now)
+    before = _count(copy, "ioc.match")
+    r = iocs.import_text(copy, f"{ip} review probe again", "review", now=now + dt.timedelta(minutes=1))
+    row = r["indicators"][0]
+    assert row["matched"] and row["severity"] == "High" and [m["where"] for m in row["matches"]] == ["live flows"]
+    db = copy.execute("SELECT matched, severity, matches FROM iocs WHERE value = ? AND type = 'ipv4-addr'", (ip,)).fetchone()
+    assert db[0] == 1 and db[1] == "High" and [m["where"] for m in json.loads(db[2])] == ["live flows"]
+    live = {"flow_rows": [{"src": "10.20.17.219", "dst": ip, "dport": 443}]}
+    r2 = iocs.import_text(copy, ip, "review", live=live, now=now + dt.timedelta(minutes=2))
+    assert [m["where"] for m in r2["indicators"][0]["matches"]] == ["firewall flows", "live flows"]
+    assert _count(copy, "ioc.match") == before, "an indicator that was already matched is not ledgered again on re-import"
+
+
+def test_ioc_review_own_hosts_are_not_lookalikes_and_url_ports_match(copy):
+    tel = iocs._telemetry(copy, None)
+    m, _, sev = iocs.match_one(copy, "vpn.lokseva.example", "domain-name", tel)
+    assert [x["where"] for x in m] == ["constituency domain"] and sev == "High", "an organisation's own subdomain is not a look-alike of itself"
+    m, _, _ = iocs.match_one(copy, "https://vgwc.example:8443/x", "url", tel)
+    assert [x["where"] for x in m] == ["constituency domain"] and m[0]["org_id"] == "PWR-01"
+    m, _, _ = iocs.match_one(copy, f"https://login-{VARIANT}.com:8080/kyc", "url", tel)
+    assert [x["where"] for x in m] == ["look-alike"] and m[0]["org_id"] == "PWR-01"
+    assert tel["exposure"]["CVE-2026-104935"][0] >= 1, "the exposure record is read once for every CVE, not per pasted id"
+    m, _, _ = iocs.match_one(copy, "CVE-2026-104935", "vulnerability", tel)
+    assert m and m[0]["where"] == "exposure record" and m[0]["assets"] == tel["exposure"]["CVE-2026-104935"][0]
+
+
+def test_ioc_review_csv_cells_cannot_run_and_tlp_is_a_vocabulary(copy):
+    import csv
+    import io
+    ip = "198.18.200.213"
+    r = iocs.import_text(copy, f"{ip} review", "=cmd|' /C calc'!A0", "+1-1", now=_now())
+    assert r["tlp"] == "AMBER", "an unknown TLP is stored as the default, not as pasted text"
+    assert tuple(copy.execute("SELECT tlp, source FROM iocs WHERE value = ?", (ip,)).fetchone()) == ("AMBER", "=cmd|' /C calc'!A0")
+    row = next(x for x in iocs.export_rows(copy) if x["value"] == ip)
+    assert row["source"] == "'=cmd|' /C calc'!A0" and row["tlp"] == "AMBER" and row["defanged"] == "198[.]18[.]200[.]213"
+    from backend.app.engine.export import to_csv
+    for cells in list(csv.reader(io.StringIO(to_csv(iocs.export_rows(copy)))))[1:]:
+        assert all(c[:1] not in ("=", "+", "-", "@") for c in cells), cells
+    assert iocs.import_text(copy, "198.18.200.214", "review", "green", now=_now())["tlp"] == "GREEN"
+    assert len(iocs.list_iocs(copy, limit=-1)["indicators"]) == 0 and len(iocs.list_iocs(copy, limit=1)["indicators"]) == 1
