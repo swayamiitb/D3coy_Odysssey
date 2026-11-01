@@ -383,7 +383,8 @@ def main() -> int:
                 httpx.post(f"{COPY_API}/api/sensor/http", timeout=5, json={
                     "app": "ui-audit", "method": "GET", "path": "/search", "query": "q=' OR 1=1--", "status": 200,
                     "source_ip": "203.0.113.66", "headers": {"x-odyssey-redteam": "ui-audit"}}).raise_for_status()
-                page.get_by_text("UI Audit App").wait_for(timeout=10000)   # the card picks it up on its next poll
+                # the card's title, exactly: the delivery rows below quote the app's name inside longer titles
+                page.get_by_text("UI Audit App", exact=True).first.wait_for(timeout=10000)
                 page.get_by_text("agent connected").wait_for()
                 page.get_by_text("CWE-89", exact=False).first.wait_for(timeout=10000)
                 page.get_by_text("203.0.113.66").first.wait_for()
@@ -395,7 +396,7 @@ def main() -> int:
 
             @step("Live: alerts delivered to your apps - send a test, see it arrive, mute and unmute")
             def channels(page):
-                page.get_by_text("Alerts delivered to your apps").wait_for()
+                page.get_by_text("Alerts delivered to your apps").first.wait_for()
                 before = len(recv.bodies)
                 page.get_by_role("button", name="Send test").first.click()   # the first row is the configured console
                 toast("Delivered to ops-console")

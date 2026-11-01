@@ -29,4 +29,7 @@ if (-not $up -and $env:ODYSSEY_CONSOLE -ne '0') {
         -RedirectStandardOutput "$root\data\console.log" -RedirectStandardError "$root\data\console.err.log"
 }
 
+# A console that stayed up across the reset still shows the cards from before it: clear them.
+try { Invoke-WebRequest -UseBasicParsing -Method POST http://127.0.0.1:8090/api/clear -TimeoutSec 3 | Out-Null } catch { }
+
 "Demo state is fresh: open http://127.0.0.1:5173   (Ops Console: http://127.0.0.1:8090)"
