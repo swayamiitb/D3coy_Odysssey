@@ -117,8 +117,9 @@ def advisories_matched(conn: sqlite3.Connection) -> list[dict]:
 def sources(conn: sqlite3.Connection, cfg: dict) -> list[dict]:
     """The aggregation table: every source, what it adds, how much of it matters here."""
     manifest = _json(RAW / "manifest.json") or {}
-    when = {i["file"].replace("\\", "/"): manifest.get("intel_snapshot_at") if i["file"].startswith(("dshield", "cisa"))
-            else manifest.get("snapshot_at") for i in manifest.get("items", [])}
+    when = {i["file"].replace("\\", "/"): i.get("refreshed_at") or (manifest.get("intel_snapshot_at")
+            if i["file"].startswith(("dshield", "cisa")) else manifest.get("snapshot_at")) for i in manifest.get("items", [])}
+    sim_adv = _json(RAW.parent / "sim" / "advisories.json") or []
     rel = cfg["source_reliability"]
     one = lambda q, *a: conn.execute(q, a).fetchone()[0]  # noqa: E731
     kev_total = len((_json(RAW / "kev.json") or {}).get("vulnerabilities", []))
@@ -163,8 +164,8 @@ def sources(conn: sqlite3.Connection, cfg: dict) -> list[dict]:
          one("SELECT COUNT(*) FROM decoy_surges"), "decoy sessions -> scanning surges detected", None),
         ("Enterprise firewall logs", "own telemetry", "SIM", rel.get("SIM_LOGS"), None,
          one("SELECT COUNT(*) FROM ledger WHERE kind = 'ioc.sighting'"), "outbound flows -> beacons to known C2", None),
-        ("CERT-In style advisories", "advisories", "SIM", rel.get("CERTIN_SIM"), None, None,
-         "sample national advisories for the AI analyser", None),
+        ("CERT-In style advisories", "advisories", "SIM", rel.get("CERTIN_SIM"), len(sim_adv), len(sim_adv),
+         "CERT-In publishes no machine-readable feed: advisories written in its style for the AI analyser, labelled SIM", None),
     ]
     out = []
     for name, kind, prov, grade, items, relevant, funnel, file in rows:

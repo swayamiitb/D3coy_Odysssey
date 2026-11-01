@@ -1,5 +1,5 @@
 {
- "taken_at": "2026-11-01T02:49:05.579Z",
+ "taken_at": "2026-11-01T05:31:39.955Z",
  "ransomware": {
   "source": "ransomware.live",
   "url": "https://www.ransomware.live/",
@@ -1185,6 +1185,15 @@
   ],
   "recent": [
    {
+    "id": "GHSA-2j25-rfrh-cphw",
+    "cve": "CVE-2026-120189",
+    "summary": "A vulnerability was identified in D-Link DIR-505 1.10B02. Affected is the function...",
+    "published": "2026-11-01",
+    "cvss": 10,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
     "id": "GHSA-gcvh-r85p-53mh",
     "cve": "CVE-2026-118636",
     "summary": "JavaNativeMessageDecoder in the MINA 3.0 codec module calls...",
@@ -1547,15 +1556,6 @@
     "summary": "Improperly Controlled Modification of Dynamically-Determined Object Attributes vulnerability in...",
     "published": "2026-10-30",
     "cvss": 9.8,
-    "ecosystems": [],
-    "packages": []
-   },
-   {
-    "id": "GHSA-gr92-r7pw-c3qg",
-    "cve": "CVE-2026-119263",
-    "summary": "Memory corruption in GarbageCollection in Google Chrome prior to 156.0.8078.79 allowed a remote...",
-    "published": "2026-10-30",
-    "cvss": 9.6,
     "ecosystems": [],
     "packages": []
    }

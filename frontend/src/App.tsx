@@ -14,12 +14,13 @@ import { Footer, IntelFigures, OrgsFigures, ProofFigures, SocFigures, TopNav, ty
 import { Soc } from './Soc'
 import { CaseBoard, OpsLog, OpsOverview, SystemView, WarningList } from './SocOps'
 import { AttackTelemetry, LiveStrip, SocStrip, Throughput } from './soc/extras'
+import { LiveThreatMap } from './soc/LiveThreatMap'
 import { AlertChip } from './soc/overview'
 import { IntelSources } from './soc/panels'
 import { Rail, RAIL_NARROW, RAIL_WIDE, useRail } from './soc/Rail'
 import { RealFeedsStrip } from './soc/realfeeds'
 import { CommandPalette } from './soc/Search'
-import { Hero, Tabs, ToastProvider, WRAP } from './ui'
+import { Hero, Tabs, ToastProvider, WRAP, type ObjectiveKey } from './ui'
 
 /* Five destinations, one question each (Uber-like): what needs me now, how operations run, what is happening, who
    is at risk, why should I trust it. Every page is the same Oreo: black nav, black hero band with the page's four
@@ -27,6 +28,17 @@ import { Hero, Tabs, ToastProvider, WRAP } from './ui'
 type SocTab = 'overview' | 'cases' | 'warnings' | 'log' | 'system'
 type IntelTab = 'overview' | 'graph' | 'indicators' | 'threats' | 'risk' | 'advisories'
 type ProofTab = 'evidence' | 'how'
+
+/* The PS-01 key objective(s) each page and tab answers, named in its header (ui.tsx OBJECTIVES, rule 16). */
+const OBJ: Record<string, ObjectiveKey[]> = {
+  live: ['warning', 'aggregation'],
+  'soc:overview': ['dashboard', 'recommendations'], 'soc:cases': ['recommendations'], 'soc:warnings': ['warning', 'risk'],
+  'soc:log': ['warning'], 'soc:system': ['analysis'],
+  'intel:overview': ['aggregation', 'dashboard'], 'intel:graph': ['analysis'], 'intel:indicators': ['aggregation'],
+  'intel:threats': ['analysis', 'aggregation'], 'intel:risk': ['risk', 'recommendations'], 'intel:advisories': ['analysis', 'aggregation'],
+  orgs: ['risk', 'recommendations'],
+  'proof:evidence': ['explain', 'analysis'], 'proof:how': ['explain'],
+}
 
 const LEGACY: Record<string, [View, string?]> = {
   advisories: ['intel', 'advisories'], explore: ['soc', 'warnings'], how: ['proof', 'how'], cases: ['soc', 'cases'],
@@ -44,11 +56,12 @@ function LivePage({ go }: { go: Go }) {
   const s = useLive()
   return (
     <>
-      <Hero title="Live" sub="Odyssey running right now: sensors, real feeds, detectors and the autopilot, refreshed every few seconds.">
+      <Hero title="Live" sub="Odyssey running right now: sensors, real feeds, detectors and the autopilot, refreshed every few seconds." objectives={OBJ.live}>
         <LiveFigures s={s} />
       </Hero>
       <main className={`${WRAP} flex flex-1 flex-col gap-12 py-12`}>
         <LiveStrip s={s} onShield={() => window.scrollTo({ top: 900, behavior: 'smooth' })} />
+        <LiveThreatMap s={s} />
         <Throughput s={s} />
         <Live s={s} onGo={(v, t) => go(v, t)} />
       </main>
@@ -148,7 +161,7 @@ export default function App() {
 
       {view === 'soc' && (
         <>
-          <Hero title="SOC" sub="Cases, decisions and everything Odyssey did, in one place."
+          <Hero title="SOC" sub="Cases, decisions and everything Odyssey did, in one place." objectives={OBJ[`soc:${socTab}`]}
                 tabs={<Tabs dark value={socTab} onChange={setSocTab}
                             items={[['overview', 'Overview'], ['cases', 'Cases'], ['warnings', 'Warnings'], ['log', 'Log'], ['system', 'System']]} />}>
             <SocFigures tick={tick} />
@@ -170,7 +183,7 @@ export default function App() {
 
       {view === 'intel' && (
         <>
-          <Hero title="Intel" sub="What is under attack, where we are exposed, and what to fix first."
+          <Hero title="Intel" sub="What is under attack, where we are exposed, and what to fix first." objectives={OBJ[`intel:${intelTab}`]}
                 tabs={<Tabs dark value={intelTab} onChange={setIntelTab}
                             items={[['overview', 'Overview'], ['graph', 'Graph'], ['indicators', 'Indicators'], ['threats', 'Threats'], ['risk', 'Risk plan'], ['advisories', 'Advisories']]} />}>
             <IntelFigures tick={tick} />
@@ -195,7 +208,7 @@ export default function App() {
 
       {view === 'orgs' && (
         <>
-          <Hero title="Organisations" sub="Every operator we protect: its exposure, its fixes and what we told it.">
+          <Hero title="Organisations" sub="Every operator we protect: its exposure, its fixes and what we told it." objectives={OBJ.orgs}>
             <OrgsFigures />
           </Hero>
           <main className={`${WRAP} flex flex-1 gap-10 py-12`}>
@@ -206,7 +219,7 @@ export default function App() {
 
       {view === 'proof' && (
         <>
-          <Hero title="Proof" sub="Every claim measured on this laptop. Open any card for the evidence, or re-run it."
+          <Hero title="Proof" sub="Every claim measured on this laptop. Open any card for the evidence, or re-run it." objectives={OBJ[`proof:${proofTab}`]}
                 tabs={<Tabs dark value={proofTab} onChange={setProofTab} items={[['evidence', 'Evidence'], ['how', 'How it works']]} />}>
             <ProofFigures health={health} />
           </Hero>

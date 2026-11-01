@@ -15,8 +15,11 @@ from __future__ import annotations
 import datetime as dt
 import random
 
+from ..ingest.cve_records import snapshot_date
+
 SEED = 1031
-START, END = dt.date(2026, 8, 1), dt.date(2026, 10, 31)
+START = dt.date(2026, 8, 1)                        # the decoy grid's go-live
+END = max(dt.date(2026, 10, 31), snapshot_date())  # through the day the offline snapshot was taken
 SENSORS = [f"DCY-{i:02d}" for i in range(1, 25)]
 SENSOR_SECTOR = {s: ["Power & Energy", "BFSI", "Telecom", "Transport", "Government",
                      "Strategic & Public Enterprises"][i % 6] for i, s in enumerate(SENSORS)}

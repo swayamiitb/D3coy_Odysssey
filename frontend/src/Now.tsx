@@ -9,7 +9,7 @@ import { Insight, ScoreCard, SectorExposure, SecurityKpis, TierDonut } from './s
 import { IntelSources, LiveThreats, PostureGauges, TechThreats, ThreatTrend, useLiveThreatRows } from './soc/panels'
 import { deadlinesSummary, DeadlineTimeline, EventTicker, ExploitChip, LikelyNext, NoiseFunnel, useExploitDb } from './soc/telemetry'
 import { ThreatMap } from './soc/ThreatMap'
-import { Band, Figures, Prov, Row, TIER_FILL, TierPill, useToast, WRAP } from './ui'
+import { Band, Figures, Objectives, Prov, Row, TIER_FILL, TierPill, useToast, WRAP } from './ui'
 
 /* The duty desk, for a national CERT on shift (SOC black, ui-07). The header: the one sentence that matters and the
    trip card (one warning, one countdown, one action). Then the command centre: three alert cards, the headline
@@ -175,6 +175,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
         <div className={`${WRAP} relative z-10 grid items-center gap-10 py-10 xl:grid-cols-[1fr_520px]`}>
           <div className="min-w-0">
             <p className="text-[13px] text-mute">National CERT duty desk · {new Date(feed.issued_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} IST</p>
+            <Objectives keys={['dashboard', 'warning']} className="mt-3" />
             <h1 className="mt-4 max-w-3xl text-[40px] font-semibold leading-[1.05] tracking-tight sm:text-[52px]">{headline}</h1>
             <p className="mt-5 max-w-2xl text-[17px] leading-relaxed text-mute">
               {feed.counts.needs_action} warnings need action across {soc?.orgs.length ?? '…'} operators, each told in its own language{langs ? ` (${langs} in use)` : ''}.

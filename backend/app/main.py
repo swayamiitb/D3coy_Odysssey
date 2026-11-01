@@ -87,6 +87,7 @@ def summary() -> dict:
     conn = db()
     meta = dict(conn.execute("SELECT key, value FROM meta").fetchall())
     months = json.loads(meta.get("nvd_month_counts", "{}"))
+    month = (meta.get("snapshot_date") or dt.date.today().isoformat())[:7]  # the snapshot's month, not a literal one
     alerts = _alerts(" AND a.tier IN ('Compromise','Critical','High','Medium')", limit=100000)
     by_tier: dict[str, int] = {}
     heat: dict[str, dict[str, int]] = {}
@@ -98,7 +99,8 @@ def summary() -> dict:
     return {
         "snapshot_date": meta.get("snapshot_date"),
         "funnel": {
-            "cves_published_this_month": months.get("2026-10"),
+            "cves_published_this_month": months.get(month),
+            "month": month,
             "candidate_cves": int(meta.get("candidates", 0)),
             "exposed_asset_cve_pairs": exposed_pairs,
             "actionable_alerts": len(alerts),
@@ -1222,6 +1224,18 @@ def live_status() -> dict:
     conn, hour = db(), max(_time.time() - 3600, eng.started.timestamp())
     soc.ensure(conn)
     count = lambda q, *a: conn.execute(q, a).fetchone()[0]  # noqa: E731
+    try:  # India's SACHET CAP feed is read by its own connector on the same 15-minute cadence: shown beside the other live feeds
+        from . import sachet as _sachet
+        sf = _cap_guard().status()["feed"]
+        st["feeds"] = list(st["feeds"]) + [{
+            "name": "NDMA SACHET (CAP)", "url": _sachet.RSS_URL, "mode": "live",
+            "status": "fresh" if sf.get("fetched_at") else ("offline" if sf.get("status") == "offline" else "waiting"),
+            "last_try": sf.get("last_try"), "last_ok": sf.get("fetched_at"), "items": sf.get("count"),
+            "new": None, "matched": [f"{sf.get('matched', 0)} alerts on operators' states"] if sf.get("matched") else [],
+            "ms": sf.get("ms"), "every_s": _sachet.FEED_INTERVAL_S,
+            "detail": sf.get("detail") or "NDMA's public-domain CAP 1.2 feed, read-only; matched to the operators' states"}]
+    except Exception as exc:  # noqa: BLE001 - the SACHET panel reports its own trouble; the live view must not fail on it
+        print(f"live: sachet status unavailable: {exc!r}", flush=True)
     st["pipeline"] = {
         "detections_hour": count("SELECT COUNT(*) FROM ledger WHERE kind LIKE 'live.detect.%' AND ingested > ?", hour),
         "auto_hour": count("SELECT COUNT(*) FROM ledger WHERE kind LIKE 'auto.%' AND kind NOT IN ('auto.proposed', "

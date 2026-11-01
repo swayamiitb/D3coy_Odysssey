@@ -20,14 +20,14 @@ from .engine.exposure import reconcile
 from .engine.ledger import Ledger
 from .engine.products import mentions, same_product
 from .engine.scoring import assess, config as scoring_config
-from .ingest.cve_records import RAW, build_record, load_cve5, load_epss, load_kev, load_nvd
+from .ingest.cve_records import RAW, build_record, load_cve5, load_epss, load_kev, load_nvd, snapshot_date
 from .sim import telemetry
 
 ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = ROOT / "data" / "ews.db"
 WORLD = ROOT / "data" / "sim" / "world.json"
 RECENT_DAYS = 90
-SNAPSHOT_DATE = dt.date(2026, 10, 31)
+SNAPSHOT_DATE = snapshot_date()  # the day data/raw was taken (manifest.json), never a literal date
 
 SCHEMA = """
 CREATE TABLE orgs (id TEXT PRIMARY KEY, name TEXT, sector TEXT, state TEXT, domain TEXT, cii INTEGER);

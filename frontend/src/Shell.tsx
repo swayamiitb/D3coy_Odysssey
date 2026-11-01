@@ -2,7 +2,7 @@ import { Moon, Search, ShieldCheck, Sun } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { api, type Health, type Soc, type Technology } from './api'
 import { Honeycomb } from './soc/Honeycomb'
-import { Figures, FiguresSkeleton, WRAP } from './ui'
+import { Figures, FiguresSkeleton, OBJECTIVES, WRAP, type ObjectiveKey } from './ui'
 
 /** The night-shift switch: the whole console goes SOC black. Remembered per browser; main.tsx applies it before paint. */
 export function useNight(): [boolean, () => void] {
@@ -116,7 +116,7 @@ export function Footer({ go, health }: { go: Go; health?: Health }) {
       <div className={`${WRAP} relative z-10 pt-12 pb-10`}>
         <div className="flex items-center gap-2.5"><img src="/mark.svg" alt="" className="h-7 w-7" /><span className="text-[20px] font-semibold tracking-tight">Odyssey</span></div>
         <p className="mt-3 max-w-md text-band-mute">National cyber threat early warning for India's critical infrastructure, running entirely on this laptop.</p>
-        <div className="mt-10 grid gap-10 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.6fr]">
+        <div className="mt-10 grid gap-10 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.5fr_1.6fr]">
           {FOOT.map(([head, links]) => (
             <div key={head}>
               <h4 className="mb-3 text-[14px] font-semibold">{head}</h4>
@@ -127,6 +127,23 @@ export function Footer({ go, health }: { go: Go; health?: Health }) {
               </ul>
             </div>
           ))}
+          <div>
+            <h4 className="mb-3 text-[14px] font-semibold">PS-01 key objectives</h4>
+            <ul className="space-y-2.5">
+              {(Object.keys(OBJECTIVES) as ObjectiveKey[]).map((k) => {
+                const o = OBJECTIVES[k]
+                return (
+                  <li key={k}>
+                    <button onClick={() => { go(o.view as View, o.tab); window.scrollTo({ top: 0 }) }} title={o.ps}
+                            className="flex items-start gap-2 text-left text-[14px] text-band-mute transition-colors hover:text-text">
+                      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line text-[10px] tabular-nums">{o.n}</span>
+                      <span>{o.name}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
           <div>
             <h4 className="mb-3 text-[14px] font-semibold">Data</h4>
             <p className="text-[14px] leading-relaxed text-band-mute">

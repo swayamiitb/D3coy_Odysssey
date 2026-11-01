@@ -39,7 +39,30 @@ FEEDS = {
     "CISA KEV": ("https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json", "kev.json"),
     "abuse.ch Feodo Tracker": ("https://feodotracker.abuse.ch/downloads/ipblocklist.json", "feodo_ipblocklist.json"),
     "OpenPhish": ("https://openphish.com/feed.txt", "openphish.txt"),
+    "SANS ISC DShield": ("https://isc.sans.edu/api/topports/records/50?json", "dshield/topports.json"),
+    "CISA advisories": ("https://www.cisa.gov/cybersecurity-advisories/all.xml", "cisa_advisories.xml"),
 }
+# A feed's own cadence where the 15-minute cycle would be impolite or pointless: DShield's API is a community service
+# and its port history is daily; CISA's advisory feed changes a few times a day. Everything else runs every cycle.
+FEED_CADENCE_S = {"SANS ISC DShield": 3600, "CISA advisories": 3600}
+DSHIELD_SOURCES = "https://isc.sans.edu/api/sources/attacks/100?json"
+UA = "Odyssey-EWS/0.2 (D3COY 1.0 hackathon research; passive feed snapshot)"  # the same identification scripts/snapshot_feeds.py sends
+STDLIB_FEEDS = {"CISA advisories"}  # read with the standard library, exactly as the snapshot script reads them
+
+
+class _Fetched:
+    """What _read_feed needs of a response, for a feed read with urllib instead of httpx."""
+
+    def __init__(self, url: str, content: bytes):
+        self.url, self.content = url, content
+
+    @property
+    def text(self) -> str:
+        return self.content.decode("utf-8", "replace")
+
+    def json(self):
+        return json.loads(self.content)
+DSHIELD_HISTORY_DAYS = 100  # enough for the 7-day-against-28-day-median trend and the port x day heatmap
 DRILLS = {
     "scan": {"title": "Mass scanning of Fortinet FortiGate", "tag": "fortios",
              "what": "Scanners hit FortiGate SSL-VPN decoys across the grid. Expect a surge detection and an early-warning "
@@ -69,6 +92,38 @@ def _pois(rng: random.Random, lam: float) -> int:
         if p <= limit:
             return k
         k += 1
+
+
+def _write_snapshot(path: Path, body: bytes, url: str | None = None) -> None:
+    """Write-through: a feed read live replaces its offline snapshot (atomically) and is noted in the manifest with the
+    time it was taken, so every reader of data/raw (the aggregation table, the port trends and heatmaps, the threat
+    maps, the organisation OSINT, the drills' C2 list) serves the fresh copy and can say how old it is. A failed or
+    malformed read never reaches this point: the snapshot stands."""
+    import hashlib
+    import os
+    raw = ROOT / "data" / "raw"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_bytes(body)
+    os.replace(tmp, path)
+    manifest = raw / "manifest.json"
+    try:
+        m = json.loads(manifest.read_text(encoding="utf-8")) if manifest.exists() else {"items": []}
+        rel = path.relative_to(raw).as_posix()
+        items = m.setdefault("items", [])
+        item = next((i for i in items if str(i.get("file", "")).replace("\\", "/") == rel), None)
+        if item is None:
+            item = {"file": rel, "url": url}
+            items.append(item)
+        item.update(bytes=len(body), sha256=hashlib.sha256(body).hexdigest(), ok=True,
+                    refreshed_at=dt.datetime.now().astimezone().isoformat(timespec="seconds"))
+        if url and not item.get("url"):
+            item["url"] = url
+        tmp_m = manifest.with_name("manifest.json.tmp")
+        tmp_m.write_text(json.dumps(m, indent=2), encoding="utf-8")
+        os.replace(tmp_m, manifest)
+    except (OSError, ValueError) as exc:
+        print(f"live: manifest not updated for {path.name}: {exc!r}", flush=True)
 
 
 def _robust_z(x: float, history: list[float]) -> float:
@@ -105,6 +160,7 @@ class Live:
         self.cooldown: dict[str, int] = {}
         self.feeds: dict[str, dict] = {n: {"name": n, "url": u, "mode": "live", "status": "waiting", "last_try": None,
                                           "last_ok": None, "items": None, "new": None, "matched": [], "ms": None,
+                                          "every_s": FEED_CADENCE_S.get(n, FEED_EVERY_S), "next_at": 0.0,
                                           "detail": "first check shortly after start"} for n, (u, _) in FEEDS.items()}
         self.feeds["NVD (new CVEs)"] = {"name": "NVD (new CVEs)", "url": "https://services.nvd.nist.gov/rest/json/cves/2.0",
                                         "mode": "live", "status": "waiting", "last_try": None, "last_ok": None, "items": None,
@@ -128,7 +184,9 @@ class Live:
         self.ip_asset = {a['ip']: a for a in self.assets.values()}
         self.forest = None
         self._task: asyncio.Task | None = None
-        self.sensor_clock = dt.datetime(2026, 11, 1, 0, 0, tzinfo=dt.timezone.utc)
+        # the accelerated sensor clock (one tick = one sensor-hour) starts a full baseline behind the real clock
+        self.sensor_clock = (dt.datetime.now(dt.timezone.utc).replace(minute=0, second=0, microsecond=0)
+                             - dt.timedelta(hours=BASELINE))
         for _ in range(BASELINE):  # warm start: a full baseline, so detection works from the first tick
             self._sensors(None, record=True)
             self._flows(None)
@@ -589,11 +647,19 @@ class Live:
         import httpx
         for name, (url, snap) in FEEDS.items():
             f = self.feeds[name]
+            if f.get("next_at", 0) > time.time():
+                continue  # this feed keeps its own, slower cadence; its last reading stands
+            f["next_at"] = time.time() + FEED_CADENCE_S.get(name, 0)
             f["last_try"] = _iso(now)
             t0 = time.perf_counter()
             try:
-                r = httpx.get(url, timeout=25, follow_redirects=True, headers={"User-Agent": "Odyssey-EWS/0.2 (research)"})
-                r.raise_for_status()
+                if name in STDLIB_FEEDS:
+                    import urllib.request
+                    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=60) as resp:
+                        r = _Fetched(url, resp.read())
+                else:
+                    r = httpx.get(url, timeout=25, follow_redirects=True, headers={"User-Agent": UA})
+                    r.raise_for_status()
                 f["ms"] = round((time.perf_counter() - t0) * 1000)
                 f.update(self._read_feed(name, r, ROOT / "data" / "raw" / snap))
                 f["status"], f["last_ok"] = "fresh", _iso(now)
@@ -655,13 +721,20 @@ class Live:
             return {"items": len(data), "new": len(new), "matched": matched,
                     "newest": max((v["dateAdded"] for v in data), default=None),
                     "detail": f"{len(new)} new since the snapshot; {len(matched)} touch the inventory"}
+        if name == "SANS ISC DShield":
+            return self._read_dshield(r, snap)
+        if name == "CISA advisories":
+            return self._read_cisa(r, snap)
         if name == "abuse.ch Feodo Tracker":
             data = r.json()
+            _write_snapshot(snap, r.content, str(r.url))
             ips = {d["ip_address"] for d in data}
             seen = {x["dst"] for x in list(self.flows)} & ips
             return {"items": len(data), "new": None, "matched": sorted(seen),
                     "detail": f"{len(ips)} C2 addresses; {len(seen)} seen in the last hours of firewall flows"}
         lines = [x.strip() for x in r.text.splitlines() if x.strip()]
+        if lines and not lines[0].startswith("<"):  # a text list, never an error page
+            _write_snapshot(snap, r.content, str(r.url))
         from .engine.intel import lookalikes
         hosts = {x.split("/")[2].lower() for x in lines if "://" in x}
         hits = sorted({o["name"] for o in self.orgs.values()
@@ -694,6 +767,66 @@ class Live:
             conn.commit()
         finally:
             conn.close()
+
+    def _read_dshield(self, r, snap: Path) -> dict:
+        """SANS ISC DShield, live: today's top attacked ports (the body just read), the top attacking sources and the
+        daily history of every port the constituency's services listen on, each written through to its snapshot, so
+        the port trends, the heatmaps, the threat maps and the organisation OSINT all move with it."""
+        import httpx
+        from .engine import intel
+        json.loads(r.content)  # never replace a good snapshot with an error page
+        _write_snapshot(snap, r.content, str(r.url))
+        raw = ROOT / "data" / "raw" / "dshield"
+        headers = {"User-Agent": UA}
+        ok, failed = 1, []
+        try:
+            s = httpx.get(DSHIELD_SOURCES, timeout=25, follow_redirects=True, headers=headers)
+            s.raise_for_status()
+            json.loads(s.content)
+            _write_snapshot(raw / "sources.json", s.content, DSHIELD_SOURCES)
+            ok += 1
+        except Exception as exc:  # noqa: BLE001 - the earlier snapshot of this file stands
+            failed.append(f"sources: {type(exc).__name__}")
+        today = dt.date.today()
+        since = (today - dt.timedelta(days=DSHIELD_HISTORY_DAYS)).isoformat()
+        for port in sorted(intel.PORT_NAMES):  # sequential and unhurried: a community service
+            url = f"https://isc.sans.edu/api/porthistory/{port}/{since}/{today.isoformat()}?json"
+            try:
+                h = httpx.get(url, timeout=25, follow_redirects=True, headers=headers)
+                h.raise_for_status()
+                json.loads(h.content)
+                _write_snapshot(raw / f"port_{port}.json", h.content, url)
+                ok += 1
+            except Exception as exc:  # noqa: BLE001
+                failed.append(f"port {port}: {type(exc).__name__}")
+            time.sleep(0.5)
+        intel.dshield.cache_clear()
+        ds = intel.dshield()
+        trends = [t for p in sorted(intel.PORT_NAMES) if (t := intel.port_trend(p))]
+        elevated = [f"{t['service']} :{t['port']}" for t in trends if t["elevated"]]
+        records = sum(int(p.get("records") or 0) for p in ds["top_ports"])
+        return {"items": records, "new": None, "matched": elevated,
+                "detail": f"{records:,} attack records on today's top ports; {len(trends)} of our service ports tracked daily, "
+                          f"{len(elevated)} elevated against their 28-day median; {ok} files refreshed"
+                          + (f", {len(failed)} kept from the snapshot ({'; '.join(failed[:3])})" if failed else "")}
+
+    def _read_cisa(self, r, snap: Path) -> dict:
+        """CISA's advisory feed (ICS advisories and alerts), live: parsed before it is written through, then matched to
+        the inventory the same way the snapshot is."""
+        import xml.etree.ElementTree as ET
+        from .engine import intel
+        ET.fromstring(r.content)  # well-formed, or the snapshot stands
+        _write_snapshot(snap, r.content, str(r.url))
+        intel.cisa_advisories.cache_clear()
+        conn = self.connect()
+        try:
+            adv = intel.advisories_matched(conn)
+        finally:
+            conn.close()
+        relevant = [a for a in adv if a["relevant"]]
+        return {"items": len(adv), "new": None, "matched": [a["id"] for a in relevant][:12],
+                "newest": max((a["published"] or "" for a in adv), default="") or None,
+                "detail": f"{len(adv)} current CISA advisories; {len(relevant)} name a product we run or a CVE in the record"}
 
     # ------------------------------------------------------------------ status for the interface
     def status(self) -> dict:
