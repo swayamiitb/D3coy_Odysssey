@@ -75,6 +75,10 @@ export function ExportPanel({ orgId, cveId, compromise }: { orgId: string; cveId
         <button onClick={exportStix} className="flex items-center gap-1 rounded-full bg-panel-2 px-4 py-2 text-sm ring-1 ring-line">
           <Share2 size={14} /> STIX 2.1 bundle
         </button>
+        <a href={`/api/warnings/${orgId}/${cveId}/cap?langs=hi`} download={`odyssey-${orgId}-${cveId}.cap.xml`}
+           className="flex items-center gap-1 rounded-full bg-panel-2 px-4 py-2 text-sm ring-1 ring-line" title="CAP 1.2, the format SACHET publishes; status Exercise; English plus validated Hindi">
+          <Share2 size={14} /> CAP 1.2 (SACHET-compatible)
+        </a>
       </div>
       {stixInfo && <div className="mt-2 text-xs text-ok">Exported {stixInfo}</div>}
       <div className="mt-2 text-xs text-mute">Drafts are generated locally and never sent; an analyst reviews and files them.</div>

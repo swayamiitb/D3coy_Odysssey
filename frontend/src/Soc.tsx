@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api, type Campaign, type IntelAdvisory, type IntelSource, type Soc as SocData, type Technology, type RiskPlan } from './api'
 import { BrandWatch } from './BrandWatch'
 import { Heatmap, type HeatData } from './Heatmap'
+import { SachetPanel } from './Sachet'
 import { SurfaceScan } from './SurfaceScan'
 import { RiskPlanView } from './Orgs'
 import { ForecastPanel } from './proactive'
@@ -227,6 +228,7 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
           </div>
           <BrandWatch />
           <SurfaceScan orgId="PWR-01" defaultUrl="http://127.0.0.1:8080" />
+          <SachetPanel />
         </>
       )}
 

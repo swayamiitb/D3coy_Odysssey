@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react'
 import { api, type Card, type Feed, type ForecastView, type Soc } from './api'
 import { CertInReportModal } from './ExportPanel'
 import { IndiaMap } from './IndiaMap'
+import { DisasterTile, SachetPanel } from './Sachet'
 import { ApprovalQueue } from './proactive'
-import { Band, Figures, Row, TIER_FILL, TierPill, useToast, WRAP } from './ui'
+import { Band, Figures, Row, Sheet, TIER_FILL, TierPill, useToast, WRAP } from './ui'
 
 /* Uber's home page, for a national CERT on duty. Black hero: the one sentence that matters and the trip card (one
    warning, one countdown, one action). White: the map of India and what is next. Black: what Odyssey did on its own.
@@ -106,6 +107,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
   const [fc, setFc] = useState<ForecastView>()
   const [busy, setBusy] = useState(false)
   const [reportFor, setReportFor] = useState<Card>()
+  const [sachetOpen, setSachetOpen] = useState(false)
   const toast = useToast()
   const load = () => {
     api.feed().then(setFeed).catch(() => undefined)
@@ -235,7 +237,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
       </Band>
 
       <Band tone="soft">
-        <div className="grid gap-8 xl:grid-cols-2">
+        <div className="grid gap-8 xl:grid-cols-3">
           <div>
             <div className="mb-4 flex items-baseline justify-between">
               <h2 className="text-4xl font-bold tracking-tight">Needs your decision</h2>
@@ -256,8 +258,17 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
                    sub={`of ${soc?.risk.tickets ?? '…'} change tickets across ${soc?.risk.assets_at_risk ?? '…'} assets at risk`} />
             </div>
           </div>
+          <div>
+            <h2 className="mb-4 text-4xl font-bold tracking-tight">Weather or attack?</h2>
+            <DisasterTile onOpen={() => setSachetOpen(true)} />
+          </div>
         </div>
       </Band>
+      {sachetOpen && (
+        <Sheet wide title="Disaster alerts (SACHET)" sub="India's national CAP feed, public domain, read-only, matched to the operators' states; every inbound CAP validated before it is trusted." onClose={() => setSachetOpen(false)}>
+          <SachetPanel compact />
+        </Sheet>
+      )}
       {reportFor && <CertInReportModal orgId={reportFor.org_id} cveId={reportFor.cve_id} onClose={() => setReportFor(undefined)} />}
     </>
   )
