@@ -390,7 +390,7 @@ function Scene({ target, layout, origins, focus, profiles, reduced, onOrg, onFai
     }
 
     // missiles: one Points cloud for every head and trail, one for impact flashes
-    const POOL = 18, TRAIL = 48, STEP = 0.0034
+    const POOL = 14, TRAIL = 48, STEP = 0.0024
     const mPos = new Float32Array(POOL * TRAIL * 3), mCol = new Float32Array(POOL * TRAIL * 3), mSize = new Float32Array(POOL * TRAIL)
     const mGeo = keep(new THREE.BufferGeometry())
     mGeo.setAttribute('position', new THREE.BufferAttribute(mPos, 3))
@@ -445,23 +445,20 @@ function Scene({ target, layout, origins, focus, profiles, reduced, onOrg, onFai
       m.Q.copy(m.S).add(m.E).multiplyScalar(0.5)
       m.Q.y += 40 + m.S.distanceTo(m.E) * 0.12
       m.t0 = now
-      m.dur = 2000 + Math.random() * 1600
+      m.dur = 2600 + Math.random() * 1800
       m.col.set(h.o.kind === 'attack' ? ATTACK : '#64d2ff')
       m.o = h.o
       m.b = bi
       m.on = true
     }
+    // an arrow lands: no flash, no blast; the building brightens for a moment and its ground is lit in the
+    // origin's colour, a soft ring that widens and fades
     const impact = (m: Missile, now: number) => {
       const tb = built[m.b!]
       tb.flash = 1
-      flare.position.set(m.E.x, m.E.y + 8, m.E.z)
-      flare.intensity = 9000
-      ring(m.E.x, m.E.y + 0.3, m.E.z, m.col, 1.5, 16, 650, 0.95, now)
-      ring(tb.b.wx, 0.25, tb.b.wz, 0xff4d4d, Math.max(tb.b.w, tb.b.d) * 0.6, Math.max(tb.b.w, tb.b.d) * 2.2, 1100, 0.6, now)
-      const f = flashes.find((q) => !q.on) ?? flashes[0]
-      f.on = true
-      f.t0 = now
-      f.p.copy(m.E)
+      flare.position.set(m.E.x, m.E.y + 10, m.E.z)
+      flare.intensity = 1800
+      ring(tb.b.wx, 0.25, tb.b.wz, m.col, Math.max(tb.b.w, tb.b.d) * 0.7, Math.max(tb.b.w, tb.b.d) * 1.6, 1700, 0.38, now)
     }
 
     // reduced motion: the incoming paths drawn still, one per origin to each internet edge
@@ -567,7 +564,7 @@ function Scene({ target, layout, origins, focus, profiles, reduced, onOrg, onFai
       // missiles
       if (motion && introDone && now >= nextLaunch) {
         launch(now)
-        nextLaunch = now + (live.current.focus ? 260 : 380) + Math.random() * 900
+        nextLaunch = now + (live.current.focus ? 500 : 700) + Math.random() * 1300
       }
       let k = 0
       lCol.fill(0)
@@ -588,15 +585,16 @@ function Scene({ target, layout, origins, focus, profiles, reduced, onOrg, onFai
           mPos[k * 3] = tmpV.x
           mPos[k * 3 + 1] = tmpV.y
           mPos[k * 3 + 2] = tmpV.z
+          // a thin arrow: a small bright tip and a short tapering shaft (the line core below), no glow cloud
           const fade = (1 - i / TRAIL) ** 1.4
           if (i === 0) {
-            mCol[k * 3] = born; mCol[k * 3 + 1] = born; mCol[k * 3 + 2] = born
-            mSize[k] = 10
+            mCol[k * 3] = Math.min(1, m.col.r + 0.5) * born; mCol[k * 3 + 1] = Math.min(1, m.col.g + 0.5) * born; mCol[k * 3 + 2] = Math.min(1, m.col.b + 0.5) * born
+            mSize[k] = 3.6
           } else {
-            mCol[k * 3] = m.col.r * fade * 0.85 * born
-            mCol[k * 3 + 1] = m.col.g * fade * 0.85 * born
-            mCol[k * 3 + 2] = m.col.b * fade * 0.85 * born
-            mSize[k] = tt === 0 ? 0 : 1 + 5.5 * fade
+            mCol[k * 3] = m.col.r * fade * 0.5 * born
+            mCol[k * 3 + 1] = m.col.g * fade * 0.5 * born
+            mCol[k * 3 + 2] = m.col.b * fade * 0.5 * born
+            mSize[k] = tt === 0 ? 0 : 0.6 + 1.2 * fade
           }
         }
         for (let i = 0; i < SEG; i++) {
@@ -643,9 +641,9 @@ function Scene({ target, layout, origins, focus, profiles, reduced, onOrg, onFai
       for (const bm of beams) bm.uniforms.time.value = motion ? now / 1000 : 0
       for (const x of built) {
         if (x.flash > 0.002) {
-          x.flash *= Math.pow(0.9, gap / 16.7)
-          x.edge.color.copy(x.base).lerp(HIT, Math.min(1, x.flash * 1.3))
-          for (const s of x.sides) s.emissive.setRGB(1, 1 - 0.75 * x.flash, 1 - 0.8 * x.flash)
+          x.flash *= Math.pow(0.955, gap / 16.7)
+          x.edge.color.copy(x.base).lerp(HIT, Math.min(1, x.flash))
+          for (const s of x.sides) s.emissive.setRGB(1 + 0.6 * x.flash, 1 - 0.3 * x.flash, 1 - 0.35 * x.flash)
         } else if (x.flash !== 0) {
           x.flash = 0
           x.edge.color.copy(x.base)

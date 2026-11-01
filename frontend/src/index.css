@@ -267,3 +267,11 @@ html.soc .font-mono { font-variant-numeric: tabular-nums slashed-zero; letter-sp
 @keyframes soc-ring { from { transform: scale(0.95); opacity: 0.6; } to { transform: scale(1.35); opacity: 0; } }
 .soc-ring { transform-box: fill-box; transform-origin: center; animation: soc-ring 2.4s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .soc-ring { animation: none; opacity: 0.35; } }
+/* India honeycomb (soc/map/IndiaHex.tsx): a slow sweep of light crosses the states with operators (each hex delayed by
+   its position), and the compromise state breathes violet. Still under reduced motion. */
+@keyframes hex-sweep { 0%, 78%, 100% { filter: brightness(1); } 86% { filter: brightness(1.45); } }
+@keyframes hex-breathe { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35) saturate(1.2); } }
+.hex-live { animation: hex-sweep 7s linear infinite; }
+.hex-comp { animation: hex-breathe 2.4s ease-in-out infinite, hex-sweep 7s linear infinite; }
+.hex-quiet { filter: none; }
+@media (prefers-reduced-motion: reduce) { .hex-live, .hex-comp { animation: none; } }

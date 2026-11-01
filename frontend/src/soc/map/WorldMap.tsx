@@ -233,15 +233,18 @@ export function WorldMap(props: WorldMapProps) {
         ctx.stroke()
       }
 
-      // projectiles keep firing along the active paths, at random moments and speeds
-      for (let i = shots.length - 1; i >= 0; i--) if (!qs.has(shots[i].r)) shots.splice(i, 1)
-      if (!reduced && active.length) {
-        if (now >= nextLaunch && shots.length < 14) {
-          shots.push({ r: active[Math.floor(Math.random() * active.length)], t0: now, dur: 1100 + Math.random() * 1700 })
-          nextLaunch = now + (focus ? 120 + Math.random() * 520 : 200 + Math.random() * 760)
+      // projectiles fire all the time, along any route, at random moments and speeds (as on the landing page); the
+      // route itself is drawn only on intent. With an origin in focus, only its routes fire.
+      const pool = focus ? active : p.routes
+      for (let i = shots.length - 1; i >= 0; i--) if (!pool.includes(shots[i].r)) shots.splice(i, 1)
+      const qOf = (r: Route) => qs.get(r) ?? curve(toScreen(f, r.o.at[0], r.o.at[1]), toScreen(f, r.t.at[0], r.t.at[1]))
+      if (!reduced && pool.length) {
+        if (now >= nextLaunch && shots.length < 12) {
+          shots.push({ r: pool[Math.floor(Math.random() * pool.length)], t0: now, dur: 1300 + Math.random() * 2200 })
+          nextLaunch = now + (focus ? 120 + Math.random() * 520 : Math.random() < 0.3 ? 80 + Math.random() * 160 : 300 + Math.random() * 1500)
         }
         for (let i = shots.length - 1; i >= 0; i--) {
-          const sh = shots[i], q = qs.get(sh.r)!
+          const sh = shots[i], q = qOf(sh.r)
           const t = (now - sh.t0) / sh.dur
           const col = sh.r.o.kind === 'attack' ? ATTACK : C2
           if (t >= 1) {
@@ -280,7 +283,7 @@ export function WorldMap(props: WorldMapProps) {
       for (let i = ripples.length - 1; i >= 0; i--) {
         const rp = ripples[i]
         const t = (now - rp.t0) / 700
-        if (t >= 1 || !active.length) { ripples.splice(i, 1); continue }
+        if (t >= 1) { ripples.splice(i, 1); continue }
         ctx.strokeStyle = rgba(rp.col, 0.85 * (1 - t))
         ctx.lineWidth = 1.4
         ctx.beginPath()

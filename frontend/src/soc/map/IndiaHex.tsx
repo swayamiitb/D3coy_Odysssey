@@ -84,15 +84,24 @@ export function IndiaHex({ orgs, onOrg, onSite, focus }: { orgs: OrgRow[]; onOrg
     for (const o of orgs) { const k = stateName(o.state); m.set(k, [...(m.get(k) ?? []), o]) }
     return m
   }, [orgs])
-  const maxCrit = Math.max(1, ...[...byState.values()].map((rs) => rs.reduce((s, o) => s + o.critical, 0)))
-  const fillOf = (name: string): string => {
+  // the heat scale runs over the states without a compromise (the compromise state is violet, not on the scale)
+  const maxCrit = Math.max(1, ...[...byState.values()].filter((rs) => !rs.some((o) => o.compromise > 0)).map((rs) => rs.reduce((s, o) => s + o.critical, 0)))
+  const heatOf = (name: string) => { const rows = byState.get(name); return rows ? Math.min(1, rows.reduce((s, o) => s + o.critical, 0) / maxCrit) : 0 }
+  // One hue family per meaning, alive across each state: the heat runs from amber through red to crimson with the
+  // share of Critical warnings; the compromise state is violet; quiet states are a cool graphite. Every hex gets its
+  // own shade from a seeded noise (±9% lightness), so a state reads as a surface with grain rather than a flat fill.
+  const seed = (x: number, y: number) => { const s = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453; return s - Math.floor(s) }
+  const fillOf = (name: string, hx: Hex): string => {
     const rows = byState.get(name)
-    if (!rows) return 'var(--color-panel-2)'
-    if (rows.some((o) => o.compromise > 0)) return 'var(--color-comp)'
-    const crit = rows.reduce((s, o) => s + o.critical, 0)
-    if (!crit) return 'color-mix(in oklab, var(--color-high) 35%, var(--color-panel-2))'
-    return `color-mix(in oklab, var(--color-crit) ${Math.round(32 + 68 * (crit / maxCrit))}%, var(--color-panel-2))`
+    const g = (seed(hx.x, hx.y) - 0.5) * 0.18
+    if (!rows) return `oklch(${(0.24 + g * 0.6).toFixed(3)} 0.012 250)`
+    if (rows.some((o) => o.compromise > 0)) return `oklch(${(0.62 + g).toFixed(3)} 0.2 292)`
+    const k = heatOf(name) // 0..1
+    const hue = 55 - 35 * k   // amber (55) towards crimson (20)
+    const l = 0.66 - 0.16 * k + g
+    return `oklch(${l.toFixed(3)} ${(0.17 + 0.05 * k).toFixed(3)} ${hue.toFixed(0)})`
   }
+  const delayOf = (hx: Hex) => `${(((hx.x + hx.y * 0.6) / (VB_W + VB_H * 0.6)) * 7).toFixed(2)}s`
   const lit = hover ?? focus
   const openRows = open ? byState.get(open) ?? [] : []
   const states = byState.size
@@ -118,7 +127,8 @@ export function IndiaHex({ orgs, onOrg, onSite, focus }: { orgs: OrgRow[]; onOrg
                  style={{ cursor: rows ? 'pointer' : 'default', opacity: dim ? 0.38 : 1, transition: 'opacity 160ms ease' }}>
                 <title>{c.name}{rows ? `: ${rows.length} operator(s), ${rows.reduce((n, o) => n + o.critical, 0)} Critical` : ''}</title>
                 {grid.hexes.filter((h) => h.s === si).map((h, i) => (
-                  <polygon key={i} points={HEX} transform={`translate(${h.x.toFixed(1)} ${h.y.toFixed(1)})${on ? ' scale(1.08)' : ''}`} fill={fillOf(c.name)}
+                  <polygon key={i} points={HEX} transform={`translate(${h.x.toFixed(1)} ${h.y.toFixed(1)})${on ? ' scale(1.08)' : ''}`} fill={fillOf(c.name, h)}
+                           className={rows ? (rows.some((o) => o.compromise > 0) ? 'hex-live hex-comp' : 'hex-live') : 'hex-quiet'} style={{ animationDelay: delayOf(h) }}
                            stroke={on ? 'var(--color-text)' : 'rgba(0,0,0,0.35)'} strokeWidth={on ? 0.9 : 0.6} />
                 ))}
               </g>
@@ -126,7 +136,7 @@ export function IndiaHex({ orgs, onOrg, onSite, focus }: { orgs: OrgRow[]; onOrg
           })}
           {grid.states.map((c) => c.n >= 4 && (
             <text key={`l-${c.name}`} x={c.cx} y={c.cy + 3} textAnchor="middle" fontSize={c.n >= 12 ? 10 : 8} fontWeight={600} style={{ fontFamily: 'var(--font-mono)', pointerEvents: 'none' }}
-                  fill={byState.has(c.name) ? '#ffffff' : 'var(--color-mute)'}>{c.code}</text>
+                  fill={!byState.has(c.name) ? 'var(--color-mute)' : byState.get(c.name)!.some((o) => o.compromise > 0) || heatOf(c.name) >= 0.55 ? '#ffffff' : '#141416'}>{c.code}</text>
           ))}
         </svg>
       ) : <div className="absolute inset-0 flex items-center justify-center text-[13px] text-faint">Laying the honeycomb…</div>}

@@ -89,7 +89,7 @@ export function Honeycomb({ className = '' }: { className?: string }) {
     const place = (now: number) => {
       if (!mesh) return
       tiles.forEach((t, i) => {
-        const p = Math.min(1, (now - t.t0) / t.dur)
+        const p = Math.max(0, Math.min(1, (now - t.t0) / t.dur))
         const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2
         m4.makeTranslation(t.x, t.y, t.from + (t.to - t.from) * e - DEPTH)
         mesh!.setMatrixAt(i, m4)
@@ -97,18 +97,30 @@ export function Honeycomb({ className = '' }: { className?: string }) {
       mesh.instanceMatrix.needsUpdate = true
     }
     const render = () => renderer.render(scene, camera)
+    // start a tile moving: up if it is down, down if it is up, from wherever it is right now
+    const kick = (t: Tile, now: number, delay = 0) => {
+      const p = Math.min(1, (now - t.t0) / t.dur)
+      const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2
+      t.from = t.from + (t.to - t.from) * e
+      t.to = t.to > RISE * 0.3 ? 0 : RISE * (0.45 + 0.55 * Math.random())
+      t.dur = 320 + Math.random() * 260
+      t.t0 = now + delay
+    }
+    let nextRipple = 0
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame)
-      if (!visible || document.hidden || !mesh) return
-      // a few tiles a second start to rise, or to sink back
-      if (Math.random() < 0.06 && tiles.length) {
-        const t = tiles[Math.floor(Math.random() * tiles.length)]
-        const p = Math.min(1, (now - t.t0) / t.dur)
-        const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2
-        t.from = t.from + (t.to - t.from) * e
-        t.to = t.to > RISE * 0.3 ? 0 : RISE * (0.45 + 0.55 * Math.random())
-        t.dur = 1200 + Math.random() * 900
-        t.t0 = now
+      if (!visible || document.hidden || !mesh || !tiles.length) return
+      // four times the clip's pace: a dozen single tiles a second, and every second or so a ripple that spreads
+      // from one tile through its neighbours, so the motion has a pattern as well as the scatter
+      if (Math.random() < 0.22) kick(tiles[Math.floor(Math.random() * tiles.length)], now)
+      if (now >= nextRipple) {
+        nextRipple = now + 900 + Math.random() * 900
+        const c = tiles[Math.floor(Math.random() * tiles.length)]
+        const reach = SQ3 * R * (2.2 + Math.random() * 1.6)
+        for (const t of tiles) {
+          const d = Math.hypot(t.x - c.x, t.y - c.y)
+          if (d <= reach) kick(t, now, d * 2.2)
+        }
       }
       place(now)
       render()
