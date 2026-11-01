@@ -284,7 +284,7 @@ html.soc .font-mono { font-variant-numeric: tabular-nums slashed-zero; letter-sp
 .soc-reveal[data-open="true"] { grid-template-rows: 1fr; }
 @media (prefers-reduced-motion: reduce) { .soc-reveal { transition: none; } }
 /* A strip box reads as a control: raised, lifts a little on hover, presses down on click, outlined when open. */
-.soc-pressable { cursor: pointer; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 0 transparent; transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+.soc-pressable { cursor: pointer; transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out), border-color 160ms var(--ease-out), background-color 160ms var(--ease-out); }
 .soc-pressable:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06); }
 .soc-pressable:active { transform: translateY(0) scale(0.985); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
 .soc-pressable.is-open { box-shadow: 0 0 0 1px var(--color-text), 0 6px 16px rgba(0, 0, 0, 0.08); }
