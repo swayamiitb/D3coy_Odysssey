@@ -12,7 +12,8 @@ import { Badge, deadlineText, Pill, Prov, Row, Section, Stat, Tabs, TIER_FILL, T
 /** The operator's own command-centre row (ui-08): two shares as gauges, the attacks on its services worldwide as
  *  ranked bars, and a template insight from its profile. Every figure comes from /api/orgs/{id}/profile. */
 function OrgPosture({ p }: { p: OrgProfile }) {
-  const all = Object.values(p.tiers).reduce((s, n) => s + (n ?? 0), 0)
+  // Actionable warnings only: Watch-tier items are observations, not warnings a person must act on.
+  const all = (p.tiers.Compromise ?? 0) + (p.tiers.Critical ?? 0) + (p.tiers.High ?? 0) + (p.tiers.Medium ?? 0)
   const crit = (p.tiers.Compromise ?? 0) + (p.tiers.Critical ?? 0)
   const exposed = p.surface.internet + p.surface.dmz
   const ports = [...p.attack_activity].sort((a, b) => b.last7_mean - a.last7_mean).slice(0, 5)
@@ -25,20 +26,20 @@ function OrgPosture({ p }: { p: OrgProfile }) {
           <Gauge value={p.surface.assets ? exposed / p.surface.assets : null} color="var(--color-text)" label="Reachable from the internet"
                  sub={`${exposed} of ${p.surface.assets} assets face the internet or a DMZ`} />
           <Gauge value={all ? crit / all : null} color={p.tiers.Compromise ? TIER_FILL.Compromise : TIER_FILL.Critical} label="Critical or worse"
-                 sub={`${crit} of ${all} open warnings${p.tiers.Compromise ? ` · ${p.tiers.Compromise} suspected compromise` : ''}`} />
+                 sub={`${crit} of ${all} actionable warnings${p.tiers.Compromise ? ` · ${p.tiers.Compromise} suspected compromise` : ''}`} />
         </div>
       </SocCard>
       <SocCard title="Attacks on its services worldwide" prov={['REAL']} sub="SANS ISC DShield, 7-day mean of reports per port it exposes">
         {ports.length ? (
           <BarList color={TIER_FILL.Critical}
                    rows={ports.map((t) => ({ key: String(t.port), label: <>{t.service} <span className="font-mono text-mute">:{t.port}</span></>, value: Math.round(t.last7_mean),
-                                             sub: `${t.ratio >= 1 ? '+' : ''}${Math.round((t.ratio - 1) * 100)}% vs 28-day median`, hot: t.elevated }))} />
+                                             sub: `${t.ratio >= 1 ? '+' : ''}${Math.round((t.ratio - 1) * 100)}% vs median`, hot: t.elevated }))} />
         ) : <p className="text-[13px] text-faint">No attack telemetry for the ports it exposes.</p>}
       </SocCard>
       <SocCard title="Security insight" sub="Its profile, in three sentences">
         <p className="text-[14px] leading-relaxed">
           {p.org.name} exposes {exposed} of {nf(p.surface.assets)} assets to the internet{worst ? `, the most exposed being ${worst.hostname} (${worst.product} ${worst.version}, ${worst.open_high} open High or worse)` : ''}.{' '}
-          {crit ? `${crit} of its ${all} open warnings are Critical or worse` : 'None of its open warnings is Critical'}{p.risk.for_80_pct != null ? `; ${p.risk.for_80_pct} of ${p.risk.tickets} change tickets would remove 80% of its risk` : ''}.{' '}
+          {crit ? `${crit} of its ${all} actionable warnings are Critical or worse` : 'None of its actionable warnings is Critical'}{p.risk.for_80_pct != null ? `; ${p.risk.for_80_pct} of ${p.risk.tickets} change tickets would remove 80% of its risk` : ''}.{' '}
           {c2.length ? `${c2.length} host${c2.length > 1 ? 's are' : ' is'} beaconing to a known botnet server (${[...new Set(c2.map((x) => x.malware))].join(', ')}), which is why it is treated as a suspected compromise.` : 'No host is beaconing to a known botnet server.'}
         </p>
         <p className="mt-2 text-[12px] text-faint">Written from this profile by a fixed template; no model involved. Operators are simulated (SIM); CVEs, KEV, EPSS and DShield are real.</p>

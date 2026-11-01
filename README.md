@@ -67,3 +67,12 @@ The site opens on our scroll-story landing (`frontend/src/landing/`): real botne
 into India's operators, the evidence arc, then the globe unrolls into a flat world where real attack origins fly in.
 "Open the console" goes to the Odyssey console above (`/?view=now`). Team rulebook: [CLAUDE.md](CLAUDE.md); decisions:
 [docs/DECISIONS.md](docs/DECISIONS.md); plan: [docs/PLAN.md](docs/PLAN.md).
+
+The console wears an Uber black-and-white theme with SOC accents (`frontend/src/index.css`, `html.soc`): a white body
+with black bands, red only for threat. The moon button in the top bar switches the whole console to the night-shift
+(all black) look, remembered per browser. `Ctrl`/`⌘ K` opens a search over pages, operators, open warnings and
+technologies. The left rail on wide screens expands to the sections of each destination. On Now, "Threat activity" is
+a real 2D map (world-atlas + d3-geo; India drawn from @svg-maps/india so no contested border is drawn): hover an origin
+in the list to see its attack arcs; click an Indian state to open a 3D site view of its government agencies, with
+labelled buildings and the attacks coming in. The operators, buildings and arc landing points are simulated (SIM); the
+attack origins (SANS ISC DShield, abuse.ch Feodo Tracker), CVEs, KEV and EPSS are real.
