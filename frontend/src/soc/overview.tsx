@@ -19,7 +19,7 @@ export function AlertChip({ tick, onOpen }: { tick: number; onOpen: (c: Feed['ca
     <button onClick={() => onOpen(c)} title={`${c.org_name}: ${c.cve_id}. Open the incident`}
             className="flex h-10 shrink-0 items-center gap-2 rounded-full bg-crit px-3 text-[13px] font-semibold text-white transition-opacity hover:opacity-90">
       <Siren size={14} className="soc-live" />
-      <span className="hidden sm:inline">Compromise</span>
+      <span className="hidden 2xl:inline">Compromise</span>
       <Countdown issuedAt={(c as typeof c & { issued_at?: string }).issued_at ?? data.issued_at} hours={c.deadline_hours} />
     </button>
   )

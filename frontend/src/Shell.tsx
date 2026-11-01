@@ -37,7 +37,7 @@ export function TopNav({ view, go, pending, connected, status, health, onSearch,
           <img src="/mark.svg" alt="" className="h-8 w-8" />
           <span className="hidden text-[18px] font-semibold tracking-tight lg:inline">Odyssey</span>
         </button>
-        <nav aria-label="Console" className="min-w-0 overflow-x-auto [scrollbar-width:none]">
+        <nav aria-label="Console" className="min-w-0 shrink-0 overflow-x-auto [scrollbar-width:none] max-lg:max-w-[46vw]">
           <div className="flex w-max items-center gap-1 rounded-full border border-line bg-panel p-1">
             {NAV.map(([k, label]) => (
               <button key={k} onClick={() => go(k)} aria-current={view === k ? 'page' : undefined}
@@ -48,23 +48,23 @@ export function TopNav({ view, go, pending, connected, status, health, onSearch,
             ))}
           </div>
         </nav>
-        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+        <div className="ml-auto flex min-w-0 shrink items-center gap-2 sm:gap-3">
           {alert}
           <button onClick={onSearch} aria-label="Search threats, operators or CVEs (Ctrl+K)"
-                  className="flex h-10 items-center gap-2 rounded-full border border-line bg-panel px-3 text-[13px] text-mute transition-colors hover:border-line-2 hover:text-text xl:w-[230px] 2xl:w-[300px]">
+                  className="flex h-10 min-w-0 items-center gap-2 rounded-full border border-line bg-panel px-3 text-[13px] text-mute transition-colors hover:border-line-2 hover:text-text xl:w-[180px] 2xl:w-[300px]">
             <Search size={15} className="shrink-0" />
             <span className="hidden min-w-0 flex-1 truncate text-left xl:inline">Search threats, CVEs…</span>
             <kbd className="hidden rounded-md border border-line bg-panel-2 px-1.5 py-0.5 font-sans text-[11px] text-faint xl:inline">⌘K</kbd>
           </button>
-          <span className="hidden items-center gap-2 rounded-full border border-line px-3 py-1.5 text-[13px] text-mute lg:flex">
+          <span className="hidden items-center gap-2 rounded-full border border-line px-3 py-1.5 text-[13px] text-mute 2xl:flex">
             <span className={`h-2 w-2 rounded-full ${dot}`} />
             {status === 'live' ? 'Live' : status === 'static' ? 'Static view' : 'Offline'}
           </span>
           <button onClick={() => go('live')} className="hidden rounded-full border border-line-2 bg-panel-2 px-4 py-2 text-[14px] font-semibold text-text transition-colors hover:bg-panel-3 2xl:inline">
             Run a drill
           </button>
-          <button onClick={() => go('soc', 'overview')} className="rounded-full bg-text px-4 py-2 text-[14px] font-semibold text-ink transition-opacity hover:opacity-85">
-            {pending != null ? <><span className="tabular-nums">{pending}</span><span className="hidden sm:inline"> decisions</span></> : 'Decisions'}
+          <button onClick={() => go('soc', 'overview')} className="shrink-0 whitespace-nowrap rounded-full bg-text px-4 py-2 text-[14px] font-semibold text-ink transition-opacity hover:opacity-85">
+            {pending != null ? <><span className="tabular-nums">{pending}</span><span className="hidden lg:inline"> decisions</span></> : 'Decisions'}
           </button>
           <button onClick={toggleNight} aria-pressed={night} aria-label={night ? 'Night shift on: switch to the white console' : 'Night shift: turn the whole console black'}
                   title={night ? 'Night shift on' : 'Night shift'}

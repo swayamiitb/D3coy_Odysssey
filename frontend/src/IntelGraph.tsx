@@ -1,6 +1,7 @@
 import { ExternalLink, Eye, Loader2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, type FactValue, type GraphCard, type GraphNode, type IntelGraph as ApiGraph, type Soc, type Tier } from './api'
+import { circleLayout, GraphCanvas, type GraphView } from './soc/GraphCanvas'
 import { fmtDate, Pill, Prov, Row, Section, Sheet, Stat, TierPill, useToast } from './ui'
 
 /* The intelligence graph: every entity Odyssey knows about and how they connect, drawn from the record and refreshed
@@ -34,7 +35,6 @@ const KIND_CODE: Record<string, string> = {
   org: 'ORG', asset: 'HOST', product: 'TECH', cve: 'CVE', campaign: 'CAMP', technique: 'ATT', malware: 'MAL', actor: 'GRP', indicator: 'IOC', supplier: 'SUP', signal: 'LIVE',
 }
 const PHASE: Record<string, string> = { fresh: 'fresh, last hour', today: 'today', week: 'this week', fading: 'fading, under 30 days', aged: 'aged' }
-const DASH: Record<string, string | undefined> = { REAL: undefined, SIM: '3 3', 'REAL · SIM': '6 3' }
 /* Which facts a reader wants per kind, in reading order. Everything else stays on the card's full list. */
 const FACTS: Record<string, [string, string][]> = {
   org: [['Open warnings', 'open_warnings'], ['Critical', 'critical'], ['Open cases', 'open_cases'], ['Worst tier', 'worst'], ['Sector', 'sector'], ['State', 'state'], ['Critical Information Infrastructure', 'cii'], ['Domain', 'domain']],
@@ -156,19 +156,7 @@ function layout(g: Graph) {
   const always = g.nodes.filter((n) => n.kind in prio).sort((a, b) => prio[a.kind] - prio[b.kind] || byRisk(a, b))
   const auto = g.nodes.filter((n) => !(n.kind in prio) && (n.pulse >= 0.5 || n.tier === 'Compromise' || n.tier === 'Critical')).sort(byRisk).slice(0, 18)
   const labels = placeLabels([...always, ...auto].map((n) => ({ id: n.id, ...pos[n.id], text: drawn(n), rad: radius(n), cos: Math.cos(n.angle), px: n.kind === 'org' ? 11 : 10.5 })), fixed)
-  return { pos, rings, labels }
-}
-
-function curve(a: { x: number; y: number }, b: { x: number; y: number }) {
-  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
-  const cx = mx + (CX - mx) * 0.18, cy = my + (CY - my) * 0.18   // a gentle bow towards the centre keeps parallel edges apart
-  return `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`
-}
-
-function Shape({ n, r, fill, stroke, strokeWidth, className, style }: { n: GraphNode; r: number; fill: string; stroke: string; strokeWidth: number; className?: string; style?: CSSProperties }) {
-  if (n.kind === 'actor') return <rect x={-r} y={-r} width={2 * r} height={2 * r} transform="rotate(45)" fill={fill} stroke={stroke} strokeWidth={strokeWidth} className={className} style={style} />
-  if (n.kind === 'signal') return <polygon points={`0,${-r * 1.25} ${r * 1.15},${r * 0.85} ${-r * 1.15},${r * 0.85}`} fill={fill} stroke={stroke} strokeWidth={strokeWidth} className={className} style={style} />
-  return <circle r={r} fill={fill} stroke={stroke} strokeWidth={strokeWidth} className={className} style={style} />
+  return { pos, rings, labels, circle: circleLayout(g.nodes, g.rings, KIND_LABEL) }
 }
 
 function provOf(p: string) { return p.startsWith('REAL') ? 'REAL' : 'SIM' }
@@ -341,6 +329,7 @@ export function IntelGraph({ focus, onFocus, initialNode }: { focus?: string; on
   const [kindSel, setKindSel] = useState<string>()
   const [card, setCard] = useState<string>()
   const [fresh, setFresh] = useState<Set<string>>(new Set())
+  const viewRef = useRef<GraphView>({ nodes: [], edges: [], layout: { pos: {}, rings: [] }, fresh: new Set(), focusLabel: '', centre: '' })
   const prev = useRef<Set<string> | null>(null)
   /* Replay: the instants on offer and the one chosen; 'now' is the live view. */
   const [steps, setSteps] = useState<ReplayStep[]>([])
@@ -431,17 +420,13 @@ export function IntelGraph({ focus, onFocus, initialNode }: { focus?: string; on
     )
   }
 
-  const { pos, rings, labels } = L
   const byId: Record<string, GraphNode> = {}
   for (const n of g.nodes) byId[n.id] = n
   const linked = new Set<string>()
   if (hover) for (const e of g.edges) if (e.from === hover || e.to === hover) { linked.add(e.from); linked.add(e.to) }
-  const dim = (n: GraphNode) => {
-    if (hover) return n.id === hover || linked.has(n.id) ? 1 : 0.2
-    if (kindSel) return n.kind === kindSel ? 1 : 0.15
-    return 1
-  }
   const hov = hover ? byId[hover] : undefined
+  viewRef.current = { nodes: g.nodes, edges: g.edges, layout: L.circle, hover, kindSel, fresh, focusLabel: g.focus.label,
+    centre: `${g.summary.nodes} nodes · ${g.summary.edges} connections · ${g.summary.real_edges} from public data` }
   const b = g.breath
   const lastEvidence = g.nodes.reduce<string | null>((m, n) => (n.last_seen && (!m || n.last_seen > m) ? n.last_seen : m), null)
   const timeOf = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—')
@@ -470,80 +455,9 @@ export function IntelGraph({ focus, onFocus, initialNode }: { focus?: string; on
           </div>
         )}
         <div className={`${atNow ? 'mt-6' : 'mt-3'} flex items-start gap-5`}>
-          <div className="min-w-0 flex-1 overflow-x-auto rounded-2xl bg-soft p-2">
-            <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full min-w-[900px]" data-intelgraph role="img" aria-label={`Intelligence graph: ${g.focus.label}`}
-                 onMouseLeave={() => setHover(undefined)}>
-              {rings.map((r) => (
-                <g key={r.ring}>
-                  <ellipse cx={CX} cy={CY} rx={r.r * RMAX * ASPECT} ry={r.r * RMAX} fill="none" stroke="var(--color-line)" strokeWidth={1} />
-                  <text x={CX} y={CY - r.r * RMAX - 12} textAnchor="middle" fontSize={9.5} fontWeight={600} letterSpacing={0.6} fill="var(--color-faint)"
-                        paintOrder="stroke" stroke="var(--color-soft)" strokeWidth={3}>{r.label.toUpperCase()}</text>
-                </g>
-              ))}
-              {g.focus.kind === 'national' && (
-                <g>
-                  <text x={CX} y={CY - 4} textAnchor="middle" fontSize={13} fontWeight={700} fill="var(--color-text)">{g.focus.label}</text>
-                  <text x={CX} y={CY + 14} textAnchor="middle" fontSize={10.5} fill="var(--color-mute)">{g.summary.nodes} nodes · {g.summary.edges} connections · {g.summary.real_edges} from public data</text>
-                </g>
-              )}
-
-              {g.edges.map((e) => {
-                const a = pos[e.from], c = pos[e.to]
-                if (!a || !c) return null
-                const on = hover && (e.from === hover || e.to === hover)
-                const off = hover ? !on : kindSel ? byId[e.from]?.kind !== kindSel && byId[e.to]?.kind !== kindSel : false
-                return <path key={`${e.from}|${e.to}|${e.kind}`} d={curve(a, c)} fill="none"
-                             stroke={on ? 'var(--color-text)' : 'var(--color-faint)'} strokeWidth={0.6 + Math.min(3, e.weight) * 0.35 + (on ? 0.5 : 0)}
-                             strokeDasharray={DASH[e.provenance]} opacity={on ? 0.9 : off ? 0.04 : e.kind === 'runs' || e.kind === 'owns' ? 0.09 : 0.22} />
-              })}
-
-              {/* breathing halos and new-node pings live in their own layer, so a node's own box stays still for pointers */}
-              {g.nodes.map((n) => {
-                if (n.pulse < 0.05 && !fresh.has(n.id)) return null
-                const p = pos[n.id], r = radius(n)
-                return (
-                  <g key={`h-${n.id}`} transform={`translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`} opacity={dim(n)} style={{ pointerEvents: 'none' }}>
-                    {n.pulse >= 0.05 && (
-                      <circle r={r + 3} fill={n.tier ? TIER_FILL[n.tier] : 'var(--color-faint)'} opacity={0.25 * n.pulse} className="breath"
-                              style={{ '--breath': `${(1.6 + 3.4 * (1 - n.pulse)).toFixed(2)}s` } as CSSProperties} />
-                    )}
-                    {fresh.has(n.id) && <circle r={r + 2} fill="none" stroke="var(--color-text)" strokeWidth={1.5} className="ping" />}
-                  </g>
-                )
-              })}
-
-              {g.nodes.map((n) => {
-                const p = pos[n.id], r = radius(n)
-                const fill = n.tier ? TIER_FILL[n.tier] : 'var(--color-panel)'
-                const stroke = n.tier ? 'var(--color-panel)' : 'var(--color-text)'
-                return (
-                  <g key={n.id} transform={`translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`} opacity={dim(n)} data-node={n.id} style={{ cursor: 'pointer' }}
-                     onMouseEnter={() => setHover(n.id)} onClick={() => setCard(n.id)}>
-                    <Shape n={n} r={r} fill={fill} stroke={stroke} strokeWidth={1.5} />
-                  </g>
-                )
-              })}
-
-              {g.nodes.map((n) => {
-                const l = labels[n.id]
-                if (!l || n.id === hover) return null
-                return <text key={`l-${n.id}`} x={l.x} y={l.y} textAnchor={l.anchor} fontSize={n.kind === 'org' ? 11 : 10.5} fontWeight={n.kind === 'org' ? 600 : 400}
-                             fill="var(--color-text)" opacity={dim(n)} paintOrder="stroke" stroke="var(--color-soft)" strokeWidth={3} strokeLinejoin="round"
-                             style={{ pointerEvents: 'none' }}>{drawn(n)}</text>
-              })}
-              {hov && (() => {
-                const p = pos[hov.id], r = radius(hov), right = Math.cos(hov.angle) >= 0 && p.x < W - 220
-                return (
-                  <g style={{ pointerEvents: 'none' }}>
-                    <circle cx={p.x} cy={p.y} r={r + 4} fill="none" stroke="var(--color-text)" strokeWidth={1.5} />
-                    <text x={right ? p.x + r + 8 : p.x - r - 8} y={p.y + 4} textAnchor={right ? 'start' : 'end'} fontSize={12} fontWeight={700} fill="var(--color-text)"
-                          paintOrder="stroke" stroke="var(--color-soft)" strokeWidth={4} strokeLinejoin="round">{short(hov.label, 40)}</text>
-                    <text x={right ? p.x + r + 8 : p.x - r - 8} y={p.y + 17} textAnchor={right ? 'start' : 'end'} fontSize={9.5} fill="var(--color-mute)"
-                          paintOrder="stroke" stroke="var(--color-soft)" strokeWidth={3} strokeLinejoin="round">{KIND_LABEL[hov.kind] ?? hov.kind}{hov.tier ? ` · ${hov.tier}` : ''}</text>
-                  </g>
-                )
-              })()}
-            </svg>
+          <div className="soc-dark relative min-w-0 flex-1 overflow-hidden rounded-2xl" style={{ height: 'clamp(560px, 64vw, 900px)' }} data-intelgraph role="img" aria-label={`Intelligence graph: ${g.focus.label}`}>
+            <GraphCanvas view={viewRef} onHover={setHover} onPick={setCard} dark />
+            <div className="pointer-events-none absolute bottom-3 left-4 text-[11.5px] text-mute">Hover a node to light what it touches · click for its card · drag to pan · wheel to zoom · double-click to reset</div>
           </div>
 
           <aside className="sticky top-24 w-[360px] shrink-0 self-start rounded-2xl bg-panel-2 p-5 text-sm">
