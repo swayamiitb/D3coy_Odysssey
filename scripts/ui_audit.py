@@ -301,6 +301,49 @@ def main() -> int:
                 shot("intel-graph-org")
             graph(page)
 
+            @step("Intel graph: replay slider, watch an entity from its card, the watchlist below")
+            def graph_watch(page):
+                go("intel", "graph")
+                page.locator("[data-intelgraph]").wait_for()
+                page.locator("[data-node^='product:']").first.click()
+                page.get_by_text("What this is", exact=True).wait_for()
+                page.locator("aside").get_by_role("button", name="Watch", exact=True).first.click()
+                page.locator("aside").get_by_text("Watching", exact=False).first.wait_for()
+                page.keyboard.press("Escape")
+                page.get_by_text("What this is", exact=True).wait_for(state="detached")
+                page.get_by_text("Watchlist", exact=True).first.wait_for()
+                page.locator("input[type='range']").first.wait_for()
+                shot("intel-graph-watch")
+
+            graph_watch(page)
+
+            @step("Intel indicators: paste the example, import and match, exports and TAXII")
+            def indicators(page):
+                go("intel", "indicators")
+                page.get_by_text("Bring in indicators").wait_for()
+                page.get_by_role("button").filter(has_text="Try an example").first.click()
+                page.get_by_role("button", name="Import and match").click()
+                page.get_by_text("matched", exact=False).first.wait_for(timeout=60000)
+                page.get_by_text("50[.]16[.]16[.]211", exact=False).first.wait_for()
+                page.get_by_role("button").filter(has_text="Test it").first.click()
+                page.get_by_text("Odyssey intelligence graph", exact=False).first.wait_for(timeout=30000)
+                shot("intel-indicators")
+
+            indicators(page)
+
+            @step("Intel threats: brand and social watch, consented attack-surface scan of the portal")
+            def osint(page):
+                go("intel", "threats")
+                page.get_by_text("Brand and social watch", exact=False).first.wait_for()
+                page.get_by_text("Attack surface, with consent", exact=False).first.wait_for()
+                page.get_by_label("I own this system and consent to a read-only scan").check()
+                page.get_by_role("button", name="Scan", exact=True).last.click()
+                page.get_by_text("Previous scans", exact=False).first.wait_for()
+                page.get_by_text("CWE-", exact=False).first.wait_for(timeout=90000)
+                shot("intel-osint")
+
+            osint(page)
+
             @step("Intel advisories: inbox, how it was read, paste and analyse")
             def advisories(page):
                 go("intel", "advisories")

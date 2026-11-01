@@ -22,7 +22,7 @@ from .ledger import Ledger
 RAW = Path(__file__).resolve().parents[3] / "data" / "raw"
 _IPV4 = re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b")
 _DOMAIN = re.compile(r"\b(?=.{4,253}\b)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,24})\b", re.I)
-_URL = re.compile(r"\bhttps?://[^\s'\"<>|]+", re.I)
+_URL = re.compile(r"\bhttps?://[^\s'\"<>|,;]+", re.I)  # stops at CSV separators too
 _SHA256 = re.compile(r"\b[a-f0-9]{64}\b", re.I)
 _SHA1 = re.compile(r"\b[a-f0-9]{40}\b", re.I)
 _MD5 = re.compile(r"\b[a-f0-9]{32}\b", re.I)
