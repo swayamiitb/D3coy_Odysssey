@@ -193,7 +193,7 @@ tell the shield thread first, because it clears that thread's test data too.
 | Area | Files |
 |---|---|
 | Build | `backend/app/pipeline.py`, `backend/app/sim/` (world, telemetry), `scripts/snapshot_feeds.py` |
-| Engines (`backend/app/engine/`) | `exposure`, `versions`, `products`, `scoring`, `bayes`, `forecast`, `detectors`, `campaigns`, `sentinel` (autopilot), `riskplan`, `intel`, `soc`, `workflow`, `replay`, `reports` (CERT-In, STIX), `attack` (ATT&CK), `scorecard`, `testbench`, `ledger`, `obligations`, `suppliers`, `intake`, `adaptive`, `threatmap`, `sitrep`, `graph` (intelligence graph, replay), `export` (risk lists, STIX bundle), `watch` (watchlists), `iocs` (indicator import), `brand` (brand and social watch), `surface` (consented attack surface), `capredteam` (CAP red-team against our own ingest) |
+| Engines (`backend/app/engine/`) | `exposure`, `versions`, `products`, `scoring`, `bayes`, `forecast`, `detectors`, `campaigns`, `sentinel` (autopilot), `riskplan`, `intel`, `soc`, `workflow`, `replay`, `reports` (CERT-In, STIX), `attack` (ATT&CK), `scorecard`, `testbench`, `ledger`, `obligations`, `suppliers`, `intake`, `adaptive`, `threatmap`, `sitrep`, `graph` (intelligence graph, replay), `export` (risk lists, STIX bundle), `watch` (watchlists), `iocs` (indicator import), `brand` (brand and social watch), `surface` (consented attack surface) (CAP red-team against our own ingest) |
 | AI (`backend/app/ai/`) | `llm` (role registry), `narrate` (grounded briefs), `advisory` (IOCs, NER, mapping), `guard`, `embed`; `backend/mt_service.py` (IndicTrans2) |
 | Runtime | `backend/app/main.py` (API, SSE, startup warm-up), `backend/app/live.py`, `backend/app/telemetry.py`, `backend/app/cache.py`, `backend/app/taxii.py` (TAXII 2.1 router), `backend/app/osint_api.py` (brand and surface routes), `backend/app/sachet.py` (SACHET reader, CAP writer, CAP ingest guard) |
 | UI (`frontend/src/`) | `App`, `Shell`, `ui`, `Now`, `Live`, `Adaptive`, `SocOps`, `SystemView`, `Soc` (Intel), `Advisories`, `Orgs`, `OrgThreatMap`, `Proof`, `ProofProactive`, `HowItWorks`, `AlertDetail` and its panels, `Heatmap`, `IndiaMap`, `Rewind`, `proactive` |
@@ -415,8 +415,7 @@ attack landing during a disaster is worse. The security angle: an early-warning 
 every inbound CAP message is treated as hostile until proven otherwise. No model is called anywhere in this connector.
 
 **Files.** `backend/app/sachet.py` (reader, writer, guard; standard-library XML and httpx, no new dependency;
-defusedxml is not installed and is not needed, because any DTD is refused before parsing), `backend/app/engine/capredteam.py`
-(ten hostile cases against our own loopback ingest), `backend/app/main.py` (the five routes below; the guard starts at
+defusedxml is not installed and is not needed, because any DTD is refused before parsing), (ten hostile cases against our own loopback ingest), `backend/app/main.py` (the five routes below; the guard starts at
 API startup unless `ODYSSEY_SACHET=0` and reads the feed once in a background thread), `backend/app/engine/graph.py`
 (`_disasters()`: matched SACHET alerts and accepted inbound CAP as `signal` nodes), `tests/test_sachet.py`, the SACHET
 flow in `scripts/e2e_check.py`, the SACHET step in `scripts/ui_audit.py`. UI: "Disaster alerts (SACHET)" under
@@ -471,18 +470,7 @@ accepted rows only) and a ledger event `cap.ingest.accepted` or `cap.ingest.refu
 SIM when the red-team header is set, else REAL). An accepted alert gets its states and operators inferred the same way
 as the feed. The response is `{accepted, reason, detail, identifier, sender, event, severity, states, orgs, redteam}`.
 
-**The red-team.** `capredteam.run(connect, target)` refuses any target that is not loopback, writes a planted secret
-to a temporary file under `data/.tmp`, and fires ten cases at `POST /api/sensor/cap` with the run id in
-`x-odyssey-redteam`: `xxe_external_entity` (an external entity pointing at the secret file; T1190, CWE-611),
-`billion_laughs` (T1499, CWE-776), `forged_sender` (T1036, CWE-290), `legitimate` (must be accepted), `replay`
-(T1557, CWE-294), `stale` (CWE-672), `malformed` (CWE-20), `oversize` (a 3 MB body; T1499, CWE-400), `stored_script`
-(a script tag in the headline from an authorised sender: accepted, stored and shown as text; CWE-79), `flood` (40
-distinct alerts in a burst; the tail must be `rate_limited`; T1499, CWE-770). A case passes when the refusal reason is
-the one expected; `planted_secret_leaked` is true if the secret ever appears in any response. The scorecard is
-`{run_id, target, cases:[{name, what, expected, got, pass, ms, technique, cwe}], passed, total, planted_secret_leaked,
-seconds, label, how}` and a `cap.redteam` ledger event (source CAP_REDTEAM, provenance SIM, the failed case names in
-the payload). `POST /api/sensor/cap/redteam` runs it against this Odyssey's own port on 127.0.0.1; nothing is ever
-sent to SACHET, NDMA or any third party, and the module raises if asked to.
+**Red-teaming the guard.** Done by a separate session, by the team lead's decision; nothing in the product fires hostile CAP. The guard is exercised by a separate red-team session against `POST /api/sensor/cap` (an `x-odyssey-redteam` header labels the exercise); the panel shows every decision as it happens. The in-session runner built at 08:30 was removed at 08:50.
 
 **Endpoints.**
 
@@ -491,14 +479,14 @@ sent to SACHET, NDMA or any third party, and the module raises if asked to.
   `ingest` (accepted, refused by reason, total), `trusted`, `limits`, `how`, `endpoint`, `provenance`.
 - `GET /api/sachet/alert?url=`: the full CAP of one SACHET alert (identifier, sender, sent, status, msgType, scope,
   references, expires, namespace, infos with areas, inferred states); 400 unless the host is `sachet.ndma.gov.in`.
-- `POST /api/sensor/cap`: the guard. `POST /api/sensor/cap/redteam`: the red-team.
+- `POST /api/sensor/cap`: the guard.
 - `GET /api/warnings/{org_id}/{cve_id}/cap?langs=&status=`: the writer.
 - `GET /api/graph`: up to eight matched SACHET alerts as REAL `signal` nodes (`facts.signal = 'disaster'`, risk 35,
   tier Medium, an "on" edge to each operator in that state labelled "context, not a cyber signal") and up to ten
-  accepted inbound CAP messages as `signal` nodes (`facts.signal = 'cap_inbound'`; SIM when it was a red-team
+  accepted inbound CAP messages as `signal` nodes (`facts.signal = 'cap_inbound'`; SIM when the `x-odyssey-redteam` header marked an
   exercise). Replay (`as_of`) leaves out alerts published after the instant.
 
-**Ledger kinds.** `cap.ingest.accepted`, `cap.ingest.refused`, `cap.redteam`. **Table.** `cap_ingest`, created on
+**Ledger kinds.** `cap.ingest.accepted`, `cap.ingest.refused`. **Table.** `cap_ingest`, created on
 first use by `CapGuard.ensure()`.
 
 **Measured on the live run (1 Nov 2026, about 08:50 IST).** The feed read fresh: 100 items, 99 with an inferred
@@ -507,8 +495,7 @@ the loopback endpoint, `planted_secret_leaked: false`.
 
 **The demo arc** (`docs/PITCH.md`, 40 s after the brand and surface moment). Intel → Threats → *Disaster alerts
 (SACHET)*: real alerts on our operators' states, REAL, each with the basis of its state; "weather or attack?"; the graph
-draws the alert on the operator. Then *Run the CAP red-team*: ten hostile messages at our own ingest, 10 of 10, no
-leak, under a second. The Q&A line, when asked whether this is connected to SACHET: no; read-only public input in,
+draws the alert on the operator. The guard's live decisions sit beside it for the separate red-team session to drive. The Q&A line, when asked whether this is connected to SACHET: no; read-only public input in,
 SACHET-compatible CAP out, routing through an authorised agency is theirs to decide.
 
 **Honest limits.** SACHET is read-only, public-domain input; Odyssey's CAP is SACHET-compatible and not connected to
@@ -524,7 +511,6 @@ billion laughs refused without expanding the planted secret; oversize, forged se
 refused and the flood capped at the window maximum; `write_cap` round-trips through `safe_parse` with two languages,
 severity mapped, namespace present; a script tag escaped, never emitted raw; every decision audited with the chain
 intact (a temporary copy of the database, deltas not absolute counts). One flow in `scripts/e2e_check.py` (26 flows:
-the feed read from the snapshot and matched, a legitimate CAP accepted and a forged one refused, the red-team 10 of 10
-with no leak, a warning downloaded as CAP), one step in `scripts/ui_audit.py` (25 steps: the Disaster alerts (SACHET)
-section opened and the red-team run). Documents updated in this pass: `README.md`, `docs/PS_COVERAGE.md`,
+the feed read from the snapshot and matched, a legitimate CAP accepted and a forged one refused, a warning downloaded as CAP), one step in `scripts/ui_audit.py` (25 steps: the Disaster alerts (SACHET)
+section opened and the guard panel read). Documents updated in this pass: `README.md`, `docs/PS_COVERAGE.md`,
 `docs/PITCH.md`, `docs/TIP_GAP_AUDIT.md`, this file.

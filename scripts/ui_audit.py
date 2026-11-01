@@ -345,7 +345,7 @@ def main() -> int:
 
             osint(page)
 
-            @step("Intel threats: disaster alerts (SACHET) on our operators' states, the CAP red-team against our own guard")
+            @step("Intel threats: disaster alerts (SACHET) on our operators' states, the CAP guard panel reads")
             def sachet(page):
                 go("intel", "threats")
                 page.get_by_text("Disaster alerts (SACHET)", exact=False).first.wait_for()

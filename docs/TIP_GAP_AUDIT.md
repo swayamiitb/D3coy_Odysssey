@@ -106,9 +106,7 @@ those operators (`facts.signal = 'disaster'`): context for "weather or attack?",
 warnings leave as SACHET-compatible CAP 1.2 (`GET /api/warnings/{org}/{cve}/cap`, one `<info>` per validated
 language, `status=Exercise`), the format an authorised agency would route; it is not connected to SACHET. The inbound
 guard at `POST /api/sensor/cap` refuses, in order, flood, oversize, any DTD or entity before parsing, malformed,
-missing fields, untrusted sender, replay and stale, each a `cap.ingest.refused` ledger event, and
-`backend/app/engine/capredteam.py` proves it with ten hostile cases against Odyssey's own loopback endpoint (10 of 10
-in 0.36 s this morning, the planted secret never leaked). Measured on the live feed: 100 items, 99 with a state, 80
+missing fields, untrusted sender, replay and stale, each a `cap.ingest.refused` ledger event. The guard is exercised by a separate red-team session against `POST /api/sensor/cap` (an `x-odyssey-redteam` header labels the exercise); the panel shows every decision as it happens. Measured on the live feed: 100 items, 99 with a state, 80
 on operators. Nothing is sent to NDMA or any third party. Section 21 of `docs/THREAD_CONTEXT.md` has the detail.
 
 ## 5. Out of scope by design, with the plug-in point

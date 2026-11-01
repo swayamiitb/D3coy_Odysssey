@@ -14,7 +14,6 @@ from pathlib import Path
 import pytest
 
 from backend.app import sachet
-from backend.app.engine import capredteam
 from backend.app.engine.ledger import Ledger
 from backend.app.sachet import CAP_NS, CapGuard, infer_states, match_orgs, parse_cap, parse_rss, safe_parse, sender_allowed, write_cap
 
@@ -154,8 +153,6 @@ def test_infer_states_carries_basis_and_confidence():
     assert [s["state"] for s in both] == ["Tamil Nadu", "West Bengal"] and both[0]["basis"] == "state named: Tamil Nadu"
 
 
-@pytest.mark.xfail(strict=True, reason="sachet._scripts_of keeps only ord(ch) > 0x2000, which excludes every Indic block "
-                                       "(Telugu is U+0C00-U+0C7F), so the script hint never fires; the threshold in sachet.py needs fixing")
 def test_infer_states_script_hint_for_a_pure_telugu_title():
     got = infer_states(TELUGU)
     assert {s["state"] for s in got} == {"Andhra Pradesh", "Telangana"}
@@ -315,65 +312,6 @@ def test_write_cap_escapes_markup_and_maps_tiers():
 
 
 # ---------------------------------------------------------------------------------------------------- the red team
-def test_redteam_cases_cover_the_ladder_and_point_at_the_planted_secret(guard, tmp_path):
-    secret_path = tmp_path / "planted-secret.txt"
-    secret_path.write_text("PLANTED-test", encoding="utf-8")
-    run_id = _ident("rt")
-    cases = capredteam.cases(run_id, secret_path)
-    assert len(cases) == 9
-    assert [(c["name"], c["expect"]) for c in cases] == [
-        ("xxe_external_entity", "xxe"), ("billion_laughs", "xxe"), ("forged_sender", "untrusted_sender"), ("legitimate", "accepted"),
-        ("replay", "replay"), ("stale", "stale"), ("malformed", "malformed"), ("oversize", "oversize"), ("stored_script", "accepted")]
-    by = {c["name"]: c for c in cases}
-    xxe = by["xxe_external_entity"]["body"]
-    assert secret_path.resolve().as_uri().encode() in xxe and b"<!ENTITY xxe SYSTEM" in xxe and b"&xxe;" in xxe
-    assert b"&lol4;" in by["billion_laughs"]["body"] and len(by["oversize"]["body"]) > sachet.MAX_XML_BYTES
-    assert by["replay"]["body"] == by["legitimate"]["body"] and b"<script>alert(1)</script>" in by["stored_script"]["body"]
-    assert all(c["what"] and c["body"] and "cwe" in c and "technique" in c for c in cases)
-    # the same bodies through the guard directly, no network: every expectation holds and the secret is never read
-    for c in cases:
-        out = guard.ingest(c["body"], source_ip="10.9.0.10", redteam=run_id)
-        got = "accepted" if out["accepted"] else out["reason"]
-        assert got == c["expect"], (c["name"], out["detail"])
-        assert "PLANTED-test" not in json.dumps(out) and out["redteam"] == run_id
-    stored = next(d for d in guard.decisions(20) if d["identifier"] == f"{run_id}-xss")
-    assert stored["accepted"] is True and stored["redteam"] == run_id
-
-
-def test_redteam_refuses_non_loopback_targets_before_any_request(connect, monkeypatch):
-    import httpx
-
-    class Boom:
-        def __init__(self, *a, **k):
-            raise AssertionError("a request was attempted")
-
-    monkeypatch.setattr(httpx, "Client", Boom)
-    head = _head(connect)
-    for target in ("http://example.com/x", "https://sachet.ndma.gov.in/api/sensor/cap", "http://10.0.0.5:8000/api/sensor/cap"):
-        with pytest.raises(ValueError, match="loopback"):
-            capredteam.run(connect, target)
-    assert _head(connect) == head
-
-
-def test_redteam_live_run_against_own_loopback_endpoint(connect):
-    if not _api_up():
-        pytest.skip("the API on :8000 is not answering")
-    head = _head(connect)
-    out = capredteam.run(connect, f"{LIVE}/api/sensor/cap")
-    if any(c["got"] == "rate_limited" for c in out["cases"] if c["name"] != "flood" and not c["pass"]):
-        pytest.skip("the live guard's rate window is still full from a run within the last minute")
-    assert out["total"] == 10 and out["passed"] == out["total"], [c for c in out["cases"] if not c["pass"]]
-    assert out["planted_secret_leaked"] is False and out["seconds"] < 10
-    assert [c["name"] for c in out["cases"]] == ["xxe_external_entity", "billion_laughs", "forged_sender", "legitimate", "replay", "stale",
-                                                 "malformed", "oversize", "stored_script", "flood"]
-    assert out["target"].startswith("http://127.0.0.1") and "loopback" in out["how"] and "SIM" in out["label"]
-    assert all(c["ms"] >= 0 and c["expected"] and c["got"] for c in out["cases"])
-    rows = _ledger(connect, head)
-    assert len(rows) == 1 and rows[0]["kind"] == "cap.redteam" and rows[0]["provenance"] == "SIM"
-    assert rows[0]["subject"] == out["run_id"] and rows[0]["payload"]["failed"] == [] and "cases" not in rows[0]["payload"]
-
-
-# ---------------------------------------------------------------------------------------------- the feed and status
 def test_read_feed_serves_the_snapshot_offline_and_live_when_the_fetch_works(connect):
     if not RSS.exists():
         pytest.skip("no SACHET RSS snapshot")
@@ -414,3 +352,300 @@ def test_status_shape(guard):
     assert s["trusted"] == {"domains": list(sachet.TRUSTED_DOMAINS), "prefixes": list(sachet.TRUSTED_PREFIXES), "own": sachet.OWN_SENDER}
     assert s["limits"] == {"max_bytes": 2 * 1024 * 1024, "rate_per_minute": 30}
     assert "validate, don't trust" in s["how"]
+
+
+# ------------------------------------------------------------------------------------- the red team, adversarial review
+import re  # noqa: E402
+import socket  # noqa: E402
+import threading  # noqa: E402
+import time as _time  # noqa: E402
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # noqa: E402
+
+
+class _FakeCap:
+    """A loopback stand-in for the ingest whose behaviour the test picks: a JSON list, HTML, a redirect, a slow answer,
+    a parser that expanded the external entity (and echoes what the real ingest echoes), or a limiter with a chosen cap."""
+
+    def __init__(self):
+        self.mode, self.limit, self.seen, self.count, self.read_secret = "json_list", 30, [], 0, None
+        srv = self
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers.get("content-length") or 0))
+                srv.seen.append(body)
+                srv.count += 1
+                status, ct, out, extra = 200, "application/json", b"{}", {}
+                if srv.mode == "json_list":
+                    out = b"[1, 2]"
+                elif srv.mode == "html":
+                    status, ct, out = 500, "text/html", b"<h1>boom</h1>"
+                elif srv.mode == "redirect":
+                    status, out, extra = 307, b"", {"location": "http://example.invalid/collect"}
+                elif srv.mode == "slow":
+                    _time.sleep(1.0)
+                    out = b'{"accepted": false, "reason": "late"}'
+                elif srv.mode == "vulnerable":
+                    txt = body.decode("utf-8", "replace")
+                    m = re.search(r'<!ENTITY xxe SYSTEM "([^"]+)"', txt)
+                    if m:
+                        srv.read_secret = Path.from_uri(m.group(1)).read_text(encoding="utf-8")
+                        txt = txt.replace("&xxe;", srv.read_secret)
+                    ev = re.search(r"<event>(.*?)</event>", txt, re.S)
+                    out = json.dumps({"accepted": True, "reason": None, "detail": None, "identifier": "x", "sender": TRUSTED,
+                                      "event": ev.group(1) if ev else None, "severity": None, "states": [], "orgs": [], "redteam": "r"}).encode()
+                elif srv.mode == "limiter":
+                    refused = srv.count > srv.limit
+                    out = json.dumps({"accepted": not refused, "reason": "rate_limited" if refused else None}).encode()
+                self.send_response(status)
+                self.send_header("content-type", ct)
+                self.send_header("content-length", str(len(out)))
+                for k, v in extra.items():
+                    self.send_header(k, v)
+                self.end_headers()
+                self.wfile.write(out)
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        self.server.daemon_threads = True
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.server.server_address[1]}/api/sensor/cap"
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+
+@pytest.fixture
+def fake_cap():
+    f = _FakeCap()
+    yield f
+    f.close()
+
+
+
+def _dtd_body(identifier: str, decl: str = '<?xml version="1.0"?>') -> str:
+    """A CAP alert carrying a DTD with an entity; used to prove a DOCTYPE cannot hide behind any encoding."""
+    return (f'{decl}<!DOCTYPE alert [<!ENTITY lol "lol">]><alert xmlns="{CAP_NS}"><identifier>{identifier}</identifier>'
+            f'<sender>{TRUSTED}</sender><sent>2026-11-01T06:44:49+05:30</sent><status>Exercise</status><msgType>Alert</msgType>'
+            f'<scope>Public</scope><info><headline>&lol;</headline></info></alert>')
+
+
+def test_review_dtd_is_refused_whatever_the_encoding(guard):
+    """A UTF-16 body hid <!DOCTYPE from the byte search (as '<', NUL, '!', NUL, ...) and expat parsed the DTD, entity expanded."""
+    body = _dtd_body(_ident("enc"))
+    hostile = {"utf-16 BOM": body.encode("utf-16"), "utf-16-le": body.encode("utf-16-le"), "utf-16-be": body.encode("utf-16-be"),
+               "utf-16-be BOM": b"\xfe\xff" + body.encode("utf-16-be"), "utf-32 BOM": body.encode("utf-32"), "utf-32-le": body.encode("utf-32-le"),
+               "utf-8 BOM": b"\xef\xbb\xbf" + body.encode(),
+               "latin-1 declared": _dtd_body(_ident("l1"), '<?xml version="1.0" encoding="ISO-8859-1"?>').encode("latin-1"),
+               "utf-7 declared": _dtd_body(_ident("u7"), '<?xml version="1.0" encoding="utf-7"?>').encode("utf-7"),
+               "utf-16 declared, no BOM": _dtd_body(_ident("d16"), '<?xml version="1.0" encoding="UTF-16"?>').encode("utf-16-le")}
+    for name, raw in hostile.items():
+        with pytest.raises(ValueError, match="xxe"):
+            safe_parse(raw)
+        out = guard.ingest(raw, source_ip="10.9.1.1", redteam="REVIEW")
+        assert out["reason"] == "xxe", (name, out)
+    # nothing legitimate is lost: the same alert without a DTD parses in UTF-16 with its text intact
+    clean = body.replace('<!DOCTYPE alert [<!ENTITY lol "lol">]>', "").replace("&lol;", "café మీ")
+    assert parse_cap(clean.encode("utf-16"))["infos"][0]["headline"] == "café మీ"
+    assert parse_cap(clean.encode("utf-16-be"))["sender"] == TRUSTED
+    # the size cap is applied to the raw bytes before any decoding
+    with pytest.raises(ValueError, match="oversize"):
+        safe_parse(("<a>" + "x" * (sachet.MAX_XML_BYTES // 2) + "</a>").encode("utf-16-le"))
+    # an unreadable or unknown encoding is malformed, never parsed
+    assert guard.ingest(b"<alert>\xff\xfe\xfa</alert>", source_ip="10.9.1.1", redteam="REVIEW")["reason"] == "malformed"
+    bogus = _alert(_ident("bogus")).replace(b'encoding="UTF-8"', b'encoding="x-no-such"')
+    assert guard.ingest(bogus, source_ip="10.9.1.1", redteam="REVIEW")["reason"] == "malformed"
+
+
+def test_review_naive_expires_is_stale_not_a_crash(guard, connect):
+    """RFC 2822 '-0000' parses to a naive datetime; comparing it with the aware `now` raised TypeError: HTTP 500, no ledger row."""
+    assert sachet._when("Sun, 01 Nov 2026 01:15:19 -0000") == dt.datetime(2026, 11, 1, 1, 15, 19, tzinfo=dt.timezone.utc)
+    assert sachet._when("2026-11-01T06:44:49").tzinfo is not None
+    for odd in (b"2026-11-01T00:00:00Z", 123, "garbage", "", None, "99999-01-01T00:00:00Z"):
+        got = sachet._when(odd)
+        assert got is None or got.tzinfo is not None
+    head = _head(connect)
+    out = guard.ingest(_alert(_ident("naive"), expires="Sun, 01 Nov 2020 01:15:19 -0000"), source_ip="10.9.1.2", redteam="REVIEW")
+    assert out["accepted"] is False and out["reason"] == "stale"
+    rows = _ledger(connect, head)
+    assert len(rows) == 1 and rows[0]["kind"] == "cap.ingest.refused" and rows[0]["payload"]["reason"] == "stale"
+
+
+def test_review_sender_allow_list_bypasses_are_refused():
+    """Three accepted forgeries: a trusted address in the display name, an agency prefix inside a local part, a second '@'."""
+    refused = ['"ops@ndma.gov.in" <evil@attacker.com>', "IMD-evil@attacker.com", "IMD-x <evil@attacker.com>", "b@ndma.gov.in, a@evil.com",
+               "a@ndma.gov.in@evil.com", "x@ndma.gov.in\n<y@evil.com>", "a@ndma.gov.in\x00@evil.com", "<evil@attacker.com>",
+               "controlroom@ndmа.gov.in", "x@ｎｄｍａ.gov.in", "a@ndma.gov.in.evil.com", "x@evil-ndma.gov.in", "IMD", "NDM",
+               "", None, 42]
+    allowed = ["controlroom@ndma.gov.in (IMD Chennai)", "IMD-Chennai <controlroom@ndma.gov.in>", "a@sub.ndma.gov.in", "a@imd.gov.in", "a@NDMA.GOV.IN",
+               "IMD-Chennai", "CWC-Delhi", "SDMA-Odisha", "NDMA", sachet.OWN_SENDER, "ndma.gov.in", b"IMD-Chennai"]
+    assert [s for s in refused if sender_allowed(s)] == []
+    assert [s for s in allowed if not sender_allowed(s)] == []
+
+
+def test_review_replay_memory_survives_restart_for_long_identifiers(connect):
+    """The table keeps 120 characters of an identifier; the reloaded set held the truncation while the check used the full string."""
+    g = CapGuard(connect)
+    ident = _ident("long") + "-" + "x" * 150
+    assert g.ingest(_alert(ident), source_ip="10.9.1.3", redteam="REVIEW")["accepted"] is True
+    assert g.ingest(_alert(ident), source_ip="10.9.1.3", redteam="REVIEW")["reason"] == "replay"
+    again = CapGuard(connect)  # a restart: seen is reloaded from cap_ingest
+    out = again.ingest(_alert(ident), source_ip="10.9.1.3", redteam="REVIEW")
+    assert out["accepted"] is False and out["reason"] == "replay"
+    stored = again.decisions(1)[0]["identifier"]
+    assert len(stored) <= 120 and stored.startswith(ident[:55]) and "#" in stored
+    short = _ident("short")
+    assert CapGuard(connect).ingest(_alert(short), source_ip="10.9.1.3", redteam="REVIEW")["accepted"] is True
+    assert CapGuard(connect).decisions(1)[0]["identifier"] == short  # short identifiers are stored as they are
+
+
+def test_review_concurrent_copies_of_one_identifier_accept_exactly_one(connect, monkeypatch):
+    """Check-then-record let every concurrent copy of one identifier through (8 of 8 accepted); the claim is now made under the lock."""
+    import threading
+    import time
+
+    g = CapGuard(connect)
+    real = sachet.match_orgs
+
+    def slow(*a, **k):  # widen the window between the replay check and the write, as a busy database would
+        time.sleep(0.05)
+        return real(*a, **k)
+
+    monkeypatch.setattr(sachet, "match_orgs", slow)
+    body, results, barrier = _alert(_ident("race")), [], threading.Barrier(8)
+
+    def worker(i):
+        barrier.wait()
+        results.append(g.ingest(body, source_ip=f"10.9.2.{i}", redteam="REVIEW"))
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert sum(1 for r in results if r["accepted"]) == 1 and sum(1 for r in results if r["reason"] == "replay") == 7
+    ident = results[0]["identifier"]
+    conn = connect()
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM cap_ingest WHERE identifier = ? AND accepted = 1", (ident,)).fetchone()[0] == 1
+    finally:
+        conn.close()
+
+
+def test_review_a_refused_copy_does_not_poison_its_identifier(guard, connect):
+    """The claim is released when the copy is refused (stale) or the write fails, so the identifier can still be accepted once."""
+    ident = _ident("stale-then-fresh")
+    assert guard.ingest(_alert(ident, expires="2020-01-01T00:00:00Z"), source_ip="10.9.1.4", redteam="REVIEW")["reason"] == "stale"
+    assert guard.ingest(_alert(ident, expires="2099-01-01T00:00:00Z"), source_ip="10.9.1.4", redteam="REVIEW")["accepted"] is True
+    g = CapGuard(connect)
+
+    class Broken:
+        def execute(self, *a, **k):
+            raise sqlite3.OperationalError("database or disk is full")
+
+        executescript = execute
+
+        def commit(self):
+            pass
+
+        def close(self):
+            pass
+
+    good, g.connect = g.connect, lambda: Broken()
+    ident = _ident("write-fails")
+    with pytest.raises(sqlite3.OperationalError):
+        g.ingest(_alert(ident), source_ip="10.9.1.4", redteam="REVIEW")
+    g.connect = good
+    assert g.ingest(_alert(ident), source_ip="10.9.1.4", redteam="REVIEW")["accepted"] is True
+
+
+def test_review_snapshot_read_never_degrades_the_live_schedule(connect):
+    """A live=False read (the graph, status()) at the 15-minute mark replaced the fresh feed with the snapshot and blocked
+    the next live read for another 15 minutes."""
+    if not RSS.exists():
+        pytest.skip("no SACHET RSS snapshot")
+    g, calls = CapGuard(connect), []
+
+    def fake(url):
+        calls.append(url)
+        return RSS.read_bytes()
+
+    assert g.read_feed(live=True, now=NOW, fetch=fake, force=True)["status"] == "fresh"
+    g.next_feed = 0.0  # fifteen minutes pass
+    assert g.read_feed(live=False, fetch=fake)["status"] == "fresh" and len(calls) == 1  # served from memory, schedule untouched
+    assert g.status()["feed"]["status"] == "fresh"
+    assert g.read_feed(live=True, now=NOW, fetch=fake)["status"] == "fresh" and len(calls) == 2  # the due live read still fetches
+    snap = g.read_feed(live=False, fetch=fake, force=True)
+    assert snap["status"] == "snapshot" and len(calls) == 2
+    g.next_feed = 0.0
+    assert g.read_feed(live=True, now=NOW, fetch=fake)["status"] == "fresh" and len(calls) == 3
+
+
+def test_review_fetch_cap_loopback_only_with_an_injected_fetch(guard, monkeypatch):
+    """Through the public endpoint, loopback URLs made /api/sachet/alert a probe of local ports (ConnectError vs malformed)."""
+
+    def no_request(url):
+        raise AssertionError("a request was attempted")
+
+    monkeypatch.setattr(CapGuard, "_fetch", staticmethod(no_request))
+    for url in ("http://127.0.0.1:11434/api/tags", "http://localhost:8000/api/sachet", "https://127.0.0.1@evil.com/", "https://sachet.ndma.gov.in.evil.com/x",
+                "http://sachet.ndma.gov.in/x", "https://sachet.ndma.gov.in。evil.com/", "ftp://127.0.0.1/x", "file:///etc/passwd", "", None):
+        with pytest.raises(ValueError, match="sachet.ndma.gov.in"):
+            guard.fetch_cap(url)
+    raw = CAP_SAMPLE.read_bytes() if CAP_SAMPLE.exists() else _alert(_ident("loop"))
+    assert guard.fetch_cap("http://127.0.0.1:8000/x", fetch=lambda url: raw)["sender"] == TRUSTED  # tests inject their fetch
+
+
+def test_review_infer_states_never_raises_and_skips_dictionary_words():
+    for args in ((None,), (b"Heavy rain over Odisha",), (42,), ("x", 123), ("x", b"IMD-Chennai"), ("x", "", [None, b"Odisha", 7]), ("x", "", "Odisha"),
+                 ("\U0001F327⚡", "\U0001F3E2"), ("x", None, None, None), ("x", "", [], b"")):
+        out = infer_states(*args)
+        assert isinstance(out, list) and all(s["state"] in sachet.STATES for s in out)
+    assert infer_states(b"Heavy rain over Odisha")[0]["state"] == "Odisha"
+    # "erode" the verb is not Erode the district; "Puri" the place still is
+    assert infer_states("Heavy rain may erode the river embankment near Patna") == []
+    assert [s["state"] for s in infer_states("Sea surges may erode Puri beach")] == ["Odisha"]
+    assert infer_states("Rain over Erode and Coimbatore")[0] == {"state": "Tamil Nadu", "basis": "district named: Erode", "confidence": 0.75}
+    # the SDMA rule matches whole state names: a Goalpara (Assam) district authority is not Goa
+    assert infer_states("Flood alert", "controlroom@ndma.gov.in (Goalpara District Disaster Management Authority)") == []
+    assert infer_states("Flood alert", "controlroom@ndma.gov.in (Goa SDMA)")[0]["state"] == "Goa"
+    # the script hint now fires (the Indic blocks start at U+0900): the real CWC item in Telugu from the snapshot gets its states
+    got = infer_states(TELUGU)
+    assert {s["state"] for s in got} == {"Andhra Pradesh", "Telangana"} and all(s["confidence"] == 0.4 for s in got)
+    if RSS.exists():
+        items = parse_rss(RSS.read_bytes())
+        cwc = [i for i in items if i["author"].endswith("(CWC)") and "శ్రీ" in i["title"]]
+        assert cwc and all(infer_states(i["title"], i["author"]) for i in cwc)
+        assert all(infer_states(i["title"], i["author"]) for i in items if not i["title"].isascii())
+
+
+def test_review_write_cap_strips_xml_illegal_characters_from_every_field():
+    """Control characters in any field made the CAP unparseable (a form feed in a CVE description is enough); None values crashed."""
+    alert = {"identifier": "ODY-1\x00", "note": "a\x0cb", "references": "r\x03", "restriction": "r\x06", "event": "e\x04", "certainty": "c\x05",
+             "sender_name": "s\x08", "web": "w\x01", "contact": "c\x02", "areas": ["Chennai\x07, Tamil Nadu", None], "parameters": {"k\x1b": "v\x07", None: 3},
+             "expires_hours": "bad"}
+    infos = [{"language": None, "headline": None, "description": "a\ud800b", "instruction": 5}]
+    xml = write_cap(alert, infos, now=NOW)
+    cap = parse_cap(xml)
+    assert cap["identifier"] == "ODY-1" and cap["references"] == "r"
+    info = cap["infos"][0]
+    assert info["event"] == "e" and info["certainty"] == "c" and info["headline"] == "" and info["description"] == "ab" and info["instruction"] == "5"
+    assert info["areas"] == ["Chennai, Tamil Nadu"] and info["language"] == "en-US"
+    assert "<valueName>k</valueName>" in xml and "<value>v</value>" in xml and "<valueName></valueName>" in xml and "<value>3</value>" in xml
+    assert "\x00" not in xml and "\x0c" not in xml and "\x1b" not in xml and "<note>ab</note>" in xml
+    assert sachet._when(cap["expires"]) == NOW + dt.timedelta(hours=24)  # an unusable expires_hours falls back to 24
+    assert "\t" in write_cap({"identifier": "ODY-2", "note": "tab\tkept"}, infos, now=NOW)
+
+
+def test_review_rate_window_forgets_quiet_sources(connect):
+    import time
+
+    g = CapGuard(connect)
+    for i in range(5000):
+        g.window[f"2001:db8::{i:x}"].append(time.time() - 3600)
+    assert len(g.window) == 5000
+    assert g.ingest(_alert(_ident("prune")), source_ip="10.9.1.5", redteam="REVIEW")["accepted"] is True
+    assert len(g.window) == 1

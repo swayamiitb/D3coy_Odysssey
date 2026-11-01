@@ -63,11 +63,7 @@ grade is there; both are stored and shown again without a rescan.
    our operators, most of them from Andhra Pradesh SDMA), each row with the basis of its state inference ("sender
    office: IMD Amaravati", "district named: Krishna") and its confidence. "When an operator goes dark, the first
    question is: weather or attack? Now the disaster alert sits next to the cyber warnings, and the graph draws it on
-   the operator." Press *Run the CAP red-team*: ten hostile CAP messages at Odyssey's own ingest on loopback, an XXE
-   pointed at a planted secret, billion laughs, a forged sender, a replay, a stale alert, a malformed body, 3 MB, a
-   stored script, a flood of 40; 10 of 10 handled in well under a second, the planted secret never leaks, and the one
-   legitimate alert is accepted. "An early-warning system has to defend its own inputs. Nothing was sent to NDMA; what
-   goes out is SACHET-compatible CAP, not a SACHET message."
+   the operator." The guard is exercised by a separate red-team session against `POST /api/sensor/cap` (an `x-odyssey-redteam` header labels the exercise); the panel shows every decision as it happens.
 6. **Organisations (45 s).** Vidyut Grid West Corp opens on its threat map: hover the VPN gateway (compromised, calling a real QakBot C2), the HTTPS port under real attack pressure, the Ivanti scanning surge; then what outsiders see, its suppliers, its Marathi inbox. "Country threat maps draw arcs between nations; this is the same idea per operator, every line with its source."
 7. **Proof (60 s).** Eight claims, each with its evidence; press *Run them now* (135 checks, about two minutes,
    let it run while you take questions); *How it works*: six steps, the model table, the open formula.
@@ -123,7 +119,7 @@ grade is there; both are stored and shown again without a rescan.
   read-only, the way it reads NVD or KEV; nothing is sent to NDMA. Its own warnings are written in the same CAP 1.2
   format SACHET publishes, status Exercise, labelled "SACHET-compatible" in the message itself, so an authorised agency
   such as CERT-In could route them with configuration rather than redevelopment; that routing is theirs to decide, not
-  ours. The CAP red-team fires only at Odyssey's own loopback endpoint. Most SACHET alerts are district-level, so the
+  ours. Red-teaming the guard is done by a separate session, never from the product itself. Most SACHET alerts are district-level, so the
   state we infer carries its basis and a confidence on the row and is not always right. Bhashini is not used; the
   translator stays local.
 - **"Is anything here connected to something real?"** Yes. A real web application runs behind the Odyssey agent and
@@ -149,5 +145,5 @@ grade is there; both are stored and shown again without a rescan.
 - Consented scan refused: the portal is down, or the agent has not re-announced it since the restart (up to 10 s), or
   the 60 s cooldown is running. Wait, or show the stored scan; the refusal reason on screen is the gate working.
 - SACHET feed offline: the panel says "offline, serving the snapshot" and shows the 100 real alerts saved on 1 Nov;
-  the state inference, the operator match, the CAP download and the red-team work without the network. Say so; it is
+  the state inference, the operator match, the CAP download and the guard work without the network. Say so; it is
   the same honesty as the other feeds.

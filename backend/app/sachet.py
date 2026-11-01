@@ -19,8 +19,10 @@ Three parts, independent of each other:
 
 from __future__ import annotations
 
+import codecs
 import collections
 import datetime as dt
+import hashlib
 import html
 import json
 import re
@@ -127,17 +129,50 @@ _STATE_RX = re.compile(r"(?<![A-Za-z])(" + "|".join(sorted((re.escape(s) for s i
 
 
 # ----------------------------------------------------------------------------------------------------- parsing
+_BOMS = ((codecs.BOM_UTF32_LE, "utf-32-le"), (codecs.BOM_UTF32_BE, "utf-32-be"), (codecs.BOM_UTF8, "utf-8"),
+         (codecs.BOM_UTF16_LE, "utf-16-le"), (codecs.BOM_UTF16_BE, "utf-16-be"))
+_XML_DECL_ENC = re.compile(rb"^\s*<\?xml[^>]*?encoding\s*=\s*[\"']([A-Za-z0-9._-]+)[\"']", re.S)
+_XML_ILLEGAL = re.compile("[^\t\n\r\x20-퟿-�\U00010000-\U0010ffff]")
+
+
+def _decode_xml(raw: bytes) -> str:
+    """The body as text whatever encoding it arrives in: a BOM first, then the shape of a UTF-16/32 body without one,
+    then the declaration, else UTF-8. The DTD check runs on characters, so no encoding can disguise `<!DOCTYPE`
+    (a UTF-16 body hides it from a byte search as `<\\x00!\\x00D\\x00...`). Raises UnicodeDecodeError / LookupError."""
+    for bom, enc in _BOMS:
+        if raw.startswith(bom):
+            return raw[len(bom):].decode(enc)
+    head = raw[:4]
+    if head == b"<\x00\x00\x00":
+        return raw.decode("utf-32-le")
+    if head == b"\x00\x00\x00<":
+        return raw.decode("utf-32-be")
+    if head[:2] == b"<\x00":
+        return raw.decode("utf-16-le")
+    if head[:2] == b"\x00<":
+        return raw.decode("utf-16-be")
+    m = _XML_DECL_ENC.match(raw[:256])
+    return raw.decode(m.group(1).decode("ascii") if m else "utf-8")
+
+
 def safe_parse(data: bytes | str) -> ET.Element:
     """XXE and entity-expansion defence without a dependency: refuse any DTD, then parse with the standard library.
-    CAP never carries a DTD, so nothing legitimate is lost; expat does not fetch external entities on its own."""
-    raw = data if isinstance(data, bytes) else data.encode("utf-8")
+    CAP never carries a DTD, so nothing legitimate is lost; expat does not fetch external entities on its own.
+    The size cap is applied to the raw bytes before any decoding; the DTD check is applied to the decoded text (and
+    to the raw bytes), and the text is handed to expat as str so the body's own encoding declaration cannot make
+    expat read the bytes differently from the way the check did."""
+    raw = data if isinstance(data, bytes) else data.encode("utf-8", "replace")
     if len(raw) > MAX_XML_BYTES:
         raise ValueError("oversize")
-    low = raw[:65536].lower() if len(raw) > 65536 else raw.lower()
-    if b"<!doctype" in low or b"<!entity" in low or b"<!doctype" in raw.lower() or b"<!entity" in raw.lower():
+    try:
+        text = _decode_xml(raw)
+    except (UnicodeDecodeError, LookupError, ValueError) as exc:
+        raise ValueError("malformed") from exc
+    low = text.lower()
+    if "<!doctype" in low or "<!entity" in low or b"<!doctype" in raw.lower() or b"<!entity" in raw.lower():
         raise ValueError("xxe")
     try:
-        return ET.fromstring(raw)
+        return ET.fromstring(text)
     except ET.ParseError as exc:
         raise ValueError("malformed") from exc
 
@@ -163,17 +198,24 @@ def _iso(d: dt.datetime | None) -> str | None:
 
 
 def _when(s: str | None) -> dt.datetime | None:
+    """An ISO 8601 or RFC 2822 instant as an aware datetime (UTC when the input names no zone), else None. Never raises:
+    a naive result here once met an aware `now` in the stale check and turned one hostile <expires> into a 500."""
     if not s:
         return None
+    if isinstance(s, bytes):
+        s = s.decode("utf-8", "replace")
+    s = str(s).strip()
+    d = None
     try:
         d = dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
-        return d if d.tzinfo else d.replace(tzinfo=dt.timezone.utc)
-    except ValueError:
-        pass
-    try:
-        return parsedate_to_datetime(s)
     except (TypeError, ValueError):
+        try:
+            d = parsedate_to_datetime(s)
+        except (TypeError, ValueError, IndexError, OverflowError):
+            return None
+    if d is None:
         return None
+    return d if d.tzinfo else d.replace(tzinfo=dt.timezone.utc)
 
 
 def parse_cap(data: bytes | str) -> dict:
@@ -196,7 +238,8 @@ def parse_cap(data: bytes | str) -> dict:
 
 def parse_rss(data: bytes | str) -> list[dict]:
     root = safe_parse(data)
-    channel = _child(root, "channel") or root
+    ch = _child(root, "channel")
+    channel = ch if ch is not None else root  # an Element's truth value is its child count; test for presence explicitly
     items = []
     for it in (c for c in channel if _local(c.tag) == "item"):
         link = _text(it, "link")
@@ -209,10 +252,19 @@ def parse_rss(data: bytes | str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------------------------- state inference
+def _s(v) -> str:
+    """Any input as text: None -> '', bytes decoded, everything else str(). infer_states must never raise."""
+    if v is None:
+        return ""
+    if isinstance(v, (bytes, bytearray)):
+        return bytes(v).decode("utf-8", "replace")
+    return v if isinstance(v, str) else str(v)
+
+
 def _scripts_of(text: str) -> set[str]:
     out = set()
     for ch in text[:400]:
-        if ch.isalpha() and ord(ch) > 0x2000:
+        if ch.isalpha() and ord(ch) >= 0x0900:  # the Indic blocks start at Devanagari U+0900 (Telugu is U+0C00-0C7F)
             try:
                 name = unicodedata.name(ch).split(" ")[0]
             except ValueError:
@@ -231,21 +283,24 @@ def infer_states(title: str, author: str = "", areas: list[str] | None = None, s
         if cur is None or conf > cur["confidence"]:
             found[state] = {"state": state, "basis": basis, "confidence": conf}
 
-    text = " ".join([title or ""] + list(areas or []))
+    if isinstance(areas, (str, bytes)) or areas is None:
+        areas = [areas] if areas else []
+    text = " ".join([_s(title)] + [_s(a) for a in areas])
     for m in _STATE_RX.finditer(text):
         add(m.group(1).title().replace(" And ", " and "), f"state named: {m.group(1)}", 0.95)
-    for src in (author or "", sender or ""):
+    for src in (_s(author), _s(sender)):
         low = src.lower()
-        for state in STATES:
-            if state.lower() in low and ("sdma" in low or "disaster" in low):
-                add(state, f"sender: {src.strip()}", 0.9)
+        if "sdma" in low or "disaster" in low:
+            for m in _STATE_RX.finditer(low):  # whole words: "Goalpara District Disaster Management Authority" is not Goa
+                add(m.group(1).title().replace(" And ", " and "), f"sender: {src.strip()}", 0.9)
         for office, state in OFFICES.items():
             if re.search(r"(?<![a-z])" + re.escape(office) + r"(?![a-z])", low):
                 add(state, f"sender office: {src.strip()}", 0.85)
     for state, rx in _DISTRICT_RX.items():
-        m = rx.search(text)
-        if m:
-            add(state, f"district named: {m.group(1)}", 0.75)
+        for m in rx.finditer(text):
+            if m.group(1)[:1].isupper():  # a place name is written capitalised; "erode", "puri", "banda" in lower case are words
+                add(state, f"district named: {m.group(1)}", 0.75)
+                break
     if not found:
         for script in _scripts_of(text):
             for state in SCRIPTS[script]:
@@ -267,8 +322,17 @@ def write_cap(alert: dict, infos: list[dict], status: str = "Exercise", sender: 
     description, instruction."""
     now = now or dt.datetime.now(dt.timezone.utc)
     ist = now.astimezone(dt.timezone(dt.timedelta(hours=5, minutes=30)))
-    e = html.escape
+
+    def e(v) -> str:
+        """Every text node: None -> '', anything -> str, characters XML 1.0 forbids (C0 controls other than tab/LF/CR,
+        surrogates, U+FFFE/F) removed so the message always parses, then markup and quotes escaped."""
+        return html.escape(_XML_ILLEGAL.sub("", _s(v)))
+
     tier = alert.get("tier", "High")
+    try:
+        hours = float(alert.get("expires_hours") or 24)
+    except (TypeError, ValueError):
+        hours = 24.0
     lines = [f'<?xml version="1.0" encoding="UTF-8"?>', f'<alert xmlns="{CAP_NS}">',
              f"  <identifier>{e(alert['identifier'])}</identifier>", f"  <sender>{e(sender)}</sender>",
              f"  <sent>{ist.strftime('%Y-%m-%dT%H:%M:%S+05:30')}</sent>", f"  <status>{e(status)}</status>", "  <msgType>Alert</msgType>",
@@ -279,7 +343,7 @@ def write_cap(alert: dict, infos: list[dict], status: str = "Exercise", sender: 
         lines.append(f"  <note>{e(alert['note'])}</note>")
     if alert.get("references"):
         lines.append(f"  <references>{e(alert['references'])}</references>")
-    expires = (now + dt.timedelta(hours=alert.get("expires_hours") or 24)).astimezone(ist.tzinfo).strftime("%Y-%m-%dT%H:%M:%S+05:30")
+    expires = (now + dt.timedelta(hours=hours)).astimezone(ist.tzinfo).strftime("%Y-%m-%dT%H:%M:%S+05:30")
     for info in infos:
         lines += [f"  <info>", f"    <language>{e(info.get('language', 'en-IN'))}</language>", "    <category>Security</category>",
                   f"    <event>{e(alert.get('event', 'Cyber threat warning'))}</event>", "    <responseType>Prepare</responseType>",
@@ -293,7 +357,7 @@ def write_cap(alert: dict, infos: list[dict], status: str = "Exercise", sender: 
         if alert.get("contact"):
             lines.append(f"    <contact>{e(alert['contact'])}</contact>")
         for k, v in (alert.get("parameters") or {}).items():
-            lines += ["    <parameter>", f"      <valueName>{e(str(k))}</valueName>", f"      <value>{e(str(v))}</value>", "    </parameter>"]
+            lines += ["    <parameter>", f"      <valueName>{e(k)}</valueName>", f"      <value>{e(v)}</value>", "    </parameter>"]
         for area in alert.get("areas") or ["India"]:
             lines += ["    <area>", f"      <areaDesc>{e(area)}</areaDesc>", "    </area>"]
         lines.append("  </info>")
@@ -302,18 +366,38 @@ def write_cap(alert: dict, infos: list[dict], status: str = "Exercise", sender: 
 
 
 # ------------------------------------------------------------------------------------------------------- guard
+_ADDR_RX = re.compile(r"[\w.+-]+@([\w.-]+)(?![\w.@-])")
+
+
+def _domain_trusted(dom: str) -> bool:
+    dom = dom.strip(".")
+    return any(dom == d or dom.endswith("." + d) for d in TRUSTED_DOMAINS)
+
+
 def sender_allowed(sender: str) -> bool:
-    s = (sender or "").strip()
-    if not s:
+    """The allow-list, fail-closed. A sender written as an address (anything with '@' or '<') is judged by *every*
+    address it contains, so a trusted address in a display name cannot vouch for an untrusted one
+    ('"ops@ndma.gov.in" <evil@attacker.com>'), nor an agency prefix inside a local part ('IMD-evil@attacker.com'),
+    nor a second '@' ('a@ndma.gov.in@evil.com'). Control characters refuse outright. Bare agency ids keep the prefix rule."""
+    s = _s(sender).strip()
+    if not s or any(ord(c) < 32 or c == "\x7f" for c in s):
         return False
-    if s == OWN_SENDER or s.startswith(TRUSTED_PREFIXES):
+    if s == OWN_SENDER:
         return True
     low = s.lower()
-    m = re.search(r"[\w.+-]+@([\w.-]+)", low)
-    if m:
-        dom = m.group(1).strip(".")
-        return any(dom == d or dom.endswith("." + d) for d in TRUSTED_DOMAINS)
-    return any(low == d or low.endswith("." + d) for d in TRUSTED_DOMAINS)
+    if "@" in s or "<" in s or ">" in s:
+        doms = _ADDR_RX.findall(low)
+        return bool(doms) and all(_domain_trusted(d) for d in doms)
+    if s.startswith(TRUSTED_PREFIXES):
+        return True
+    return _domain_trusted(low)
+
+
+def _ident_key(identifier: str) -> str:
+    """The replay key: the identifier itself, or for one longer than the 120 characters the table keeps, its first 55
+    plus a SHA-256 tail. The same key is stored and compared, so replay memory survives a restart for any length."""
+    ident = _s(identifier)
+    return ident if len(ident) <= 120 else f"{ident[:55]}#{hashlib.sha256(ident.encode('utf-8', 'replace')).hexdigest()}"
 
 
 class CapGuard:
@@ -327,7 +411,7 @@ class CapGuard:
         conn = connect()
         try:
             self.ensure(conn)
-            self.seen = {r[0] for r in conn.execute("SELECT identifier FROM cap_ingest WHERE accepted = 1")}
+            self.seen = {_ident_key(r[0]) for r in conn.execute("SELECT identifier FROM cap_ingest WHERE accepted = 1")}
             for reason, n in conn.execute("SELECT COALESCE(reason, 'accepted'), COUNT(*) FROM cap_ingest GROUP BY reason"):
                 self.counts[reason] += n
         finally:
@@ -358,7 +442,10 @@ class CapGuard:
         """The SACHET feed with states and operators inferred per alert; live every 15 min, snapshot otherwise."""
         now = now or dt.datetime.now(dt.timezone.utc)
         with self.lock:
-            due = force or time.time() >= self.next_feed or not self.feed["items"]
+            # A snapshot-only read (the graph, status()) never re-reads while items are held and never moves the live
+            # schedule; otherwise one such read at the 15-minute mark replaced a fresh feed with the snapshot and
+            # kept the next live=True read from fetching for another 15 minutes.
+            due = force or not self.feed["items"] or (live and time.time() >= self.next_feed)
         if due:
             data, status, detail, ms = None, "snapshot", "", None
             if live:
@@ -389,7 +476,8 @@ class CapGuard:
                 self.feed = {"status": status, "fetched_at": _iso(now) if status == "fresh" else self.feed.get("fetched_at"), "last_try": _iso(now),
                              "items": items, "detail": detail, "ms": ms, "source": "NDMA SACHET public CAP feed (public domain)",
                              "provenance": "REAL", "url": RSS_URL}
-                self.next_feed = time.time() + FEED_INTERVAL_S
+                if live:
+                    self.next_feed = time.time() + FEED_INTERVAL_S
         with self.lock:
             f = dict(self.feed)
         f["count"] = len(f["items"])
@@ -398,10 +486,13 @@ class CapGuard:
         return f
 
     def fetch_cap(self, url: str, fetch=None) -> dict:
-        """One alert's full CAP message; only from SACHET itself (or loopback for tests), DTDs refused, size capped."""
-        u = urlparse(url)
+        """One alert's full CAP message; only from SACHET itself over HTTPS (loopback only with an injected `fetch`, i.e.
+        in tests: the public endpoint must not become a probe of local ports), DTDs refused, size capped, redirects
+        never followed (a 3xx raises)."""
+        u = urlparse(_s(url))
         host = (u.hostname or "").lower()
-        if not ((u.scheme == "https" and host == FEED_HOST) or host in ("127.0.0.1", "localhost")):
+        loop = fetch is not None and u.scheme in ("http", "https") and host in ("127.0.0.1", "localhost")
+        if not ((u.scheme == "https" and host == FEED_HOST) or loop):
             raise ValueError("Odyssey fetches CAP only from sachet.ndma.gov.in")
         data = (fetch or self._fetch)(url)
         cap = parse_cap(data)
@@ -416,7 +507,7 @@ class CapGuard:
         authorised sender, replay, stale. Every outcome is written to the ledger."""
         now = now or dt.datetime.now(dt.timezone.utc)
         raw = data if isinstance(data, bytes) else (data or "").encode("utf-8")
-        key = source_ip or "unknown"
+        key = _s(source_ip) or "unknown"
         with self.lock:
             w = self.window[key]
             cutoff = time.time() - RATE_WINDOW_S
@@ -424,8 +515,12 @@ class CapGuard:
                 w.popleft()
             flooded = len(w) >= RATE_MAX
             w.append(time.time())
+            if len(self.window) > 4096:  # many distinct sources: forget the windows that have gone quiet
+                for k in [k for k, d in self.window.items() if k != key and (not d or d[-1] < cutoff)]:
+                    del self.window[k]
         cap: dict = {}
         reason = detail = None
+        ikey, claimed = None, False
         if flooded:
             reason, detail = "rate_limited", f"more than {RATE_MAX} messages in {RATE_WINDOW_S} s from {key}"
         else:
@@ -443,8 +538,14 @@ class CapGuard:
             elif not sender_allowed(cap["sender"]):
                 reason, detail = "untrusted_sender", f"{cap['sender'][:80]} is not an authorised agency"
             else:
+                ikey = _ident_key(cap["identifier"])
                 with self.lock:
-                    replay = cap["identifier"] in self.seen
+                    # Check and claim in one critical section: two concurrent copies of one identifier used to both
+                    # pass the check before either was recorded. The claim is released below if this copy is refused.
+                    replay = ikey in self.seen
+                    if not replay:
+                        self.seen.add(ikey)
+                        claimed = True
                 if replay:
                     reason, detail = "replay", f"identifier {cap['identifier'][:80]} was already accepted"
                 else:
@@ -452,8 +553,12 @@ class CapGuard:
                     if exp and exp < now:
                         reason, detail = "stale", f"expired at {cap['expires']}"
         accepted = reason is None
+        if claimed and not accepted:
+            with self.lock:
+                self.seen.discard(ikey)
         states = infer_states(" ".join(i["headline"] or i["event"] for i in cap.get("infos", [])), cap.get("sender", ""),
                               [a for i in cap.get("infos", []) for a in i["areas"]], cap.get("sender", "")) if accepted else []
+        stored_ident = _ident_key(cap.get("identifier") or "") if cap.get("identifier") else ""
         conn = self.connect()
         try:
             self.ensure(conn)
@@ -461,24 +566,27 @@ class CapGuard:
             info0 = (cap.get("infos") or [{}])[0]
             conn.execute("""INSERT INTO cap_ingest (ts, accepted, reason, detail, identifier, sender, status, msg_type, event, severity, areas, states,
                             orgs, source_ip, redteam, bytes, raw) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                         (_iso(now), int(accepted), reason, detail, (cap.get("identifier") or "")[:120], (cap.get("sender") or "")[:120],
+                         (_iso(now), int(accepted), reason, detail, stored_ident, (cap.get("sender") or "")[:120],
                           cap.get("status"), cap.get("msgType"), (info0.get("event") or "")[:120], info0.get("severity"),
                           json.dumps([a for i in cap.get("infos", []) for a in i["areas"]][:12]), json.dumps(states), json.dumps(orgs),
                           source_ip, redteam, len(raw), raw[:4000].decode("utf-8", "replace") if accepted else None))
             conn.commit()
             Ledger(conn=conn).append(ts=_iso(now), kind=f"cap.ingest.{'accepted' if accepted else 'refused'}",
-                                     subject=(cap.get("identifier") or f"cap:{key}")[:120], source="CAP_INGEST",
+                                     subject=stored_ident or f"cap:{key}"[:120], source="CAP_INGEST",
                                      provenance="SIM" if redteam else "REAL",
                                      payload={"identifier": cap.get("identifier"), "sender": (cap.get("sender") or "")[:120], "reason": reason, "detail": detail,
                                               "source_ip": source_ip, "redteam": redteam, "event": info0.get("event"), "severity": info0.get("severity"),
                                               "status": cap.get("status"), "states": [s["state"] for s in states], "orgs": [o["org_id"] for o in orgs],
                                               "bytes": len(raw)})
             conn.commit()
+        except BaseException:
+            if claimed and accepted:  # not recorded, so not accepted: let the identifier be tried again
+                with self.lock:
+                    self.seen.discard(ikey)
+            raise
         finally:
             conn.close()
         with self.lock:
-            if accepted:
-                self.seen.add(cap["identifier"])
             self.counts["accepted" if accepted else reason] += 1
         return {"accepted": accepted, "reason": reason, "detail": detail, "identifier": cap.get("identifier"), "sender": cap.get("sender"),
                 "event": info0.get("event") if cap else None, "severity": info0.get("severity") if cap else None, "states": states, "orgs": orgs,
