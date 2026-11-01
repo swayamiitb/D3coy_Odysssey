@@ -290,3 +290,10 @@ html.soc .font-mono { font-variant-numeric: tabular-nums slashed-zero; letter-sp
 .soc-pressable.is-open { box-shadow: 0 0 0 1px var(--color-text), 0 6px 16px rgba(0, 0, 0, 0.08); }
 html.soc.night .soc-pressable:hover, html.soc .soc-dark .soc-pressable:hover { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5); }
 @media (prefers-reduced-motion: reduce) { .soc-pressable, .soc-pressable:hover, .soc-pressable:active { transform: none; transition: none; } }
+/* A closed strip tile is a graphite block (Uber's black tile on the white body): white type on near-black, a touch
+   lighter on hover; the open tile is white with the black outline, so the selected one stands apart. In night mode the
+   body is black, so the tile sits one step lighter than it. */
+html.soc .soc-tile { background: #1b1b1f; color: #f4f4f5; }
+html.soc .soc-tile:hover { background: #27272c; }
+html.soc.night .soc-tile { background: #202025; }
+html.soc.night .soc-tile:hover { background: #2d2d33; }
