@@ -293,7 +293,14 @@ html.soc.night .soc-pressable:hover, html.soc .soc-dark .soc-pressable:hover { b
 /* A closed strip tile is a graphite block (Uber's black tile on the white body): white type on near-black, a touch
    lighter on hover; the open tile is white with the black outline, so the selected one stands apart. In night mode the
    body is black, so the tile sits one step lighter than it. */
-html.soc .soc-tile { background: #1b1b1f; color: #f4f4f5; }
-html.soc .soc-tile:hover { background: #27272c; }
-html.soc.night .soc-tile { background: #202025; }
-html.soc.night .soc-tile:hover { background: #2d2d33; }
+html.soc .soc-tile {
+  color: #f4f4f5;
+  /* brushed dark grey with a touch of silver: a soft light on the top-left edge, a hairline of silver round it */
+  background: linear-gradient(135deg, #4a4a50 0%, #303035 38%, #27272c 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(0, 0, 0, 0.12);
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+html.soc .soc-tile:hover { background: linear-gradient(135deg, #5a5a61 0%, #3a3a40 38%, #2e2e33 100%); border-color: rgba(255, 255, 255, 0.24) !important; }
+html.soc .soc-tile .text-mute { color: #c3c3c9; }
+html.soc.night .soc-tile { background: linear-gradient(135deg, #505057 0%, #343439 38%, #2a2a2f 100%); }
+html.soc.night .soc-tile:hover { background: linear-gradient(135deg, #606068 0%, #3e3e44 38%, #323238 100%); }
