@@ -386,14 +386,15 @@ export function ExposedHosts({ orgs, onOrg }: { orgs?: Soc['orgs']; onOrg: (id: 
   if (!hosts) return <Pending error={error} what={`the exposed hosts of ${orgs?.length ?? '…'} operators`} h={260} />
   return (
     <div>
-      <table className="w-full text-[13px]">
-        <thead><tr className="text-left text-[11.5px] text-faint"><th className="pb-2 font-medium">Host</th><th className="pb-2 font-medium">Product</th><th className="hidden pb-2 font-medium sm:table-cell">Operator</th><th className="pb-2 text-right font-medium">Open High+</th><th className="pb-2 text-right font-medium">Worst</th></tr></thead>
+      <table className="w-full table-fixed text-[13px]">
+        <colgroup><col className="w-[36%]" /><col className="w-[30%]" /><col className="hidden w-[18%] sm:table-column" /><col className="w-[8%]" /><col className="w-[8%]" /></colgroup>
+        <thead><tr className="text-left text-[11.5px] text-faint"><th className="pb-2 font-medium">Host</th><th className="pb-2 font-medium">Product</th><th className="hidden pb-2 font-medium sm:table-cell">Operator</th><th className="pb-2 text-right font-medium">High+</th><th className="pb-2 text-right font-medium">Worst</th></tr></thead>
         <tbody className="divide-y divide-line">
           {hosts.slice(0, 8).map((h) => (
             <tr key={`${h.orgId}-${h.host}`} className="hover:bg-panel-2/50">
-              <td className="py-2 pr-2 font-mono text-[12.5px]"><span className="mr-1.5 rounded bg-panel-2 px-1 text-[10px] font-semibold uppercase text-faint">{h.zone.slice(0, 3)}</span>{h.host}</td>
-              <td className="py-2 pr-2 truncate">{h.product} <span className="text-faint">{h.version}</span></td>
-              <td className="hidden py-2 pr-2 sm:table-cell"><button onClick={() => onOrg(h.orgId)} className="truncate text-accent hover:underline">{h.org}</button></td>
+              <td className="truncate py-2 pr-2 font-mono text-[12.5px]" title={h.host}><span className="mr-1.5 rounded bg-panel-2 px-1 text-[10px] font-semibold uppercase text-faint">{h.zone.slice(0, 3)}</span>{h.host}</td>
+              <td className="truncate py-2 pr-2" title={`${h.product} ${h.version}`}>{h.product} <span className="text-faint">{h.version}</span></td>
+              <td className="hidden truncate py-2 pr-2 sm:table-cell"><button onClick={() => onOrg(h.orgId)} className="max-w-full truncate text-accent hover:underline">{h.org}</button></td>
               <td className="py-2 text-right font-mono">{h.openHigh}</td>
               <td className="py-2 pl-2 text-right">{WORST[h.worst] ? <TierPill tier={WORST[h.worst]!} /> : <span className="text-faint">—</span>}</td>
             </tr>
