@@ -132,8 +132,13 @@ def _parent(tid: str) -> str:
 
 # ------------------------------------------------------------------------------------------------------- the build
 class _Builder:
-    def __init__(self, conn: sqlite3.Connection, focus: str | None, live: dict | None, now: dt.datetime):
-        self.conn, self.focus, self.live, self.now = conn, focus, live or {}, now
+    def __init__(self, conn: sqlite3.Connection, focus: str | None, live: dict | None, now: dt.datetime,
+                 as_of: dt.datetime | None = None):
+        self.conn, self.focus, self.live, self.now = conn, focus, dict(live or {}), now
+        self.as_of = as_of  # replay: only evidence recorded up to this instant is drawn
+        if as_of is not None:
+            cut = _iso(as_of)
+            self.live["detections"] = [d for d in self.live.get("detections") or [] if (d.get("ts") or "") <= cut]
         self.nodes: dict[str, dict] = {}
         self.edges: dict[tuple, dict] = {}
         self.seen: dict[str, dt.datetime] = defaultdict(lambda: None)  # node id -> latest evidence time
@@ -201,6 +206,7 @@ class _Builder:
         self._campaigns(rows, orgs)
         techniques = self._techniques(rows, cve_products)
         families = self._indicators(orgs, rows)
+        self._imported(orgs, rows)
         self._suppliers(orgs)
         techniques |= self._signals(rows, orgs)
         self._actors(techniques, families)
@@ -274,6 +280,9 @@ class _Builder:
             return kev or cid in forecast or any(r["tier"] in ("Compromise", "Critical") for r in rs)
 
         ranked = sorted(((c, rs) for c, rs in per.items() if keep(c, rs)), key=lambda kv: -max(x["risk"] for x in kv[1]))
+        if self.as_of is not None:  # a CVE not yet published at that instant was not in anyone's picture
+            cut = self.as_of.date().isoformat()
+            ranked = [(c, rs) for c, rs in ranked if (rs[0]["published"] or "")[:10] <= cut]
         products: dict[str, set[str]] = {}
         for cid, rs in ranked[:CVE_CAP[self.scope]]:
             r0 = rs[0]
@@ -317,6 +326,8 @@ class _Builder:
             if c["product_key"] not in products_here or c["status"] == "DORMANT":
                 continue
             if self.focus and self.focus not in c["orgs_exposed"]:
+                continue
+            if self.as_of is not None and (c["first_signal"] or "9999") > self.as_of.date().isoformat():
                 continue
             n = self.node(f"campaign:{c['product_key']}", "campaign", c["title"].replace("Exploitation of ", "").replace("Reconnaissance of ", ""),
                           provenance=MIXED, source="correlated: CISA KEV · decoy grid · exposure",
@@ -381,6 +392,8 @@ class _Builder:
         host_asset = {v: k for k, v in asset_host.items()}
         sightings = [(r[0], r[1], json.loads(r[2])) for r in self.conn.execute(
             "SELECT ts, subject, payload FROM ledger WHERE kind = 'ioc.sighting' ORDER BY ts")]
+        if self.as_of is not None:
+            sightings = [x for x in sightings if x[0] <= _iso(self.as_of)]
         live_beacons = [(d["ts"], host_asset.get(d.get("asset")), d) for d in self.live.get("detections") or [] if d.get("kind") == "beacon"]
         for ts, aid, p in sightings + [(ts, aid, {"asset_id": aid, "dst_defanged": d.get("c2"), "org_id": d.get("org_id"),
                                                    "c2_source": "live C2 beacon detector", "mean_interval_s": d.get("interval_s")})
@@ -425,6 +438,81 @@ class _Builder:
                     self.edge(n["id"], f"org:{o['id']}", "impersonates", "look-alike of this organisation's domain in a live phishing feed", REAL, 1.3)
         return families
 
+    def _has(self, table: str) -> bool:
+        return self.conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone() is not None
+
+    def _imported(self, orgs, rows) -> None:
+        """Bulk-imported indicators that matched our telemetry or exposure, and brand-monitoring hits of weight."""
+        asset_host = {r["asset_id"]: r["hostname"] for r in rows}
+        cut = _iso(self.as_of) if self.as_of is not None else None
+        if self._has("iocs"):
+            for r in self.cur.execute("SELECT * FROM iocs WHERE matched = 1 ORDER BY last_seen DESC LIMIT 40"):
+                if cut and (r["first_seen"] or "") > cut:
+                    continue
+                matches = json.loads(r["matches"] or "[]")
+                org_ids = {m.get("org_id") for m in matches if m.get("org_id")}
+                if self.focus and self.focus not in org_ids and not any(m["where"] in ("firewall flows", "live flows") for m in matches):
+                    continue
+                tier = {"Critical": "Compromise" if r["type"] == "ipv4-addr" else "Critical", "High": "High", "Medium": "Medium"}.get(r["severity"] or "", "Medium")
+                n = self.node(f"indicator:{r['defanged']}", "indicator", r["defanged"], provenance=MIXED,
+                              source=f"imported from {r['source']} · matched in Odyssey's telemetry",
+                              sub=f"imported {r['type']} · matched: {', '.join(sorted({m['where'] for m in matches}))}", tier=tier,
+                              risk={"Compromise": 92.0, "Critical": 85.0, "High": 65.0, "Medium": 40.0}[tier],
+                              facts={"value": r["defanged"], "type": r["type"], "source": r["source"], "tlp": r["tlp"], "imported": True,
+                                     "matches": matches[:6], "enrichment": json.loads(r["enrich"] or "[]")[:4]})
+                self.touch(n["id"], r["last_seen"] or r["added_at"])
+                linked = False
+                for m in matches:
+                    if m.get("asset_id") and f"asset:{m['asset_id']}" in self.nodes:
+                        self.edge(f"asset:{m['asset_id']}", n["id"], "seen", m["detail"][:80], m.get("provenance", SIM), 1.6, r["last_seen"])
+                        linked = True
+                    elif m.get("org_id") and f"org:{m['org_id']}" in self.nodes:
+                        self.edge(f"org:{m['org_id']}", n["id"], "seen", m["detail"][:80], m.get("provenance", SIM), 1.4, r["last_seen"])
+                        linked = True
+                if not linked and r["type"] == "vulnerability" and f"cve:{r['value']}" in self.nodes:
+                    self.edge(n["id"], f"cve:{r['value']}", "names", "the imported indicator names this CVE", REAL, 1.0)
+                    linked = True
+                if not linked and not self.focus:
+                    srcs = {m.get("src") for m in matches if m.get("src")}
+                    for ip in list(srcs)[:3]:
+                        host = next((h for a, h in asset_host.items() if a == ip), None)
+                        if host and f"org:{host}" in self.nodes:
+                            self.edge(f"org:{host}", n["id"], "seen", "seen in live flows", SIM, 1.4)
+        if self._has("brand_hits"):
+            per_org: dict[str, int] = defaultdict(int)
+            for r in self.cur.execute("SELECT * FROM brand_hits WHERE score >= 70 AND org_id IS NOT NULL ORDER BY score DESC, last_seen DESC LIMIT 60"):
+                if cut and (r["first_seen"] or r["ts"] or "") > cut:
+                    continue
+                if f"org:{r['org_id']}" not in self.nodes or per_org[r["org_id"]] >= 4:
+                    continue
+                per_org[r["org_id"]] += 1
+                n = self.node(f"indicator:{r['value']}", "indicator", r["value"][:60], provenance=REAL, source=f"brand monitoring · {r['source']}",
+                              sub=f"{r['kind'].replace('_', ' ')} · score {r['score']:.0f}", tier="High" if r["score"] < 90 else "Critical", risk=float(r["score"]),
+                              facts={"value": r["value"], "type": r["kind"], "term": r["term"], "source": r["source"], "title": r["title"], "url": r["url"],
+                                     "evidence": r["evidence"], "brand": True})
+                self.touch(n["id"], r["last_seen"] or r["ts"])
+                self.edge(n["id"], f"org:{r['org_id']}", "impersonates" if r["kind"] != "mention" else "mentions",
+                          r["evidence"] or "brand monitoring hit", REAL, 1.2, r["last_seen"] or r["ts"])
+        if self._has("surface_scans"):
+            seen_hosts = set()
+            for r in self.cur.execute("SELECT * FROM surface_scans WHERE status = 'done' ORDER BY ts DESC LIMIT 20"):
+                if r["host"] in seen_hosts or (cut and r["ts"] > cut):
+                    continue
+                seen_hosts.add(r["host"])
+                if self.focus and r["org_id"] != self.focus:
+                    continue
+                sev = "Critical" if (r["score"] or 100) < 40 else "High" if (r["score"] or 100) < 70 else "Medium"
+                n = self.node(f"signal:surface:{r['host']}", "signal", f"Attack surface: {r['host']} graded {r['grade']}", provenance=REAL,
+                              source="consented attack-surface scan", sub=f"score {r['score']:.0f} · {r['findings']} finding(s) · {r['ts'][:16]}",
+                              tier=sev, risk=max(10.0, 100.0 - float(r["score"] or 0)),
+                              facts={"signal": "surface", "host": r["host"], "target": r["target"], "score": r["score"], "grade": r["grade"],
+                                     "findings": r["findings"], "scan_id": r["id"], "org_id": r["org_id"], "app_id": r["app_id"]})
+                self.touch(n["id"], r["ts"])
+                if r["org_id"] and f"org:{r['org_id']}" in self.nodes:
+                    self.edge(n["id"], f"org:{r['org_id']}", "on", "a system this organisation owns, scanned with consent", REAL, 1.2, r["ts"])
+                if len(seen_hosts) >= 5:
+                    break
+
     def _suppliers(self, orgs) -> None:
         for s in supplier_graph():
             deps = [d for d in s.get("dependents", []) if f"org:{d}" in self.nodes]
@@ -462,7 +550,7 @@ class _Builder:
                 self.touch(f"technique:{tid}", when)
 
         for r in self.cur.execute("SELECT tag, first, last, z_sessions, sensors FROM decoy_surges ORDER BY last DESC LIMIT 12"):
-            if r["tag"] not in products_here:
+            if r["tag"] not in products_here or (self.as_of is not None and r["first"] > self.as_of.date().isoformat()):
                 continue
             sid = f"signal:surge:{r['tag']}:{r['first']}"
             n = self.node(sid, "signal", f"Scanning surge: {labels.get(r['tag'], r['tag'])}", provenance=SIM, source="national decoy grid (24 sensors)",
@@ -505,6 +593,8 @@ class _Builder:
         if not self.focus:
             for r in self.cur.execute("""SELECT ts, kind, subject, provenance, payload FROM ledger WHERE kind LIKE 'shield.detect.%'
                                          ORDER BY seq DESC LIMIT 60"""):
+                if self.as_of is not None and r["ts"] > _iso(self.as_of):
+                    continue
                 p = json.loads(r["payload"])
                 sid = f"signal:shield:{r['subject']}:{p.get('category')}"
                 if sid in self.nodes:
@@ -564,8 +654,9 @@ class _Builder:
         for r in rows:
             cve_products[r["cve_id"]].add(r["product_key"])
         cutoff = (self.now - dt.timedelta(days=120)).isoformat()
+        until = _iso(self.as_of) if self.as_of is not None else "9999"
         for ts, kind, subject, payload in self.conn.execute(
-                "SELECT ts, kind, subject, payload FROM ledger WHERE ts >= ? ORDER BY seq", (cutoff,)):
+                "SELECT ts, kind, subject, payload FROM ledger WHERE ts >= ? AND ts <= ? ORDER BY seq", (cutoff, until)):
             if kind.startswith("shield.") or kind in ("vuln.published",):
                 continue
             targets = []
@@ -685,9 +776,14 @@ class _Builder:
 
 
 def intel_graph(conn: sqlite3.Connection, focus: str | None = None, live: dict | None = None,
-                now: dt.datetime | None = None) -> dict:
-    """The graph for the nation (focus=None) or one organisation. Cached for a few seconds per focus."""
+                now: dt.datetime | None = None, as_of: dt.datetime | None = None) -> dict:
+    """The graph for the nation (focus=None) or one organisation. Cached for a few seconds per focus.
+    `as_of` replays the record as it stood at that instant: later evidence is left out and pulses are aged to it."""
     key = focus or ""
+    if as_of is not None:
+        g = _Builder(conn, focus, live, as_of, as_of=as_of).build()
+        g["as_of"] = _iso(as_of)
+        return g
     with _LOCK:
         hit = _CACHE.get(key)
         if hit and now is None and time.time() - hit[0] < CACHE_S:
@@ -697,6 +793,21 @@ def intel_graph(conn: sqlite3.Connection, focus: str | None = None, live: dict |
         with _LOCK:
             _CACHE[key] = (time.time(), g)
     return g
+
+
+def replay_steps(conn: sqlite3.Connection, now: dt.datetime | None = None) -> list[dict]:
+    """Instants the interface offers for replay: the snapshot date, then fixed look-backs, then now."""
+    now = now or dt.datetime.now(dt.timezone.utc)
+    snap = conn.execute("SELECT value FROM meta WHERE key = 'snapshot_date'").fetchone()
+    steps = []
+    if snap:
+        steps.append({"id": "snapshot", "label": f"snapshot {snap[0]}", "at": snap[0] + "T23:59:59Z"})
+    for days, label in ((30, "30 days ago"), (14, "14 days ago"), (7, "7 days ago"), (3, "3 days ago"), (1, "yesterday")):
+        steps.append({"id": f"d{days}", "label": label, "at": _iso(now - dt.timedelta(days=days))})
+    steps.append({"id": "h6", "label": "6 hours ago", "at": _iso(now - dt.timedelta(hours=6))})
+    steps.append({"id": "h1", "label": "1 hour ago", "at": _iso(now - dt.timedelta(hours=1))})
+    steps.append({"id": "now", "label": "now", "at": None})
+    return steps
 
 
 def node_card(conn: sqlite3.Connection, node_id: str, focus: str | None = None, live: dict | None = None) -> dict:

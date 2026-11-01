@@ -228,6 +228,10 @@ def _openphish(term: str, needles: list[str], now: dt.datetime, fetch) -> list[d
 
 
 def _rss_items(text: str) -> list[dict]:
+    # Public RSS/Atom from reputable endpoints; stdlib ElementTree does not resolve external entities, and a size
+    # cap guards against an oversized or entity-expanded payload (defusedxml is not a dependency here).
+    if len(text) > 4_000_000 or "<!ENTITY" in text[:4000]:
+        raise ValueError("oversized or entity-bearing XML refused")
     root = ET.fromstring(text)
     items = []
     ns = {"atom": "http://www.w3.org/2005/Atom"}
