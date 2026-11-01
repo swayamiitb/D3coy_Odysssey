@@ -1,5 +1,5 @@
 import { Moon, Search, ShieldCheck, Sun } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { api, type Health, type Soc, type Technology } from './api'
 import { Figures, FiguresSkeleton, WRAP } from './ui'
 
@@ -23,8 +23,8 @@ export type Go = (view: View, tab?: string) => void
 
 const NAV: [View, string][] = [['now', 'Now'], ['live', 'Live'], ['soc', 'SOC'], ['intel', 'Intel'], ['orgs', 'Organisations'], ['proof', 'Proof']]
 
-export function TopNav({ view, go, pending, connected, status, health, onSearch }: {
-  view: View; go: Go; pending?: number; connected: boolean; status: string; health?: Health; onSearch: () => void
+export function TopNav({ view, go, pending, connected, status, health, onSearch, alert }: {
+  view: View; go: Go; pending?: number; connected: boolean; status: string; health?: Health; onSearch: () => void; alert?: ReactNode
 }) {
   const [menu, setMenu] = useState(false)
   const [night, toggleNight] = useNight()
@@ -48,6 +48,7 @@ export function TopNav({ view, go, pending, connected, status, health, onSearch 
           </div>
         </nav>
         <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+          {alert}
           <button onClick={onSearch} aria-label="Search threats, operators or CVEs (Ctrl+K)"
                   className="flex h-10 items-center gap-2 rounded-full border border-line bg-panel px-3 text-[13px] text-mute transition-colors hover:border-line-2 hover:text-text xl:w-[230px] 2xl:w-[300px]">
             <Search size={15} className="shrink-0" />
@@ -90,7 +91,7 @@ export function TopNav({ view, go, pending, connected, status, health, onSearch 
                 <div className="mt-1 space-y-1.5 border-t border-line px-3 pt-2.5 pb-1.5 text-sm text-mute">
                   <div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${connected ? 'bg-ok' : 'bg-watch'}`} /> {status === 'live' ? 'Live updates on' : status === 'static' ? 'Static view' : 'Offline'}</div>
                   <div className="flex items-center gap-2"><ShieldCheck size={14} className={health?.ledger_intact === false ? 'text-crit' : 'text-ok'} /> Audit trail {health?.ledger_intact === false ? 'TAMPERED' : 'intact'}</div>
-                  <div>AI on this laptop: {health?.models.narrate ?? '…'} (GPU) + CPU models · 0 cloud calls</div>
+                  <div>Everything runs on this laptop · 0 cloud calls</div>
                 </div>
               </div>
             )}
@@ -140,7 +141,7 @@ export function Footer({ go, health }: { go: Go; health?: Health }) {
           <span>© 2026 Team Odyssey · D3COY 1.0 · PS-01 AI-Based National Cyber Threat Early Warning System</span>
           <span className="flex items-center gap-2">
             <ShieldCheck size={14} className={health?.ledger_intact === false ? 'text-crit' : 'text-ok'} />
-            Audit trail {health?.ledger_intact === false ? 'tampered' : 'intact'} · {health?.models.narrate ?? 'security LLM'} on the GPU · 0 cloud calls
+            Audit trail {health?.ledger_intact === false ? 'tampered' : 'intact'} · runs entirely on this laptop · 0 cloud calls
           </span>
         </div>
       </div>

@@ -9,7 +9,23 @@ import { Delta, nf, Pending, useJson } from './kit'
    the threat-distribution donut, the security insight, exposure by sector and the security KPIs. Every number traces to
    an API field; the insight is written from those numbers by a template, not by a model. */
 
-/** The red banner under the top bar: the one thing that cannot wait. Shown only while a suspected compromise is open. */
+/** The red chip in the top bar: the one thing that cannot wait, with its clock. Shown only while a suspected compromise
+ *  is open; click opens the incident. */
+export function AlertChip({ tick, onOpen }: { tick: number; onOpen: (c: Feed['cards'][number]) => void }) {
+  const { data } = useJson<Feed>('/api/feed', [tick], 20000)
+  const c = data?.cards.find((x) => x.tier === 'Compromise')
+  if (!data || !c) return null
+  return (
+    <button onClick={() => onOpen(c)} title={`${c.org_name}: ${c.cve_id}. Open the incident`}
+            className="flex h-10 shrink-0 items-center gap-2 rounded-full bg-crit px-3 text-[13px] font-semibold text-white transition-opacity hover:opacity-90">
+      <Siren size={14} className="soc-live" />
+      <span className="hidden sm:inline">Compromise</span>
+      <Countdown issuedAt={(c as typeof c & { issued_at?: string }).issued_at ?? data.issued_at} hours={c.deadline_hours} />
+    </button>
+  )
+}
+
+/** The full-width red banner, kept for pages that want it (the chip above is the default now). */
 export function AlertBanner({ tick, onOpen }: { tick: number; onOpen: (c: Feed['cards'][number]) => void }) {
   const { data } = useJson<Feed>('/api/feed', [tick], 20000)
   const c = data?.cards.find((x) => x.tier === 'Compromise')

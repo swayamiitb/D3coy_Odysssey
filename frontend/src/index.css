@@ -259,6 +259,10 @@ html.soc .font-mono { font-variant-numeric: tabular-nums slashed-zero; letter-sp
 @media (prefers-reduced-motion: reduce) {
   .soc-live, .pulse-comp, html.soc .animate-pulse { animation: none; }
 }
+/* The ledger ticker slides its (doubled) row by half its width, so the loop is seamless; paused on hover. */
+@keyframes soc-ticker { to { transform: translateX(-50%); } }
+.soc-ticker { animation: soc-ticker 60s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .soc-ticker { animation: none; } }
 /* A suspected compromise breathes: one ring that grows and fades. */
 @keyframes soc-ring { from { transform: scale(0.95); opacity: 0.6; } to { transform: scale(1.35); opacity: 0; } }
 .soc-ring { transform-box: fill-box; transform-origin: center; animation: soc-ring 2.4s ease-out infinite; }

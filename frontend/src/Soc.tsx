@@ -1,6 +1,7 @@
 import { ExternalLink, Loader2 } from 'lucide-react'
 import { TechThreats } from './soc/panels'
 import { SocCard, StackBar } from './soc/kit'
+import { AttackStrip, CampaignTimeline } from './soc/telemetry'
 import { useEffect, useState } from 'react'
 import { api, type Campaign, type IntelAdvisory, type IntelSource, type Soc as SocData, type Technology, type RiskPlan } from './api'
 import { Heatmap, type HeatData } from './Heatmap'
@@ -237,6 +238,10 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
                 </ul>
               )}
             </SocCard>
+          </div>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+            <SocCard title="ATT&CK techniques seen" prov={['REAL', 'SIM']} sub="From the HTTP shield's findings and the decoy grid's detections; each links to MITRE"><AttackStrip /></SocCard>
+            <SocCard title="Campaign timeline" prov={['REAL', 'SIM']} sub="From our first signal to the confirmed exploit, with the lead time"><CampaignTimeline camps={camps} /></SocCard>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Tile value={surgeCount(heat?.decoy.marks)} title="Scanning surges on our decoy grid" sub="24 sensors, simulated and labelled SIM" cta="See the grid" onClick={() => setSheet('decoy')} />

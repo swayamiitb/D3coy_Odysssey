@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, type CSSProperties } from 'react'
 import type { Soc } from '../api'
-import { IndiaMap } from '../IndiaMap'
 import { Seg, SocCard } from './kit'
+import { IndiaHex } from './map/IndiaHex'
 import { originsFromData, routesFor, snapshotLabel, targetsFrom, type OriginFilter } from './map/data'
 import { OriginRail } from './map/OriginRail'
 import { SiteView } from './map/SiteView'
@@ -82,7 +82,7 @@ export function ThreatMap({ orgs, onOrg }: { orgs?: OrgRow[]; onOrg: (id: string
               <WorldMap origins={origins} targets={targets} routes={routes} focus={focus} showAll={paths === 'all'}
                         onFocus={setFocus} onPick={setSite} paused={!!site} topLeft={select} />
             ) : (
-              <div className="h-full">{orgs ? <IndiaMap orgs={orgs} onOrg={onOrg} bare /> : <div className="h-full bg-panel-2" />}</div>
+              <div className="h-full">{orgs ? <IndiaHex orgs={orgs} onOrg={onOrg} onSite={open} /> : <div className="h-full bg-panel-2" />}</div>
             )}
             {siteTarget && <SiteView key={siteTarget.state} target={siteTarget} origins={origins} focus={focus} onBack={back} onOrg={onOrg} />}
           </div>

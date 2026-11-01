@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react'
 import { api, type Card, type Feed, type ForecastView, type Soc } from './api'
 import { CertInReportModal } from './ExportPanel'
 import { ApprovalQueue } from './proactive'
+import { Honeycomb } from './soc/Honeycomb'
 import { AlertCard, Delta, nf, SocCard, useJson } from './soc/kit'
 import { Insight, ScoreCard, SectorExposure, SecurityKpis, TierDonut } from './soc/overview'
 import { IntelSources, LiveThreats, PostureGauges, TechThreats, ThreatTrend } from './soc/panels'
+import { DeadlineTimeline, EventTicker, LikelyNext, NoiseFunnel } from './soc/telemetry'
 import { ThreatMap } from './soc/ThreatMap'
 import { Band, Figures, Row, TIER_FILL, TierPill, useToast, WRAP } from './ui'
 
@@ -137,8 +139,9 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
 
   return (
     <>
-      <section className="soc-dark border-b border-line">
-        <div className={`${WRAP} grid items-center gap-10 py-10 xl:grid-cols-[1fr_520px]`}>
+      <section className="soc-dark relative overflow-hidden border-b border-line">
+        <Honeycomb />
+        <div className={`${WRAP} relative grid items-center gap-10 py-10 xl:grid-cols-[1fr_520px]`}>
           <div className="min-w-0">
             <p className="text-[13px] text-mute">National CERT duty desk · {new Date(feed.issued_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} IST</p>
             <h1 className="mt-4 max-w-3xl text-[40px] font-semibold leading-[1.05] tracking-tight sm:text-[52px]">{headline}</h1>
@@ -235,7 +238,14 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
           </div>
         </div>
 
+        <EventTicker tick={tick} onOpen={() => onGo('soc', 'log')} />
+
         <ThreatMap orgs={soc?.orgs} onOrg={onOrg} />
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <DeadlineTimeline feed={feed} onOpen={(c) => onOpen(c as Card)} />
+          <SocCard title="Noise funnel" prov={['REAL']} sub="From every CVE this month to the warnings that matter"><NoiseFunnel /></SocCard>
+        </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
           <LiveThreats onAll={() => onGo('live', '')} />
@@ -252,10 +262,10 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
           </SocCard>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-          <ThreatTrend soc={soc} />
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+          <div className="soc-dark rounded-2xl"><ThreatTrend soc={soc} /></div>
           <div className="grid gap-6">
-            <SocCard title="Threat distribution" prov={['REAL', 'SIM']} sub="Open warnings by tier"><TierDonut soc={soc} /></SocCard>
+            <SocCard className="soc-dark" title="Threat distribution" prov={['REAL', 'SIM']} sub="Open warnings by tier"><TierDonut soc={soc} /></SocCard>
             <SocCard title="Security insight" sub="This page, in four sentences"><Insight soc={soc} feed={feed} /></SocCard>
           </div>
         </div>
@@ -270,6 +280,10 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
           <TechThreats onOpen={() => onGo('intel', 'threats')} />
           <IntelSources />
         </div>
+
+        <SocCard title="Likely to be exploited next" prov={['REAL']} sub="New CVEs on our exposed assets, flagged on the day they were published, before CISA confirms exploitation">
+          <LikelyNext onOpen={() => onGo('intel', 'overview')} />
+        </SocCard>
       </main>
 
       <Band tone="black">

@@ -1,6 +1,7 @@
 import { ChevronRight, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Tier } from './api'
+import { Honeycomb } from './soc/Honeycomb'
 
 /* Uber black-and-white building blocks with SOC accents (ui-07/08), "Oreo" layering: black bands (nav, page header,
    feature bands, footer) around a white body. A band carries .soc-dark, which re-points every token to the SOC-black
@@ -13,11 +14,13 @@ import type { Tier } from './api'
 /** Page width: one centred column, gutters that shrink on small screens. */
 export const WRAP = 'mx-auto w-full max-w-[1680px] px-4 sm:px-6 lg:px-10'
 
-/** Page header on a black band: where you are, the page's title and one line, tabs on the right, the figures below. */
+/** Page header on a black band: where you are, the page's title and one line, tabs on the right, the figures below,
+ *  the honeycomb moving quietly behind it all. */
 export function Hero({ title, sub, tabs, children }: { title: ReactNode; sub?: ReactNode; tabs?: ReactNode; children?: ReactNode }) {
   return (
-    <section className="soc-dark border-b border-line">
-      <div className={`${WRAP} pt-8 pb-8`}>
+    <section className="soc-dark relative overflow-hidden border-b border-line">
+      <Honeycomb />
+      <div className={`${WRAP} relative pt-8 pb-8`}>
         <div className="flex flex-wrap items-end justify-between gap-5">
           <div className="min-w-0 max-w-3xl">
             <p className="flex items-center gap-1.5 text-[13px] text-faint">Odyssey <ChevronRight size={13} aria-hidden /> <span className="text-mute">{title}</span></p>

@@ -98,7 +98,7 @@ export function ThreatTrend({ soc }: { soc?: Soc }) {
               <span key={t} className="flex items-center gap-1.5"><span className="h-[3px] w-3.5 rounded-full" style={{ background: TIER_FILL[t] }} />{t === 'Compromise' ? 'Suspected compromise' : t}</span>
             ))}
           </div>
-          <div className="mt-2 h-[230px]">
+          <div className="mt-2 h-[330px]">
             <ResponsiveContainer>
               <ComposedChart data={data} margin={{ top: 8, right: 6, bottom: 0, left: -18 }}>
                 <defs>

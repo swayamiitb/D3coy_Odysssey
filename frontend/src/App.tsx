@@ -3,7 +3,7 @@ import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
 import { HowItWorks } from './HowItWorks'
 import { Live, LiveFigures, useLive } from './Live'
-import { api, type AlertDetail as Detail, type Health } from './api'
+import { api, type AlertDetail as Detail, type Health, type Soc as SocData } from './api'
 import { Now } from './Now'
 import { Orgs } from './Orgs'
 import { Proof } from './Proof'
@@ -11,7 +11,9 @@ import { Footer, IntelFigures, OrgsFigures, ProofFigures, SocFigures, TopNav, ty
 import { Soc } from './Soc'
 import { CaseBoard, OpsLog, OpsOverview, SystemView, WarningList } from './SocOps'
 import { AttackTelemetry, CaseLoad, Throughput } from './soc/extras'
-import { AlertBanner } from './soc/overview'
+import { SocCard } from './soc/kit'
+import { AttackFamilies, DecisionsToday, ExposedHosts, FeedHealth, SensorGrid } from './soc/telemetry'
+import { AlertChip } from './soc/overview'
 import { IntelSources } from './soc/panels'
 import { Rail, RAIL_NARROW, RAIL_WIDE, useRail } from './soc/Rail'
 import { CommandPalette } from './soc/Search'
@@ -44,6 +46,11 @@ function LivePage({ go }: { go: Go }) {
         <LiveFigures s={s} />
       </Hero>
       <main className={`${WRAP} flex flex-1 flex-col gap-10 py-10`}>
+        <div className="grid gap-6 xl:grid-cols-3">
+          <SocCard title="Decoy grid" prov={['SIM']} sub="Sessions per decoy product this cycle, and the 24 sensors"><SensorGrid s={s} /></SocCard>
+          <SocCard title="Feed health" prov={['REAL']} sub="The real feeds read live, checked every 15 minutes"><FeedHealth s={s} /></SocCard>
+          <SocCard title="Attack families on the shield" prov={['SIM']} sub="What the HTTP shield caught, by family"><AttackFamilies onGo={() => window.scrollTo({ top: 900, behavior: 'smooth' })} /></SocCard>
+        </div>
         <Throughput s={s} />
         <Live s={s} onGo={(v, t) => go(v, t)} />
       </main>
@@ -65,6 +72,7 @@ export default function App() {
   const [tick, setTick] = useState(0)
   const [connected, setConnected] = useState(false)
   const [pending, setPending] = useState<number>()
+  const [socOrgs, setSocOrgs] = useState<SocData['orgs']>()
   const [search, setSearch] = useState(false)
   const [railWide, toggleRail] = useRail()
   const esRef = useRef<EventSource | null>(null)
@@ -81,7 +89,7 @@ export default function App() {
 
   useEffect(() => {
     api.health().then((h) => { setHealth(h); setError(undefined) }).catch((e) => setError(String(e)))
-    api.soc().then((d) => setPending(d.pending)).catch(() => undefined)
+    api.soc().then((d) => { setPending(d.pending); setSocOrgs(d.orgs) }).catch(() => undefined)
     const deep = new URLSearchParams(window.location.search).get('alert')
     if (deep?.includes(':')) {
       const [org_id, cve_id] = deep.split(':')
@@ -124,8 +132,8 @@ export default function App() {
     <ToastProvider>
     <Rail view={view} tab={tab} go={go} wide={railWide} onToggle={toggleRail} connected={connected} health={health} />
     <div className="flex min-h-screen flex-col bg-ink xl:pl-[var(--rail)]" style={{ '--rail': `${railWide ? RAIL_WIDE : RAIL_NARROW}px` } as CSSProperties}>
-      <TopNav view={view} go={go} pending={pending} connected={connected} status={status} health={health} onSearch={() => setSearch(true)} />
-      <AlertBanner tick={tick} onOpen={(c) => setSelected({ id: c.id, org_id: c.org_id, cve_id: c.cve_id })} />
+      <TopNav view={view} go={go} pending={pending} connected={connected} status={status} health={health} onSearch={() => setSearch(true)}
+              alert={<AlertChip tick={tick} onOpen={(c) => setSelected({ id: c.id, org_id: c.org_id, cve_id: c.cve_id })} />} />
       <CommandPalette open={search} onClose={() => setSearch(false)} go={go} onOrg={(id) => { setOrg(id); go('orgs') }} onAlert={openAlert} />
 
       {error && <div className="bg-crit px-6 py-2 text-sm font-medium text-white">Cannot reach the engine ({error}). Start the API on :8000.</div>}
@@ -147,6 +155,10 @@ export default function App() {
             {socTab === 'overview' ? (
               <div className="w-full min-w-0 space-y-10">
                 <CaseLoad tick={tick} />
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+                  <SocCard title="Decisions" prov={['SIM']} sub="Approved and rejected, by day; who decided; how long proposals waited"><DecisionsToday tick={tick} /></SocCard>
+                  <SocCard title="Most exposed hosts" prov={['SIM']} sub="Internet- and DMZ-facing hosts across every operator, worst warning first"><ExposedHosts orgs={socOrgs} onOrg={(id) => { setOrg(id); go('orgs') }} /></SocCard>
+                </div>
                 <OpsOverview tick={tick} onCases={() => setSocTab('cases')} onWarnings={() => setSocTab('warnings')} />
               </div>
             )
