@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import math
 import sqlite3
 
 from .graph import RANK, intel_graph
@@ -43,15 +44,35 @@ def _iso(d: dt.datetime) -> str:
     return d.astimezone(dt.timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _focus_for(target: str) -> str | None:
-    """Assets only exist in an organisation's graph; the asset id starts with the organisation id."""
-    if target.startswith("asset:"):
-        return "-".join(target.split(":", 1)[1].split("-")[:2])
-    return None
+def _focus_for(conn: sqlite3.Connection, target: str) -> str | None:
+    """Assets only exist in an organisation's graph: the asset's organisation comes from the inventory, and for an id
+    the inventory does not know, from the id convention <org>-<n>-A<nnn>."""
+    if not target.startswith("asset:"):
+        return None
+    aid = target.split(":", 1)[1]
+    row = conn.execute("SELECT org_id FROM assets WHERE id = ?", (aid,)).fetchone()
+    return (row[0] if row else None) or "-".join(aid.split("-")[:2])
+
+
+def _clean_rule(rule: dict | None) -> dict:
+    """An analyst's rule, validated: a malformed one would otherwise be stored and make every later evaluation fail."""
+    if rule is None:
+        rule = {}
+    if not isinstance(rule, dict):
+        raise ValueError("rule must be an object: {kind, pulse, tier}")
+    rule = {**DEFAULT_RULE, **rule}
+    if not isinstance(rule["kind"], str) or rule["kind"] not in RULE_KINDS:
+        raise ValueError(f"unknown rule kind {rule['kind']!r}")
+    if not isinstance(rule.get("tier"), str) or rule["tier"] not in RANK:
+        raise ValueError("rule.tier must be one of Compromise, Critical, High, Medium, Watch")
+    pulse = rule.get("pulse")
+    if isinstance(pulse, bool) or not isinstance(pulse, (int, float)) or not math.isfinite(pulse) or not 0 <= pulse <= 1:
+        raise ValueError("rule.pulse must be a number between 0 and 1")
+    return rule
 
 
 def _find(conn, target: str, live: dict | None, now: dt.datetime | None = None) -> dict | None:
-    g = intel_graph(conn, _focus_for(target), live, now=now)
+    g = intel_graph(conn, _focus_for(conn, target), live, now=now)
     return next((n for n in g["nodes"] if n["id"] == target), None), g
 
 
