@@ -541,24 +541,49 @@ export function forceLayout(nodes: GraphNode[], edges: GraphEdge[]): Layout {
       if (rr > 0.92) { const k2 = 0.92 + (rr - 0.92) * 0.3; x[i] *= k2 / rr; y[i] *= k2 / rr }
     }
   }
-  // radial equalisation: keep every angle, re-space the radii by rank (r = sqrt(rank/N)) so the disc is filled
-  // evenly from the centre to the rim, as on the reference; blended 70/30 with the settled radius so cluster shape survives
+  // even fill: the settled picture gives each cluster a direction; nodes are then laid on a sunflower spiral (the
+  // even way to fill a disc), taken in order of their settled angle and, inside a cluster, from the centre outwards,
+  // so clusters stay together as wedges of the disc while every point sits an even distance from its neighbours and
+  // the outline is a true circle. The sunflower's radius is sqrt(k/N), its angle the golden angle times k; here the
+  // angle is replaced by the node's own (sorted) angle so the wedges hold, and the radius by rank so the fill is even.
   {
-    const order = Array.from({ length: N }, (_, i) => i).sort((a, b) => Math.hypot(x[a], y[a]) - Math.hypot(x[b], y[b]))
-    const maxR0 = Math.max(1e-6, ...order.map((i) => Math.hypot(x[i], y[i])))
+    const ang = new Float64Array(N)
+    const ccx = new Float64Array(communities), ccy = new Float64Array(communities), ccn = new Float64Array(communities)
+    for (let i = 0; i < N; i++) { ccx[label[i]] += x[i]; ccy[label[i]] += y[i]; ccn[label[i]]++ }
+    const commAngle = Array.from({ length: communities }, (_, c) => (ccn[c] ? Math.atan2(ccy[c] / ccn[c], ccx[c] / ccn[c]) : 0))
+    // every community takes a wedge proportional to its size, in the order of its settled direction
+    const byAngle = Array.from({ length: communities }, (_, c) => c).filter((c) => ccn[c] > 0).sort((p, q) => commAngle[p] - commAngle[q])
+    let a0 = commAngle[byAngle[0]] ?? 0
+    const wedge = new Map<number, [number, number]>()
+    for (const c of byAngle) { const span = (2 * Math.PI * ccn[c]) / N; wedge.set(c, [a0, a0 + span]); a0 += span }
+    // inside a wedge, nodes spread by their settled angle; radii: hubs (high degree) towards the centre, the rest by rank
+    const members = new Map<number, number[]>()
+    for (let i = 0; i < N; i++) members.set(label[i], [...(members.get(label[i]) ?? []), i])
+    for (const [c, ms] of members) {
+      const [wa, wb] = wedge.get(c)!
+      const sorted = [...ms].sort((p, q) => Math.atan2(y[p], x[p]) - Math.atan2(y[q], x[q]))
+      sorted.forEach((i, k) => { ang[i] = wa + ((k + 0.5) / sorted.length) * (wb - wa) })
+    }
+    // radius by global rank of (degree desc, settled radius): the best connected sit inward, the rest fill outward
+    const order = Array.from({ length: N }, (_, i) => i).sort((p, q) => deg[q] - deg[p] || Math.hypot(x[p], y[p]) - Math.hypot(x[q], y[q]))
     order.forEach((i, rank) => {
-      const r0 = Math.hypot(x[i], y[i]) / maxR0
-      const re = Math.sqrt((rank + 0.5) / N)
-      const r1 = 0.3 * r0 + 0.7 * re
-      const a = Math.atan2(y[i], x[i])
-      x[i] = r1 * Math.cos(a); y[i] = r1 * Math.sin(a)
+      const r = Math.sqrt((rank + 0.5) / N) * 0.97
+      // a little angular jitter from the golden angle keeps rings of equal radius from lining up
+      const a = ang[i] + ((rank * 2.399963) % (Math.PI / 24)) - Math.PI / 48
+      x[i] = r * Math.cos(a); y[i] = r * Math.sin(a)
     })
+    // one short relaxation so no two marks overlap, without leaving the disc
+    for (let step = 0; step < 40; step++) {
+      for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+        const dx = x[j] - x[i], dy = y[j] - y[i]
+        const d = Math.hypot(dx, dy) || 1e-6
+        const min = 0.075
+        if (d < min) { const push = (min - d) / 2; x[i] -= (dx / d) * push; y[i] -= (dy / d) * push; x[j] += (dx / d) * push; y[j] += (dy / d) * push }
+      }
+      for (let i = 0; i < N; i++) { const rr = Math.hypot(x[i], y[i]); if (rr > 0.97) { x[i] *= 0.97 / rr; y[i] *= 0.97 / rr } }
+    }
   }
-  // centre on the centroid, then fit into the unit disc with a little margin
-  let mx = 0, my = 0
-  for (let i = 0; i < N; i++) { mx += x[i]; my += y[i] }
-  mx /= Math.max(1, N); my /= Math.max(1, N)
-  for (let i = 0; i < N; i++) { x[i] -= mx; y[i] -= my }
+  // fit into the unit disc with a little margin
   let maxR = 1e-6
   for (let i = 0; i < N; i++) maxR = Math.max(maxR, Math.hypot(x[i], y[i]))
   const scale = Number.isFinite(maxR) && maxR > 0 ? 0.96 / maxR : 1
