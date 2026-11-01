@@ -210,13 +210,13 @@ export function TabBoxes<K extends string>({ label, items, defaultOpen = null }:
           const on = open === it.key
           return (
             <button key={it.key} onClick={() => setOpen(on ? null : it.key)} aria-expanded={on} aria-controls={`tabbox-${label}-${it.key}`}
-                    className={`relative flex min-h-[124px] flex-col rounded-2xl border p-4 text-left transition-colors ${on ? 'border-text bg-panel' : 'border-line bg-panel hover:border-line-2'}`}>
+                    className={`soc-pressable group relative flex min-h-[124px] flex-col rounded-2xl border p-4 text-left ${on ? 'is-open border-text bg-panel' : 'border-line bg-panel hover:border-text'}`}>
               <span className="flex min-w-0 items-center gap-2 text-[15px] font-semibold"><span className="truncate">{it.title}</span>{it.chip}</span>
               <span className="mt-1.5 line-clamp-2 min-w-0 flex-1 text-[13px] leading-snug text-mute">{it.preview}</span>
               <span className="mt-3 flex items-end justify-between gap-3">
                 <span className="text-[22px] font-semibold leading-none tabular-nums">{it.count ?? ''}</span>
-                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold transition-colors ${on ? 'bg-text text-ink' : 'bg-panel-2 text-text'}`}>
-                  {on ? 'Close' : 'Open'}<ChevronDown size={14} className={`transition-transform duration-200 ${on ? 'rotate-180' : ''}`} />
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors ${on ? 'border-text bg-panel text-text' : 'border-text bg-text text-ink group-hover:bg-panel-3 group-hover:text-text'}`}>
+                  {on ? 'Close' : 'Open'}<ChevronDown size={15} strokeWidth={2.5} className={`transition-transform duration-200 ${on ? 'rotate-180' : 'group-hover:translate-y-0.5'}`} />
                 </span>
               </span>
               {on && <span aria-hidden className="absolute -bottom-[9px] left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-b border-r border-text bg-panel" />}
