@@ -62,7 +62,7 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
       const { pos, rings } = v.layout
       const isDark = darkRef.current
       const c = cam.current
-      const R = Math.min(W, H) * (v.layout.mode === 'force' ? 0.49 : 0.42) * c.k
+      const R = Math.min(W, H) * (v.layout.mode === 'force' ? 0.34 : 0.42) * c.k
       const cx = W / 2 + c.x, cy = H / 2 + c.y
       const P = (p: { x: number; y: number }) => [cx + p.x * R, cy + p.y * R] as [number, number]
       const ink = isDark ? '244,244,245' : '0,0,0'
@@ -548,10 +548,20 @@ export function forceLayout(nodes: GraphNode[], edges: GraphEdge[]): Layout {
   // moves afterwards, so the outline stays a circle.
   {
     const GOLD = Math.PI * (3 - Math.sqrt(5))
-    const spots = Array.from({ length: N }, (_, k) => {
-      const r = Math.sqrt((k + 0.5) / N) * 0.97, a = k * GOLD
-      return { x: r * Math.cos(a), y: r * Math.sin(a), a: Math.atan2(r * Math.sin(a), r * Math.cos(a)), r }
-    })
+    // the rim: as many points as fit the circumference at the spiral's own spacing, placed exactly on r = 1 at
+    // equal angles; the rest fill the inside on the spiral with its radius squeezed to leave a clear ring
+    const RIM = Math.max(12, Math.round(2 * Math.PI / (2 * Math.sqrt(Math.PI / N) * 0.98)))
+    const nRim = Math.min(RIM, Math.floor(N * 0.42))
+    const nIn = N - nRim
+    const spots: { x: number; y: number; a: number; r: number }[] = []
+    for (let k = 0; k < nIn; k++) {
+      const r = Math.sqrt((k + 0.5) / nIn) * 0.80, a = k * GOLD
+      spots.push({ x: r * Math.cos(a), y: r * Math.sin(a), a: Math.atan2(r * Math.sin(a), r * Math.cos(a)), r })
+    }
+    for (let k = 0; k < nRim; k++) {
+      const a = (k / nRim) * 2 * Math.PI + GOLD * 0.5, r = 1
+      spots.push({ x: r * Math.cos(a), y: r * Math.sin(a), a: Math.atan2(r * Math.sin(a), r * Math.cos(a)), r })
+    }
     const ccx = new Float64Array(communities), ccy = new Float64Array(communities), ccn = new Float64Array(communities)
     for (let i = 0; i < N; i++) { ccx[label[i]] += x[i]; ccy[label[i]] += y[i]; ccn[label[i]]++ }
     const commAngle = Array.from({ length: communities }, (_, c) => (ccn[c] ? Math.atan2(ccy[c] / ccn[c], ccx[c] / ccn[c]) : 0))
