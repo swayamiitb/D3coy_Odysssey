@@ -1,6 +1,6 @@
 # Odyssey: pitch, demo script and judge Q&A
 
-Written for the team presenting at D3COY 1.0 (PS-01). Eight minutes of demo, then questions.
+Written for the team presenting at D3COY 1.0 (PS-01). About eight and a half minutes of demo, then questions.
 
 ## The one-line claim
 
@@ -14,9 +14,12 @@ and reproducible, and it has been ahead of CISA on real CVEs.
 "In July 2024 one supplier's unpatched Jenkins server took about 300 Indian banks offline for days. The CVE was
 public. Nobody connected it to who was exposed in time. Odyssey closes that gap."
 
-## Demo script (about 8 minutes)
+## Demo script (about 8 and a half minutes)
 
-Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://127.0.0.1:5173, hard-refresh.
+Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://127.0.0.1:5173, hard-refresh. Run the
+brand scan for the term IRCTC once (Intel → Threats → *Brand and social watch*, 10 to 25 s on the network) so its hits
+are on screen, and run the consented scan of the portal once (Intel → Threats → *Attack surface, with consent*) so the
+grade is there; both are stored and shown again without a rescan.
 
 1. **Now (60 s).** "A suspected compromise needs you now." Point at the 6-hour CERT-In countdown, the one black
    action, the map of India. Click *Why this warning?*: the clocks that apply, the AI brief, then *Why this score*
@@ -43,6 +46,18 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
    attribution"; click Ivanti Connect Secure for its evidence card; press *Vidyut Grid West Corp* to put one operator
    at the centre. Back on *Overview*, *Risk lists and STIX*: the same intelligence as CSV for a firewall or SIEM and
    as a STIX 2.1 bundle. "This is what a TIP is recognised by, drawn from our own record, with its source on every line."
+   Then, 30 s, what a partner brings in and what you set a rule on. *Indicators*: paste the partner indicator list
+   (the demo text: a QakBot C2 address, our own VPN gateway, a look-alike domain, a CVE id) and press *Import*. In a
+   second or two it says what matched and where: the QakBot C2 against the C2 sightings and the live flows, our own
+   VPN gateway against the constituency's assets, each with its enrichment from Feodo, DShield and KEV. "Your
+   indicators, matched against our own record in seconds, and pulled back by TAXII." Back on *Graph*, press *Watch*
+   on the FortiOS card (the FortiGate firmware) and start the *Mass scanning* drill from Live: within 15 s the watch
+   fires on the fresh evidence, shows as a detection, and lands in the console as a card. Under *Threats*, *Brand and
+   social watch*: the term IRCTC, with real look-alike certificates, URLs and mentions from public sources, each
+   scored and its source named (if crt.sh says rate-limited, say so; the row shows it). Then *Attack surface, with
+   consent*: the CityPower portal, our own, scores 29, grade F: plain HTTP, open SSH and SMB ports, no CSP, an exposed
+   OpenAPI document, a FastAPI fingerprint, each with a fix. "It scans only what you own and prove you own; anything
+   else it refuses, and says why."
 6. **Organisations (45 s).** Vidyut Grid West Corp opens on its threat map: hover the VPN gateway (compromised, calling a real QakBot C2), the HTTPS port under real attack pressure, the Ivanti scanning surge; then what outsiders see, its suppliers, its Marathi inbox. "Country threat maps draw arcs between nations; this is the same idea per operator, every line with its source."
 7. **Proof (60 s).** Eight claims, each with its evidence; press *Run them now* (135 checks, about two minutes,
    let it run while you take questions); *How it works*: six steps, the model table, the open formula.
@@ -62,7 +77,9 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
 5. **Trust by construction.** Hash-chained audit trail, REAL/SIM labels everywhere, a test bench you can re-run on
    stage, 0 cloud calls.
 6. **One connected, breathing picture.** The intelligence graph links every entity in the record and decays with
-   evidence age; threat groups are ATT&CK overlap, never attribution; the same picture leaves as risk lists and STIX.
+   evidence age; threat groups are ATT&CK overlap, never attribution; the same picture leaves as risk lists, STIX and
+   TAXII, can be replayed as it stood at nine earlier instants, takes a partner's indicators in and matches them against
+   our own record, and fires the rules an analyst sets on any entity in it.
 
 ## Judge questions and the honest answers
 
@@ -77,9 +94,20 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
 - **"How is this different from a TIP or a vulnerability scanner?"** A scanner finds flaws; a TIP stores indicators.
   Odyssey connects real threat intelligence to who is exposed in the country, decides urgency against Indian
   obligations, warns in the operator's language, and proves its lead time. It also has what a TIP is recognised by:
-  an intelligence graph with an evidence card per entity, threat-group context from ATT&CK without attribution, and
-  risk lists and STIX for the tools you already run. `docs/TIP_GAP_AUDIT.md` sets it against CloudSEK, Recorded Future
-  and the rest of the field, and says what stays out of scope (dark web, active scanning, takedowns) and why.
+  an intelligence graph with an evidence card per entity and replay, watchlists and rules on it, threat-group context
+  from ATT&CK without attribution, a partner's indicators in and matched, and risk lists, STIX and TAXII for the tools
+  you already run. `docs/TIP_GAP_AUDIT.md` sets it against CloudSEK, Recorded Future and the rest of the field, and
+  says what stays out of scope (dark web, scanning of networks we do not own, takedowns) and why.
+- **"Can it take our indicators?"** Yes. Paste them as text, CSV or a STIX 2.1 bundle on Intel → Indicators; IPv4
+  addresses, domains, URLs, hashes and CVE ids are matched in seconds against our own flows, C2 sightings, the shield's
+  attackers, our assets and domains and their look-alikes, and the exposure record, enriched from Feodo, DShield,
+  OpenPhish and KEV, and from then on matched live on every tick. They come back as CSV, STIX, or by TAXII 2.1 pull
+  from `/taxii2/` (three collections: graph, indicators, vulnerabilities; a bearer token if you set one).
+- **"Do you scan real companies?"** No. The attack-surface check is consent-gated in code to systems the operator
+  owns: a loopback or private address, or an app the Odyssey agent has announced; a public address is refused with the
+  reason. GET and HEAD only, at most 40 requests, a cooldown per target. Everything about other organisations comes
+  from passive public sources: the feeds, certificate transparency, URL lists, news and public social feeds. Nothing
+  touches them, and a brand hit is a scored match of a term, not a finding of abuse.
 - **"Is anything here connected to something real?"** Yes. A real web application runs behind the Odyssey agent and
   is attacked by a real HTTP client over the wire, and the alerts leave the laptop by real webhooks: Slack, Discord,
   Teams, e-mail or your own app (the Ops Console in the demo). The organisations and sensors stay simulated and
@@ -98,3 +126,7 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
 - Network down: the feeds show "offline, serving the snapshot"; everything else works. Say so; it is a feature.
 - Portal or Ops Console down: `start_all.ps1` brings them back; the shield card says "agent silent" until the portal
   is up, and the channels row says "failing" until the console is.
+- Brand watch slow or a source offline: the sources row names which one (crt.sh rate-limits for a minute at a time);
+  the stored hits still show. Say so; the row is the honest state of a public source.
+- Consented scan refused: the portal is down, or the agent has not re-announced it since the restart (up to 10 s), or
+  the 60 s cooldown is running. Wait, or show the stored scan; the refusal reason on screen is the gate working.

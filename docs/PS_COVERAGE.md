@@ -29,7 +29,7 @@ whole interface in a real browser on another copy, so the product is checked end
 ## Expected deliverables
 
 - **Functional prototype:** runs fully offline on an RTX 4070 laptop, with 0 cloud calls.
-- **Dashboard of detected threats, risk levels and alerts:** Now, SOC (Overview, Cases, Warnings, Log, System), Intel (Overview, Threats, Risk plan, Advisories) and Organisations.
+- **Dashboard of detected threats, risk levels and alerts:** Now, SOC (Overview, Cases, Warnings, Log, System), Intel (Overview, Graph, Indicators, Threats, Risk plan, Advisories) and Organisations.
 - **Demonstration on public threat intelligence plus a controlled simulated dataset:**
   - REAL: CVEs, KEV, SSVC, EPSS, advisories, DShield, Feodo and phishing.
   - SIM: decoy grid, firewall logs and organisations.
@@ -66,10 +66,18 @@ See `docs/THREAD_CONTEXT.md` for the full table.
 `docs/TIP_GAP_AUDIT.md` audits Odyssey against the platforms CloudSEK's knowledge-base ranking lists, with the most weight
 on CloudSEK and Recorded Future, inside our scope (one laptop, on-premise, PS-01, India). The parts a platform is
 recognised by were missing and are now built: the **intelligence graph** (every entity and relationship from the
-record, breathing with evidence age), an **evidence card per entity**, **threat-group and malware context** from the
-ATT&CK record stated as overlap and never as attribution, and **risk lists and a STIX 2.1 bundle** for the tools a SOC
-already runs. Dark-web collection, active attack-surface scanning of real organisations, brand and social monitoring
-and takedowns stay out of scope by rule; each has a named plug-in point in the audit.
+record, breathing with evidence age, with a replay of the record as it stood at nine earlier instants), an **evidence
+card per entity**, **threat-group and malware context** from the ATT&CK record stated as overlap and never as
+attribution, and **risk lists and a STIX 2.1 bundle** for the tools a SOC already runs. Built after the audit, the same
+morning: **watchlists and alert rules** on any graph entity (edge-triggered, evaluated every 15 s, delivered through
+the channels); **bulk indicator import** (text, CSV or STIX in; matched against our own flows, C2 sightings, the
+shield's attackers, our assets and domains and their look-alikes, and the exposure record; enriched from Feodo,
+DShield, OpenPhish and KEV; out again as CSV, STIX or a read-only **TAXII 2.1** server); **brand and social
+monitoring** from passive public sources (certificate transparency, URLhaus, OpenPhish, news, Hacker News, Reddit;
+scored, audited, drawn in the graph); and **attack-surface discovery with consent**, for systems the operator owns
+only (a loopback or private address, or an app the Odyssey agent announced; GET and HEAD, at most 40 requests; a
+score and a grade). Dark-web collection, scanning of networks we do not own, takedowns and sandboxing stay out of
+scope by rule; each has a named plug-in point in the audit.
 
 ## Honest limitations
 

@@ -3,6 +3,8 @@ import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
 import { HowItWorks } from './HowItWorks'
 import { IntelGraph } from './IntelGraph'
+import { IocImport } from './IocImport'
+import { Watchlist } from './Watchlist'
 import { Live, LiveFigures, useLive } from './Live'
 import { api, type AlertDetail as Detail, type Health } from './api'
 import { Now } from './Now'
@@ -17,7 +19,7 @@ import { Hero, Tabs, ToastProvider, WRAP } from './ui'
    is at risk, why should I trust it. Every page is the same Oreo: black nav, black hero band with the page's four
    figures, white body, black footer. Details slide in as sheets. */
 type SocTab = 'overview' | 'cases' | 'warnings' | 'log' | 'system'
-type IntelTab = 'overview' | 'graph' | 'threats' | 'risk' | 'advisories'
+type IntelTab = 'overview' | 'graph' | 'indicators' | 'threats' | 'risk' | 'advisories'
 type ProofTab = 'evidence' | 'how'
 
 const LEGACY: Record<string, [View, string?]> = {
@@ -51,6 +53,7 @@ export default function App() {
   const [intelTab, setIntelTab] = useState<IntelTab>((start.view === 'intel' && start.tab as IntelTab) || 'overview')
   const [proofTab, setProofTab] = useState<ProofTab>((start.view === 'proof' && start.tab as ProofTab) || 'evidence')
   const [graphFocus, setGraphFocus] = useState<string | undefined>(() => new URLSearchParams(window.location.search).get('focus') ?? undefined)
+  const [graphNode, setGraphNode] = useState<string | undefined>(() => new URLSearchParams(window.location.search).get('node') ?? undefined)
   const [health, setHealth] = useState<Health>()
   const [selected, setSelected] = useState<{ id: string; org_id: string; cve_id: string }>()
   const [org, setOrg] = useState<string | undefined>(() => new URLSearchParams(window.location.search).get('org') ?? undefined)
@@ -137,11 +140,16 @@ export default function App() {
         <>
           <Hero title="Intel" sub="What is under attack, where we are exposed, and what to fix first."
                 tabs={<Tabs dark value={intelTab} onChange={setIntelTab}
-                            items={[['overview', 'Overview'], ['graph', 'Graph'], ['threats', 'Threats'], ['risk', 'Risk plan'], ['advisories', 'Advisories']]} />}>
+                            items={[['overview', 'Overview'], ['graph', 'Graph'], ['indicators', 'Indicators'], ['threats', 'Threats'], ['risk', 'Risk plan'], ['advisories', 'Advisories']]} />}>
             <IntelFigures tick={tick} />
           </Hero>
           <main className={`${WRAP} flex flex-1 gap-6 py-12`}>
-            {intelTab === 'advisories' ? <Advisories /> : intelTab === 'graph' ? <IntelGraph focus={graphFocus} onFocus={setGraphFocus} /> : <Soc section={intelTab} tick={tick} />}
+            {intelTab === 'advisories' ? <Advisories /> : intelTab === 'indicators' ? <IocImport /> : intelTab === 'graph' ? (
+              <div className="flex min-w-0 flex-1 flex-col gap-14">
+                <IntelGraph focus={graphFocus} onFocus={setGraphFocus} initialNode={graphNode} />
+                <Watchlist onOpen={(id) => { setGraphNode(id); window.scrollTo({ top: 0 }) }} />
+              </div>
+            ) : <Soc section={intelTab} tick={tick} />}
           </main>
         </>
       )}

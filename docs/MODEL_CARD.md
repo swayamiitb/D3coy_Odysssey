@@ -199,3 +199,23 @@ text, asset exposure and detector output; `engine/attack.py`) fill the remaining
 either a malware link or an overlap of at least three techniques and 60% of those observed. Every group node, card and
 STIX intrusion-set says "overlap with the ATT&CK record, not attribution" and links to the ATT&CK page. Pulse on every
 node is evidence age (e-folding 48 hours), not severity.
+
+## Deterministic intelligence services (no model)
+
+Six services added on 1 Nov 2026 run entirely on explicit rules over the record and public sources. None calls a
+language model, so none can invent a fact; everything each one shows is a row it can point to, with its provenance.
+
+| Service | Where | How it decides |
+|---|---|---|
+| Watchlists and alert rules | `engine/watch.py`, `/api/watches` | An analyst watches any graph node with a rule: `any`, `fresh` (pulse above a threshold or new evidence), `tier` (worst open tier at or beyond a threshold), `connect` (a new edge). Edge-triggered: a watch fires on the change, not on every evaluation while the condition holds. The live engine evaluates every active watch every 15 s against the current graph; a firing is a `watch.fired` ledger event, a `watch` detection, a graph node and a channel card. Severity follows the entity's tier (Compromise to Critical, Critical to High, High to Medium, else Low). |
+| Bulk indicator import and matching | `engine/iocs.py`, `/api/iocs` | Regular expressions over any text, CSV or STIX 2.1 bundle extract IPv4 addresses, domains, URLs, SHA-256, SHA-1 and MD5 hashes and CVE ids, refanged for matching and defanged for display. Matches are exact look-ups in our own record: live firewall flows and C2 sightings (SIM), the shield's attackers, our addresses and domains and their look-alikes, the exposure record. Enrichment is a look-up in Feodo Tracker, DShield, OpenPhish and CISA KEV (REAL). Imported addresses join the live engine's per-tick flow matching. |
+| TAXII 2.1 server | `taxii.py`, `/taxii2/` | Read-only. One API root, three collections (graph, indicators, vulnerabilities) built by the same STIX generator as the bundle export, so the objects are identical; paging, `added_after`, `match[type]`, `match[id]`, manifest and versions; an optional bearer token. |
+| Graph replay | `engine/graph.py` (`as_of`), `/api/graph/replay` | The same graph builder with a cut-off: evidence after the instant is left out, every pulse is aged to it, and the deterministic layout is unchanged. Nine instants: the snapshot date, 30, 14, 7, 3 and 1 days ago, 6 hours and 1 hour ago, now. |
+| Brand and social monitoring | `engine/brand.py`, `/api/brand` | Six passive public sources (crt.sh certificate transparency, URLhaus, OpenPhish, Google News RSS, Hacker News, Reddit RSS), each a read with a 20 s timeout; a source that does not answer is reported offline. For an organisation the terms are its name's distinctive words, its domain and its look-alike permutations. Hits are scored 0 to 100 by explicit rules on kind, closeness of the match and freshness, stored once per (term, source, kind, value); a new hit at 70 or above is a `brand.hit` ledger event and a graph node. A hit is a scored match, not a finding of abuse. |
+| Attack-surface discovery, with consent | `engine/surface.py`, `/api/surface` | Two gates in code, both required: `consent: true`, and a target that is provably the operator's own (loopback, RFC 1918, link-local or carrier-grade NAT, or an app the HTTP-shield agent has registered); otherwise refused with the reason. GET and HEAD only, at most 40 requests, a 60 s cooldown. Checks: transport and TLS, security headers, cookie flags, exposed files and admin paths, framework fingerprint mapped to product keys (and so to the exposure record), reachable service ports. Severity-weighted score 0 to 100 and a grade (A at 90 or more, B 80, C 70, D 55, E 40, else F); each finding carries a CWE, the evidence and a fix. |
+
+Measured so far: a live brand run for the term "irctc" returned 79 real hits with crt.sh rate-limited that minute and
+reported offline; the bundled CityPower portal (:8080, registered to PWR-01) scores 29, grade F (plain HTTP, open SSH
+and SMB ports, no CSP, an exposed `/openapi.json`, a FastAPI fingerprint). Unit tests: `tests/test_brand_surface.py`
+(8 tests); the watchlist, indicator and TAXII tests are being added and the suite count (about 140) is a target until the
+main thread verifies it.

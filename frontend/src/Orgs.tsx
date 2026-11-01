@@ -4,6 +4,7 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Too
 import { api, type OrgProfile, type RiskPlan, type Soc } from './api'
 import { AutopilotFeed, useLanguages } from './proactive'
 import { Heatmap, type HeatData } from './Heatmap'
+import { BrandWatch } from './BrandWatch'
 import { OrgThreatMap } from './OrgThreatMap'
 import { Spark } from './Soc'
 import { Badge, deadlineText, Pill, Prov, Row, Section, Stat, Tabs, TIER_FILL, TierPill } from './ui'
@@ -126,6 +127,7 @@ function Profile({ p, onAlert, onGraph }: { p: OrgProfile; onAlert: (orgId: stri
 
       {tab === 'osint' && (
         <div className="grid gap-12 xl:grid-cols-2">
+          <div className="xl:col-span-2"><BrandWatch orgId={p.org.id} /></div>
           <Section title="Services anyone can reach" sub="From the inventory: internet- and DMZ-facing hosts, worst warning first." action={<Globe size={18} className="text-mute" />}>
             {p.surface.exposed.slice(0, 10).map((a) => (
               <Row key={a.hostname} lead={<span className="text-[10px] font-bold uppercase">{a.zone.slice(0, 3)}</span>}

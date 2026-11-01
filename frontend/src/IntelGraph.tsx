@@ -1,14 +1,26 @@
-import { ExternalLink, Loader2 } from 'lucide-react'
+import { ExternalLink, Eye, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { api, type FactValue, type GraphCard, type GraphNode, type IntelGraph as Graph, type Soc, type Tier } from './api'
-import { fmtDate, Prov, Row, Section, Sheet, Stat, TierPill } from './ui'
+import { api, type FactValue, type GraphCard, type GraphNode, type IntelGraph as ApiGraph, type Soc, type Tier } from './api'
+import { fmtDate, Pill, Prov, Row, Section, Sheet, Stat, TierPill, useToast } from './ui'
 
 /* The intelligence graph: every entity Odyssey knows about and how they connect, drawn from the record and refreshed
    every 5 seconds. Organisations sit at the centre, then the technologies they run, the vulnerabilities and campaigns
    on those technologies, the ATT&CK techniques and malware families, and on the outer ring the threat groups, the
    indicators, the suppliers and the live signals. Nodes breathe with fresh evidence and lie still as it ages. Nothing
    here is generated: positions are deterministic, every element carries its provenance, and threat groups are
-   technique overlap with the ATT&CK record, not attribution. */
+   technique overlap with the ATT&CK record, not attribution.
+
+   Three things sit on top of the drawing. Replay: a slider over the instants /api/graph/replay offers; away from "now"
+   the graph is fetched once with as_of=<instant>, later evidence is left out and pulses are aged to it, and the live
+   poll resumes when the slider returns to now. Watch: the card's header carries a Watch pill that files the entity on
+   the watchlist (/api/watches), which the live engine evaluates every 15 s. Deep link: ?node=<id> (or the initialNode
+   prop) opens that entity's card after the first graph load; an id the current graph does not hold still opens, and the
+   card says so instead of failing. */
+
+/* Types this file owns: the replay steps and the watchlist rows it reads. api.ts stays as it is. */
+type Graph = ApiGraph & { as_of?: string | null }
+interface ReplayStep { id: string; label: string; at: string | null }
+interface WatchRow { id: number | string; target: string; label: string; status: 'active' | 'paused' }
 
 const W = 1200, H = 720, CX = 600, CY = 360, RMAX = 330, ASPECT = 1.55
 const TIER_FILL: Record<string, string> = {
@@ -161,6 +173,13 @@ function Shape({ n, r, fill, stroke, strokeWidth, className, style }: { n: Graph
 
 function provOf(p: string) { return p.startsWith('REAL') ? 'REAL' : 'SIM' }
 
+/* Node ids are built from defanged values already (indicator:50[.]16[.]16[.]211). A hand-typed deep link may not be,
+   so an indicator id is defanged once more before it is drawn anywhere. */
+function displayId(id: string): string {
+  if (!id.startsWith('indicator:')) return id
+  return 'indicator:' + id.slice('indicator:'.length).replace(/\[\.\]/g, '.').replace(/\./g, '[.]').replace(/^http/i, 'hxxp')
+}
+
 function HoverPanel({ n }: { n: GraphNode }) {
   return (
     <div>
@@ -182,24 +201,84 @@ function HoverPanel({ n }: { n: GraphNode }) {
   )
 }
 
+/* The Watch pill in the card's header. It reads the watchlist once when the card opens, so an entity already on it
+   shows "Watching"; a click files the entity with the default rule and the live engine takes it from there. */
+function WatchButton({ target, label }: { target: string; label: string }) {
+  const toast = useToast()
+  const [state, setState] = useState<'checking' | 'idle' | 'busy' | 'watching'>('checking')
+  useEffect(() => {
+    let alive = true
+    fetch('/api/watches')
+      .then((r) => (r.ok ? (r.json() as Promise<{ watches: WatchRow[] }>) : Promise.reject(new Error(`${r.status} /api/watches`))))
+      .then((d) => alive && setState(d.watches.some((w) => w.target === target) ? 'watching' : 'idle'))
+      .catch(() => alive && setState('idle'))
+    return () => { alive = false }
+  }, [target])
+  const add = async () => {
+    if (state !== 'idle') return
+    setState('busy')
+    try {
+      const res = await fetch('/api/watches', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target }) })
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { detail?: string }
+        throw new Error(d.detail ?? `${res.status}`)
+      }
+      setState('watching')
+      toast(`Watching ${label}. The live engine checks it every 15 s and a firing lands in the live feed.`)
+    } catch (e) {
+      setState('idle')
+      toast(`Could not watch ${label} (${e instanceof Error ? e.message : String(e)})`)
+    }
+  }
+  const watching = state === 'watching'
+  return (
+    <button type="button" onClick={add} disabled={state !== 'idle'} data-watch={target}
+            title={watching ? 'On the watchlist: the live engine evaluates it every 15 s' : 'Add to the watchlist with the default rule (any change at Critical or above, or fresh evidence)'}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${watching ? 'bg-action text-ink' : 'bg-panel-2 text-text hover:bg-panel-3 disabled:opacity-60'}`}>
+      {state === 'busy' || state === 'checking' ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />}
+      {watching ? 'Watching' : 'Watch'}
+    </button>
+  )
+}
+
 function Card({ id, focus, onClose, onOpen }: { id: string; focus?: string; onClose: () => void; onOpen: (id: string) => void }) {
   const [c, setC] = useState<GraphCard>()
   const [err, setErr] = useState<string>()
+  const [missing, setMissing] = useState(false)
+  /* The parent keys this card by id and focus, so a new entity mounts a fresh card; the effect only fetches. The card
+     endpoint answers 404 for an id the current graph does not hold (a deep link to another view's asset, or an entity
+     the record has not seen); that is a state of the card, not a failure. */
   useEffect(() => {
     let alive = true
-    setC(undefined)
-    setErr(undefined)
-    api.graphNode(id, focus).then((d) => alive && setC(d)).catch((e) => alive && setErr(String(e)))
+    fetch(`/api/graph/node?id=${encodeURIComponent(id)}${focus ? `&focus=${encodeURIComponent(focus)}` : ''}`)
+      .then(async (res) => {
+        if (res.status === 404) { if (alive) setMissing(true); return }
+        if (!res.ok) throw new Error(`${res.status} /api/graph/node`)
+        const d = (await res.json()) as GraphCard
+        if (alive) setC(d)
+      })
+      .catch((e) => alive && setErr(String(e)))
     return () => { alive = false }
   }, [id, focus])
   const n = c?.node
   const url = n && typeof n.facts.url === 'string' ? n.facts.url : undefined
+  const kind = id.split(':')[0]
   return (
     <Sheet wide onClose={onClose}
-           title={n ? <span className="flex flex-wrap items-center gap-3">{n.label}{n.tier && <TierPill tier={n.tier} />}<Prov p={provOf(n.provenance)} label={n.provenance} /></span> : 'Intelligence card'}
-           sub={n ? `${KIND_LABEL[n.kind] ?? n.kind}${n.sub ? ` · ${n.sub}` : ''}` : undefined}>
+           title={n ? <span className="flex flex-wrap items-center gap-3">{n.label}{n.tier && <TierPill tier={n.tier} />}<Prov p={provOf(n.provenance)} label={n.provenance} /><WatchButton target={n.id} label={n.label} /></span>
+                   : missing ? <span className="font-mono text-xl">{displayId(id)}</span> : 'Intelligence card'}
+           sub={n ? `${KIND_LABEL[n.kind] ?? n.kind}${n.sub ? ` · ${n.sub}` : ''}` : missing ? (KIND_LABEL[kind] ?? 'Entity') : undefined}>
       {err && <div className="text-mute">Could not load this card ({err}).</div>}
-      {!c && !err && <div className="text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Reading the record…</div>}
+      {missing && (
+        <div className="rounded-2xl bg-panel-2 p-5" data-card-missing>
+          <div className="text-lg font-semibold">Not in the current graph</div>
+          <p className="mt-2 text-sm text-mute">
+            The record has no entity <span className="font-mono">{displayId(id)}</span> in {focus ? `the ${focus} view` : 'the national view'} right now.
+            {kind === 'asset' ? ' Assets are drawn only inside their own organisation’s view: pick that organisation above and open the link again.' : ' It may sit in another organisation’s view, or the record has not seen it yet.'}
+          </p>
+        </div>
+      )}
+      {!c && !err && !missing && <div className="text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Reading the record…</div>}
       {c && n && (
         <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
           <div className="flex min-w-0 flex-col gap-8">
@@ -249,35 +328,67 @@ function Card({ id, focus, onClose, onOpen }: { id: string; focus?: string; onCl
   )
 }
 
-export function IntelGraph({ focus, onFocus }: { focus?: string; onFocus: (orgId?: string) => void }) {
-  const [g, setG] = useState<Graph>()
-  const [err, setErr] = useState<string>()
+export function IntelGraph({ focus, onFocus, initialNode }: { focus?: string; onFocus: (orgId?: string) => void; initialNode?: string }) {
+  /* The drawing is stored with the focus it was fetched for: a change of focus is a different graph, so the view derives
+     an empty drawing (and the loading state) until the new one lands, while a change of replay instant keeps the current
+     drawing on screen until the next frame arrives, so the slider does not flash. */
+  const [gs, setGs] = useState<{ focus?: string; g: Graph }>()
+  const [errAt, setErrAt] = useState<{ focus?: string; msg: string }>()
+  const g = gs && gs.focus === focus ? gs.g : undefined
+  const err = errAt && errAt.focus === focus ? errAt.msg : undefined
   const [orgs, setOrgs] = useState<Soc['orgs']>([])
   const [hover, setHover] = useState<string>()
   const [kindSel, setKindSel] = useState<string>()
   const [card, setCard] = useState<string>()
   const [fresh, setFresh] = useState<Set<string>>(new Set())
   const prev = useRef<Set<string> | null>(null)
+  /* Replay: the instants on offer and the one chosen; 'now' is the live view. */
+  const [steps, setSteps] = useState<ReplayStep[]>([])
+  const [stepId, setStepId] = useState('now')
+  /* Deep link: ?node=<id> in the address, or the initialNode prop. It opens once the first graph has loaded and is
+     cleared together with the card, so closing the card does not reopen it. */
+  const [deepLink, setDeepLink] = useState<string | undefined>(() => initialNode ?? new URLSearchParams(window.location.search).get('node') ?? undefined)
+  const shown = card ?? (gs && deepLink ? deepLink : undefined)
+  const closeCard = () => { setCard(undefined); setDeepLink(undefined) }
+
+  const found = steps.findIndex((s) => s.id === stepId)
+  const stepIdx = found < 0 ? Math.max(0, steps.length - 1) : found
+  const step: ReplayStep | undefined = steps[stepIdx]
+  const asOf = step?.at ?? null
+  const atNow = asOf == null
 
   useEffect(() => { api.soc().then((s) => setOrgs(s.orgs)).catch(() => undefined) }, [])
   useEffect(() => {
     let alive = true
-    prev.current = null
-    setG(undefined)
-    setErr(undefined)
-    setHover(undefined)
-    const pull = () => api.graph(focus).then((d) => {
-      if (!alive) return
-      const ids = new Set(d.nodes.map((n) => n.id))
-      setFresh(prev.current ? new Set([...ids].filter((id) => !prev.current!.has(id))) : new Set())
-      prev.current = ids
-      setG(d)
-      setErr(undefined)
-    }).catch((e) => alive && !prev.current && setErr(String(e)))
+    fetch('/api/graph/replay')
+      .then((r) => (r.ok ? (r.json() as Promise<{ steps: ReplayStep[] }>) : Promise.reject(new Error(`${r.status} /api/graph/replay`))))
+      .then((d) => alive && Array.isArray(d.steps) && setSteps(d.steps))
+      .catch(() => undefined)
+    return () => { alive = false }
+  }, [])
+  useEffect(() => {
+    let alive = true
+    prev.current = null      // the ping marks nodes new since the previous poll of the same view; a new view or instant starts clean
+    const q = new URLSearchParams()
+    if (focus) q.set('focus', focus)
+    if (asOf) q.set('as_of', asOf)
+    const qs = q.toString()
+    const pull = () => fetch(`/api/graph${qs ? `?${qs}` : ''}`)
+      .then((r) => (r.ok ? (r.json() as Promise<Graph>) : Promise.reject(new Error(`${r.status} /api/graph`))))
+      .then((d) => {
+        if (!alive) return
+        const ids = new Set(d.nodes.map((n) => n.id))
+        setFresh(prev.current ? new Set([...ids].filter((id) => !prev.current!.has(id))) : new Set())
+        prev.current = ids
+        setHover((h) => (h && !ids.has(h) ? undefined : h))
+        setGs({ focus, g: d })
+        setErrAt(undefined)
+      }).catch((e) => alive && !prev.current && setErrAt({ focus, msg: String(e) }))
     pull()
+    if (asOf) return () => { alive = false }     // a past instant does not change: one fetch per step, no polling
     const id = setInterval(pull, 5000)
     return () => { alive = false; clearInterval(id) }
-  }, [focus])
+  }, [focus, asOf])
 
   const L = useMemo(() => (g ? layout(g) : undefined), [g])
 
@@ -291,15 +402,34 @@ export function IntelGraph({ focus, onFocus }: { focus?: string; onFocus: (orgId
       ))}
     </div>
   )
+  const replay = steps.length > 1 ? (
+    <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-panel-2 px-5 py-3" data-replay>
+      <span className="text-sm font-semibold">Replay</span>
+      <input type="range" min={0} max={steps.length - 1} step={1} value={stepIdx} aria-label="Replay the record as of"
+             onChange={(e) => setStepId(steps[Number(e.target.value)]?.id ?? 'now')}
+             className="h-1.5 w-64 max-w-full cursor-pointer" style={{ accentColor: 'var(--color-text)' }} />
+      <span className="text-sm font-medium tabular-nums">{step?.label ?? 'now'}</span>
+      {!atNow && step?.at && <span className="text-xs text-mute">{fmtDate(step.at)} UTC</span>}
+      {!atNow && <Pill onClick={() => setStepId('now')}>Now</Pill>}
+    </div>
+  ) : null
   const header = (
     <Section title="The intelligence graph"
              sub="Every entity Odyssey knows about and how they connect. Nodes breathe with fresh evidence and lie still as it ages; threat groups are overlap with the ATT&CK record, not attribution.">
       {pills}
+      {replay}
       {err && <div className="rounded-2xl bg-panel-2 p-5 text-crit">{err}</div>}
       {!err && (!g || !L) && <div className="rounded-2xl bg-panel-2 p-5 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Drawing the intelligence graph from the record…</div>}
     </Section>
   )
-  if (err || !g || !L) return <div className="flex min-w-0 flex-1 flex-col">{header}</div>
+  if (err || !g || !L) {
+    return (
+      <div className="flex min-w-0 flex-1 flex-col">
+        {header}
+        {shown && <Card key={`${shown}|${focus ?? ''}`} id={shown} focus={focus} onClose={closeCard} onOpen={setCard} />}
+      </div>
+    )
+  }
 
   const { pos, rings, labels } = L
   const byId: Record<string, GraphNode> = {}
@@ -321,6 +451,7 @@ export function IntelGraph({ focus, onFocus }: { focus?: string; onFocus: (orgId
       <Section title="The intelligence graph"
                sub="Every entity Odyssey knows about and how they connect. Nodes breathe with fresh evidence and lie still as it ages; threat groups are overlap with the ATT&CK record, not attribution.">
         {pills}
+        {replay}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <Stat value={b.fresh} label="Fresh" sub="evidence in the last hour" />
           <Stat value={b.today} label="Today" sub="evidence under 24 hours old" />
@@ -330,10 +461,15 @@ export function IntelGraph({ focus, onFocus }: { focus?: string; onFocus: (orgId
         </div>
         <p className="mt-3 text-sm text-mute">
           <b className="text-text">{b.events_last_hour.toLocaleString('en-IN')}</b> events in the last hour · last evidence <b className="text-text">{timeOf(lastEvidence ?? b.last_event)}</b>
-          {b.live_ticks != null && <> · live engine tick {b.live_ticks.toLocaleString('en-IN')}</>} · {g.focus.label} · refreshes every 5 s
+          {b.live_ticks != null && <> · live engine tick {b.live_ticks.toLocaleString('en-IN')}</>} · {g.focus.label} · {atNow ? 'refreshes every 5 s' : `replay as of ${step?.label ?? g.as_of ?? 'the chosen instant'}`}
         </p>
 
-        <div className="mt-6 flex items-start gap-5">
+        {!atNow && step && (
+          <div className="mt-6 rounded-xl bg-panel-2 px-4 py-2 text-xs text-mute" data-replay-banner>
+            Replaying the record as of <b className="font-semibold text-text">{step.label}</b> ({fmtDate(step.at)} UTC) · nodes that did not exist yet are absent; pulses are aged to that instant
+          </div>
+        )}
+        <div className={`${atNow ? 'mt-6' : 'mt-3'} flex items-start gap-5`}>
           <div className="min-w-0 flex-1 overflow-x-auto rounded-3xl bg-soft p-2">
             <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full min-w-[900px]" data-intelgraph role="img" aria-label={`Intelligence graph: ${g.focus.label}`}
                  onMouseLeave={() => setHover(undefined)}>
@@ -420,7 +556,7 @@ export function IntelGraph({ focus, onFocus }: { focus?: string; onFocus: (orgId
                 <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-mute">Simulated, labelled SIM</div>
                 <ul className="mt-1 space-y-0.5">{g.provenance.SIM.map((x) => <li key={x} className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full ring-1 ring-mute" />{x}</li>)}</ul>
                 <div className="mt-4 rounded-xl border border-line bg-panel p-3 text-xs text-mute">{g.provenance.note}</div>
-                <p className="mt-4 text-xs text-mute">Hover a node for its record; click it for the full card. Snapshot {g.snapshot}, built {fmtDate(g.built_at)}.</p>
+                <p className="mt-4 text-xs text-mute">Hover a node for its record; click it for the full card. Snapshot {g.snapshot}, built {fmtDate(g.built_at)}{g.as_of ? `, replayed as of ${fmtDate(g.as_of)} UTC` : ''}.</p>
               </div>
             )}
           </aside>
@@ -450,7 +586,7 @@ export function IntelGraph({ focus, onFocus }: { focus?: string; onFocus: (orgId
         </div>
       </Section>
 
-      {card && <Card id={card} focus={focus} onClose={() => setCard(undefined)} onOpen={setCard} />}
+      {shown && <Card key={`${shown}|${focus ?? ''}`} id={shown} focus={focus} onClose={closeCard} onOpen={setCard} />}
     </div>
   )
 }

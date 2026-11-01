@@ -1,7 +1,9 @@
 import { ExternalLink, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, type Campaign, type IntelAdvisory, type IntelSource, type Soc as SocData, type Technology, type RiskPlan } from './api'
+import { BrandWatch } from './BrandWatch'
 import { Heatmap, type HeatData } from './Heatmap'
+import { SurfaceScan } from './SurfaceScan'
 import { RiskPlanView } from './Orgs'
 import { ForecastPanel } from './proactive'
 import { Badge, Pill, Prov, Row, Section, Sheet, Tile, useToast } from './ui'
@@ -223,6 +225,8 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
             <Tile value={relevantAdv} title="Real advisories that name our products" sub={`of the latest ${adv.length} CISA advisories`} cta="See advisories" onClick={() => setSheet('advisories')} />
             <Tile value={sources.length} title="Intelligence sources" sub={`${sources.filter((x) => x.provenance === 'REAL').length} real public feeds, the rest simulated and labelled`} cta="See sources" onClick={() => setSheet('sources')} />
           </div>
+          <BrandWatch />
+          <SurfaceScan orgId="PWR-01" defaultUrl="http://127.0.0.1:8080" />
         </>
       )}
 

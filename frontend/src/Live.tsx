@@ -14,6 +14,8 @@ const KIND: Record<string, { icon: typeof Radar; label: string }> = {
   surge: { icon: Radar, label: 'Scanning surge' },
   beacon: { icon: ShieldAlert, label: 'C2 beacon' },
   anomaly: { icon: Waypoints, label: 'Flow anomaly' },
+  ioc: { icon: ShieldAlert, label: 'Imported indicator seen' },
+  watch: { icon: Radar, label: 'Watchlist fired' },
 }
 
 function ago(iso?: string | null): string {

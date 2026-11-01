@@ -94,11 +94,12 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 const summaryUrl = (orgId?: string) => `/api/brand${orgId ? `?org_id=${encodeURIComponent(orgId)}` : ''}`
 
-function KindIcon({ kind, size = 18 }: { kind: HitKind; size?: number }) {
+/** One glyph per kind; a mention from the news reads as a newspaper, one from Hacker News or Reddit as a speech bubble. */
+function KindIcon({ kind, channel, size = 18 }: { kind: HitKind; channel?: string; size?: number }) {
   if (kind === 'lookalike_cert') return <ShieldAlert size={size} />
   if (kind === 'malicious_url') return <Bug size={size} />
   if (kind === 'phishing_url') return <AlertTriangle size={size} />
-  return <Newspaper size={size} />
+  return channel && channel !== 'news' ? <MessageSquare size={size} /> : <Newspaper size={size} />
 }
 
 /** Score as a tag: Critical colour at 80 and above, High at 60, otherwise quiet grey. The number stays legible. */
@@ -114,7 +115,7 @@ function HitRow({ h }: { h: BrandHit }) {
   const title = hostLike ? defang(h.title || h.value) : (h.title || h.value)
   const sub = [h.evidence || KIND_ONE[h.kind], h.source, istTime(h.ts)].join(' · ')
   return (
-    <Row lead={<KindIcon kind={h.kind} />}
+    <Row lead={<KindIcon kind={h.kind} channel={h.channel} />}
          title={<span className={hostLike ? 'font-mono text-[13px]' : ''} title={h.snippet ?? undefined}>{title}</span>}
          sub={sub}
          trail={<span className="flex items-center gap-2">
@@ -161,19 +162,21 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 /** Every hit on record for this organisation (or every term), newest and highest score first, filtered by kind. */
 function AllHitsSheet({ orgId, onClose }: { orgId?: string; onClose: () => void }) {
   const [kind, setKind] = useState<HitKind | 'all'>('all')
-  const [rows, setRows] = useState<BrandHit[]>()
+  // the rows are stored with the query that produced them, so a change of filter shows the loader instead of stale rows
+  const [got, setGot] = useState<{ q: string; rows: BrandHit[] }>()
   const [err, setErr] = useState<string>()
+  const params = new URLSearchParams({ limit: '100' })
+  if (orgId) params.set('org_id', orgId)
+  if (kind !== 'all') params.set('kind', kind)
+  const q = params.toString()
   useEffect(() => {
     let alive = true
-    setRows(undefined)
-    const q = new URLSearchParams({ limit: '100' })
-    if (orgId) q.set('org_id', orgId)
-    if (kind !== 'all') q.set('kind', kind)
     getJson<{ rows: BrandHit[] }>(`/api/brand/hits?${q}`)
-      .then((d) => alive && setRows(d.rows))
+      .then((d) => alive && setGot({ q, rows: d.rows }))
       .catch((e: Error) => alive && setErr(e.message))
     return () => { alive = false }
-  }, [orgId, kind])
+  }, [q])
+  const rows = got && got.q === q ? got.rows : undefined
   return (
     <Sheet wide title="All hits" onClose={onClose}
            sub={<span className="flex items-center gap-2">Everything the public sources returned{orgId ? ' for this organisation' : ''}, highest score first, 100 at most. <Prov p="REAL" label="REAL · public sources" /></span>}>
@@ -216,34 +219,38 @@ function TermBlock({ t }: { t: BrandTerm }) {
 
 /** Brand and social monitoring for one organisation, or for any term the operator types. Passive public sources only. */
 export function BrandWatch({ orgId }: { orgId?: string }) {
-  const [s, setS] = useState<BrandSummary>()
+  // summary and last scan are stored with the organisation they belong to, so switching organisations never shows another's figures
+  const [sum, setSum] = useState<{ org?: string; data: BrandSummary }>()
   const [err, setErr] = useState<string>()
   const [term, setTerm] = useState('')
   const [scanning, setScanning] = useState(false)
-  const [last, setLast] = useState<ScanResult>()
+  const [lastScan, setLastScan] = useState<{ org?: string; data: ScanResult }>()
   const [sheet, setSheet] = useState(false)
   const toast = useToast()
+  const s = sum && sum.org === orgId ? sum.data : undefined
+  const last = lastScan && lastScan.org === orgId ? lastScan.data : undefined
 
   const refresh = useCallback(() => {
-    getJson<BrandSummary>(summaryUrl(orgId)).then((d) => { setS(d); setErr(undefined) }).catch((e: Error) => setErr(e.message))
+    getJson<BrandSummary>(summaryUrl(orgId)).then((d) => { setSum({ org: orgId, data: d }); setErr(undefined) }).catch((e: Error) => setErr(e.message))
   }, [orgId])
   useEffect(() => {
     let alive = true
-    setS(undefined)
-    setLast(undefined)
-    const pull = () => getJson<BrandSummary>(summaryUrl(orgId)).then((d) => { if (alive) { setS(d); setErr(undefined) } }).catch((e: Error) => alive && setErr(e.message))
+    const pull = () => getJson<BrandSummary>(summaryUrl(orgId))
+      .then((d) => { if (alive) { setSum({ org: orgId, data: d }); setErr(undefined) } })
+      .catch((e: Error) => alive && setErr(e.message))
     pull()
     const id = setInterval(pull, 30_000)
     return () => { alive = false; clearInterval(id) }
   }, [orgId])
 
   const scan = () => {
+    if (scanning) return
     const body = orgId ? { org_id: orgId } : { term: term.trim().toLowerCase() }
     if (!orgId && !term.trim()) { toast('Type a brand or product term to watch'); return }
     setScanning(true)
     getJson<ScanResult>('/api/brand/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then((d) => {
-        setLast(d)
+        setLastScan({ org: orgId, data: d })
         toast(`${fmt(d.hits)} hit${d.hits === 1 ? '' : 's'}, ${fmt(d.new_hits)} new · ${d.online} of ${d.online + d.offline} sources answered in ${d.seconds} s`)
         refresh()
       })
@@ -296,7 +303,7 @@ export function BrandWatch({ orgId }: { orgId?: string }) {
               </div>
             )}
 
-            {s.terms.length === 0 || total === 0 && s.terms.every((t) => t.top.length === 0) ? (
+            {s.terms.length === 0 || total === 0 ? (
               <div className="rounded-2xl bg-panel-2 p-5 text-mute">No hits yet. Scan to read the public sources now.</div>
             ) : (
               <div className="flex flex-col gap-8">
