@@ -517,7 +517,7 @@ export function forceLayout(nodes: GraphNode[], edges: GraphEdge[]): Layout {
         if (c === li || !cn[c]) continue
         const dx = x[i] - cxs[c], dy = y[i] - cys[c]
         const d2 = dx * dx + dy * dy + 0.01
-        const f = (0.0006 * alpha * Math.min(cn[c], 12)) / d2
+        const f = (0.0016 * alpha * Math.min(cn[c], 14)) / d2
         vx[i] += dx * f; vy[i] += dy * f
       }
     }
@@ -532,11 +532,27 @@ export function forceLayout(nodes: GraphNode[], edges: GraphEdge[]): Layout {
     }
     for (let i = 0; i < N; i++) {
       // towards the community's centroid, and gently towards the centre
-      vx[i] += (cxs[label[i]] - x[i]) * 0.05 * alpha + (0 - x[i]) * 0.004 * alpha
-      vy[i] += (cys[label[i]] - y[i]) * 0.05 * alpha + (0 - y[i]) * 0.004 * alpha
+      vx[i] += (cxs[label[i]] - x[i]) * 0.05 * alpha
+      vy[i] += (cys[label[i]] - y[i]) * 0.05 * alpha
       vx[i] *= 0.6; vy[i] *= 0.6
       x[i] += vx[i]; y[i] += vy[i]
+      // a soft round wall: the picture is a disc, as on a radar screen
+      const rr = Math.hypot(x[i], y[i])
+      if (rr > 0.92) { const k2 = 0.92 + (rr - 0.92) * 0.3; x[i] *= k2 / rr; y[i] *= k2 / rr }
     }
+  }
+  // radial equalisation: keep every angle, re-space the radii by rank (r = sqrt(rank/N)) so the disc is filled
+  // evenly from the centre to the rim, as on the reference; blended 70/30 with the settled radius so cluster shape survives
+  {
+    const order = Array.from({ length: N }, (_, i) => i).sort((a, b) => Math.hypot(x[a], y[a]) - Math.hypot(x[b], y[b]))
+    const maxR0 = Math.max(1e-6, ...order.map((i) => Math.hypot(x[i], y[i])))
+    order.forEach((i, rank) => {
+      const r0 = Math.hypot(x[i], y[i]) / maxR0
+      const re = Math.sqrt((rank + 0.5) / N)
+      const r1 = 0.3 * r0 + 0.7 * re
+      const a = Math.atan2(y[i], x[i])
+      x[i] = r1 * Math.cos(a); y[i] = r1 * Math.sin(a)
+    })
   }
   // centre on the centroid, then fit into the unit disc with a little margin
   let mx = 0, my = 0
