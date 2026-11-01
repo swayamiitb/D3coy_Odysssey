@@ -1,27 +1,14 @@
 import { ChevronRight } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
+import { fetchJson } from '../api'
 import { Prov } from '../ui'
 
 /* SOC kit (ui-07): the parts the console's new panels share. One card recipe, one segmented control, honest deltas,
    the screenshot set's alert cards, a semicircle gauge, a stacked share bar and ranked bars. Colour only on data;
    text stays in text tokens. */
 
-/* Several panels ask for the same URL within the same second (two poll /api/live, two read the technologies). One
-   in-flight or just-finished fetch serves them all, so the engine on :8000 (single process, a live engine ticking
-   beside it) is not asked twice. */
-const RECENT = new Map<string, { t: number; p: Promise<unknown> }>()
-const SHARE_MS = 1500
-function fetchJson(url: string): Promise<unknown> {
-  const now = Date.now()
-  const hit = RECENT.get(url)
-  if (hit && now - hit.t < SHARE_MS) return hit.p
-  const p = fetch(url).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${url}`))))
-  RECENT.set(url, { t: now, p })
-  p.catch(() => RECENT.delete(url))
-  return p
-}
-
-/** Fetch JSON, optionally re-polling; keeps the last good value and reports an error. An empty URL fetches nothing. */
+/** Fetch JSON, optionally re-polling; keeps the last good value and reports an error. An empty URL fetches nothing.
+ *  Goes through api.ts's shared fetch, so panels asking for the same URL in the same second share one request. */
 export function useJson<T>(url: string, deps: unknown[] = [], everyMs?: number): { data?: T; error?: string } {
   const [state, setState] = useState<{ data?: T; error?: string }>({})
   useEffect(() => {
