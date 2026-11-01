@@ -38,8 +38,13 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
 5. **Intel (60 s).** What is under attack and the exposure heatmap; *Risk plan*: 93 changes remove half of the
    national risk, 205 remove 80%; *Advisories*: the real CISA Siemens WinCC advisory, 13 assets at 7 operators,
    version ranges parsed; then the hostile advisory, blocked by the guard with the deterministic layer still working.
+   Then *Graph* (40 s): the intelligence graph, every entity and how they connect, breathing. Hover the QakBot C2
+   (a real Feodo indicator) and the groups ATT&CK records using that family light up, labelled "overlap, not
+   attribution"; click Ivanti Connect Secure for its evidence card; press *Vidyut Grid West Corp* to put one operator
+   at the centre. Back on *Overview*, *Risk lists and STIX*: the same intelligence as CSV for a firewall or SIEM and
+   as a STIX 2.1 bundle. "This is what a TIP is recognised by, drawn from our own record, with its source on every line."
 6. **Organisations (45 s).** Vidyut Grid West Corp opens on its threat map: hover the VPN gateway (compromised, calling a real QakBot C2), the HTTPS port under real attack pressure, the Ivanti scanning surge; then what outsiders see, its suppliers, its Marathi inbox. "Country threat maps draw arcs between nations; this is the same idea per operator, every line with its source."
-7. **Proof (60 s).** Eight claims, each with its evidence; press *Run them now* (127 checks, about two minutes,
+7. **Proof (60 s).** Eight claims, each with its evidence; press *Run them now* (135 checks, about two minutes,
    let it run while you take questions); *How it works*: six steps, the model table, the open formula.
 8. **Close (20 s).** "Real data, measured claims, a human in the loop, zero cloud calls, and it runs on this laptop."
 
@@ -56,6 +61,8 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
    and sector CSIRT routing, supplier fan-out, 22 Indian languages with validated translation.
 5. **Trust by construction.** Hash-chained audit trail, REAL/SIM labels everywhere, a test bench you can re-run on
    stage, 0 cloud calls.
+6. **One connected, breathing picture.** The intelligence graph links every entity in the record and decays with
+   evidence age; threat groups are ATT&CK overlap, never attribution; the same picture leaves as risk lists and STIX.
 
 ## Judge questions and the honest answers
 
@@ -69,7 +76,10 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
   national CERT. Everything it could answer is on a screen with its evidence.
 - **"How is this different from a TIP or a vulnerability scanner?"** A scanner finds flaws; a TIP stores indicators.
   Odyssey connects real threat intelligence to who is exposed in the country, decides urgency against Indian
-  obligations, warns in the operator's language, and proves its lead time.
+  obligations, warns in the operator's language, and proves its lead time. It also has what a TIP is recognised by:
+  an intelligence graph with an evidence card per entity, threat-group context from ATT&CK without attribution, and
+  risk lists and STIX for the tools you already run. `docs/TIP_GAP_AUDIT.md` sets it against CloudSEK, Recorded Future
+  and the rest of the field, and says what stays out of scope (dark web, active scanning, takedowns) and why.
 - **"Is anything here connected to something real?"** Yes. A real web application runs behind the Odyssey agent and
   is attacked by a real HTTP client over the wire, and the alerts leave the laptop by real webhooks: Slack, Discord,
   Teams, e-mail or your own app (the Ops Console in the demo). The organisations and sensors stay simulated and

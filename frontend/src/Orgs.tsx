@@ -74,7 +74,7 @@ function OrgInbox({ orgId }: { orgId: string }) {
   )
 }
 
-function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId: string) => void }) {
+function Profile({ p, onAlert, onGraph }: { p: OrgProfile; onAlert: (orgId: string, cveId: string) => void; onGraph?: (orgId: string) => void }) {
   const langs = useLanguages()
   const lang = langs[p.language]
   const imp = p.impersonation
@@ -104,7 +104,8 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
               { v: `${p.inbox.length}`, l: 'notices from Odyssey', s: lang ? `in ${lang.native}` : undefined },
             ].map((k) => <Stat key={k.l} value={k.v} label={k.l} sub={k.s} />)}
           </div>
-          <Section title="Threat map" sub="What is recorded against this organisation, from the outside world through its internet-facing services to its crown jewels. A subset of the national picture; every line carries its source.">
+          <Section title="Threat map" sub="What is recorded against this organisation, from the outside world through its internet-facing services to its crown jewels. A subset of the national picture; every line carries its source."
+                   action={onGraph ? <Pill onClick={() => onGraph(p.org.id)}>Open in the intelligence graph</Pill> : undefined}>
             <OrgThreatMap orgId={p.org.id} onAlert={onAlert} />
           </Section>
           <div className="grid gap-12 xl:grid-cols-2">
@@ -180,7 +181,7 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
   )
 }
 
-export function Orgs({ selected, onSelect, onAlert }: { selected?: string; onSelect: (id: string) => void; onAlert: (orgId: string, cveId: string) => void }) {
+export function Orgs({ selected, onSelect, onAlert, onGraph }: { selected?: string; onSelect: (id: string) => void; onAlert: (orgId: string, cveId: string) => void; onGraph?: (orgId: string) => void }) {
   const [list, setList] = useState<Soc['orgs']>([])
   const [p, setP] = useState<OrgProfile>()
   const langs = useLanguages()
@@ -209,7 +210,7 @@ export function Orgs({ selected, onSelect, onAlert }: { selected?: string; onSel
           </button>
         ))}
       </aside>
-      {p ? <Profile p={p} onAlert={onAlert} /> : <div className="p-8 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Building the organisation profile…</div>}
+      {p ? <Profile p={p} onAlert={onAlert} onGraph={onGraph} /> : <div className="p-8 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Building the organisation profile…</div>}
     </>
   )
 }

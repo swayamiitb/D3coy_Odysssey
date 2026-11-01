@@ -46,3 +46,9 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .pulse-comp { animation: odyssey-pulse 1.8s ease-out infinite; }
 @keyframes odyssey-toast { from { transform: translate(-50%, 16px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 .toast-in { animation: odyssey-toast .22s ease-out; }
+
+/* The intelligence graph breathes: a halo expands from every node with fresh evidence, fast when it is new, still when it has aged. */
+@keyframes odyssey-breath { 0%, 100% { transform: scale(1); opacity: .35; } 50% { transform: scale(1.9); opacity: 0; } }
+.breath { transform-box: fill-box; transform-origin: center; animation: odyssey-breath var(--breath, 3s) ease-in-out infinite; }
+@keyframes odyssey-ping { from { transform: scale(1); opacity: .9; } to { transform: scale(3.2); opacity: 0; } }
+.ping { transform-box: fill-box; transform-origin: center; animation: odyssey-ping 1.2s ease-out 1 forwards; }

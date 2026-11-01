@@ -282,6 +282,24 @@ def main() -> int:
                 shot("intel-risk")
             intel(page)
 
+            @step("Intel graph: the breathing intelligence graph, an entity card, an organisation in focus")
+            def graph(page):
+                go("intel", "graph")
+                page.locator("[data-intelgraph]").wait_for()
+                page.locator("[data-node]").first.wait_for()
+                page.wait_for_timeout(800)
+                shot("intel-graph")
+                page.locator("[data-node^='cve:']").first.click()
+                page.locator("aside").filter(has_text="Evidence").wait_for()
+                shot("intel-graph-card")
+                page.keyboard.press("Escape")
+                page.locator("aside").first.wait_for(state="detached")
+                page.get_by_role("button").filter(has_text="Vidyut Grid West Corp").first.click()
+                page.locator("[data-node^='asset:']").first.wait_for()
+                page.wait_for_timeout(800)
+                shot("intel-graph-org")
+            graph(page)
+
             @step("Intel advisories: inbox, how it was read, paste and analyse")
             def advisories(page):
                 go("intel", "advisories")

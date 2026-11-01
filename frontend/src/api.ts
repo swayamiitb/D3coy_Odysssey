@@ -469,6 +469,32 @@ export interface RedteamReport {
   scenarios: string[]; cases: RedteamCase[]; missed_cases: string[]; fp_cases: string[]
 }
 
+/* ---------------------------------------------------------------- the intelligence graph (/api/graph) */
+export type FactValue = string | number | boolean | null | string[]
+export interface GraphNode {
+  id: string; kind: string; label: string; sub: string; risk: number | null; tier: Tier | null
+  provenance: string; source: string; facts: Record<string, FactValue | undefined>
+  last_seen: string | null; age_h: number | null; pulse: number; phase: string; degree: number
+  ring: number; angle: number; r: number
+}
+export interface GraphEdge { from: string; to: string; kind: string; label: string; provenance: string; weight: number; last_seen: string | null }
+export interface IntelGraph {
+  focus: { kind: string; id: string | null; label: string }
+  built_at: string; snapshot: string
+  nodes: GraphNode[]; edges: GraphEdge[]; rings: number
+  kinds: { id: string; label: string; count: number }[]
+  breath: { fresh: number; today: number; week: number; fading: number; aged: number; events_last_hour: number
+    last_event: string | null; live_ticks: number | null; live_detections: number }
+  summary: { nodes: number; edges: number; real_edges: number; sim_edges: number; mixed_edges: number }
+  provenance: { REAL: string[]; SIM: string[]; note: string }
+}
+export interface GraphNeighbour { id: string; kind: string; label: string; tier: Tier | null; pulse: number; relation: string; edge: string; provenance: string; direction: 'in' | 'out' }
+export interface GraphEvent { ts: string; kind: string; subject: string; source: string; provenance: string; text: string }
+export interface GraphCard {
+  node: GraphNode; neighbours: GraphNeighbour[]; events: GraphEvent[]; live: Record<string, unknown>[]
+  focus: IntelGraph['focus']; record: { kind: string; how: string }
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(path)
   if (!res.ok) throw new Error(`${res.status} ${path}`)
@@ -554,4 +580,7 @@ export const api = {
     if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
     return res.json()
   },
+  graph: (focus?: string) => get<IntelGraph>(`/api/graph${focus ? `?focus=${encodeURIComponent(focus)}` : ''}`),
+  graphNode: (id: string, focus?: string) =>
+    get<GraphCard>(`/api/graph/node?id=${encodeURIComponent(id)}${focus ? `&focus=${encodeURIComponent(focus)}` : ''}`),
 }

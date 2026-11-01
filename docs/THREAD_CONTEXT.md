@@ -102,7 +102,7 @@ is checked against numbered facts; unverifiable text is withheld. Outputs are ca
 - **Now:** one headline ("A suspected compromise needs you now"), the incident card with its CERT-In countdown, journey bar and one action; a live status line; the India tile map (no contested borders); "Up next"; the black "Odyssey at work" band; the decisions waiting.
 - **Live:** the pipeline stage by stage; attack drills with step-by-step progress and time to detect; new CVEs taken in from NVD; sensor streams with z-scores; detections; real-feed freshness.
 - **SOC:** Overview (decision queue, team on shift, autopilot heatmap, **detectors adapting to your decisions**, replay/handover/warnings cards); Cases (opened automatically, owners by rule, SLA clocks, playbooks, notes, audited MTTA/MTTR/SLA); Warnings (ranked, tier and sector filters); Log; System (CPU, GPU, VRAM, memory, resident models, every AI job timed and checked, API latency, audit trail, build stages).
-- **Intel:** Overview (what is under attack, the exposure heatmap technology × sector, the likely-next forecast, the **national situation report**); Threats (real DShield heatmap port × day; decoy grid, campaigns, CISA advisories, sources as sheets); Risk plan (93 changes remove 50% of national risk, 205 remove 80%, of 344 tickets); Advisories (inbox, paste-any-advisory, who must act, through suppliers, ready to block, how it was read; the hostile advisory shows the guard's block).
+- **Intel:** Overview (what is under attack, the exposure heatmap technology × sector, the likely-next forecast, the **national situation report**, **risk lists and STIX** export); **Graph** (the intelligence graph, section 19); Threats (real DShield heatmap port × day; decoy grid, campaigns, CISA advisories, sources as sheets); Risk plan (93 changes remove 50% of national risk, 205 remove 80%, of 344 tickets); Advisories (inbox, paste-any-advisory, who must act, through suppliers, ready to block, how it was read; the hostile advisory shows the guard's block).
 - **Organisations:** each operator opens on its **threat map** (`engine/threatmap.py`): assets laid out by zone (internet-facing, DMZ, internal, crown jewels; the worst ~10 per column drawn, the rest folded into one circle with its counts); threats on the left with their record (attack pressure per listening port with the DShield 28-day trend, decoy-grid scanning, exploited CVEs, phishing look-alikes, suppliers); implants calling out to C2 on the right; blast-radius lines to the crown jewels; REAL/SIM provenance on every node and line; hover shows the record, click opens the warning; refreshes every 10 s. Then open warnings, fix first, risk plan, "What outsiders see" (OSINT: exposed services, C2 in traffic, look-alike domains, DShield on its ports, advisories naming its products, its suppliers) and its inbox in its own language.
 - **Proof:** eight claim cards each opening its evidence (test bench, lead over KEV, day-0 forecast, EPSS comparison, 22 languages, exposure precision, briefs, model comparison); "How it works": six steps, the model table, the open formula with a live worked example, who does what.
 - **"Why this warning?" sheet:** three figures (time to act, SSVC decision, chance of compromise), then four tabs: What to do (the clocks that apply, the brief in 22 languages, actions, CERT-In draft, STIX 2.1 export), Why this score (Bayesian model, factor breakdown, evidence rules with age and weight, three-source exposure votes), How it unfolded (replay, ledger timeline), Related (through suppliers, ATT&CK, related threats, source text).
@@ -126,10 +126,10 @@ is checked against numbered facts; unverifiable text is withheld. Outputs are ca
 
 | Check | How | Result |
 |---|---|---|
-| Engine tests | `.venv\Scripts\python -m pytest -q` | 98/98: 67 core plus 31 from the shield thread. Include: concurrent writers never fork the audit chain; SOC seeding and live case ids safe under concurrent requests; evidence decay; the clocks; supplier fan-out; the hostile advisory; live intake (matched, scored, acted on; patched versions cleared); the threat map a consistent subset of the record with provenance on every edge; adaptive thresholds follow recorded decisions within bounds. |
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 124/124 at the graph commit (section 19): 75 core plus 49 from the shield thread. Earlier, 98/98: 67 core plus 31 from the shield thread. Include: concurrent writers never fork the audit chain; SOC seeding and live case ids safe under concurrent requests; evidence decay; the clocks; supplier fan-out; the hostile advisory; live intake (matched, scored, acted on; patched versions cleared); the threat map a consistent subset of the record with provenance on every edge; adaptive thresholds follow recorded decisions within bounds. |
 | Test bench | Proof → *Run them now* (`POST /api/tests/run`) | 109/109: 5 attack drills on a data copy, 5 detection checks with negative controls, the audit-trail chain, the engine tests. |
-| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 16/16 on a private DB copy: every screen; approve and reject; a warning from issued to closed; a SOC case from new to closed; advisory analysis; compliance clocks, supplier fan-out and the hostile advisory; the organisation threat map; three drills plus a live CVE intake with live re-scoring and the adaptive layer focusing; the audit trail. |
-| Interface | `python scripts\ui_audit.py` (Playwright drives the installed Edge against a copy API on :8001) | 18/18: every screen, sheet and button including the report, the threat map drawn and hovered, the adaptive section, the CVE and implant drills; 0 page or console errors, 0 HTTP 5xx. |
+| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 19/19 at the graph commit (the shield thread added two, section 19 added the graph flow). Earlier, 16/16 on a private DB copy: every screen; approve and reject; a warning from issued to closed; a SOC case from new to closed; advisory analysis; compliance clocks, supplier fan-out and the hostile advisory; the organisation threat map; three drills plus a live CVE intake with live re-scoring and the adaptive layer focusing; the audit trail. |
+| Interface | `python scripts\ui_audit.py` (Playwright drives the installed Edge against a copy API on :8001) | 21/21 at the graph commit. Earlier, 18/18: every screen, sheet and button including the report, the threat map drawn and hovered, the adaptive section, the CVE and implant drills; 0 page or console errors, 0 HTTP 5xx. |
 | Production build | `cd frontend && npm run build` | OK |
 
 Headline measurements, recomputed live on the Proof page: 47× noise reduction (16,730 CVEs this month → 356 warnings
@@ -236,3 +236,38 @@ thread's commits list their files explicitly so as not to sweep the shield's in-
 1. Rehearse the nine-step demo once with `docs/PITCH.md` open; run `demo_reset.ps1` ten minutes before each slot.
 2. If the shield demo is in the pitch, make sure it works on the reset data; otherwise leave it out.
 3. After the hackathon: real operator onboarding (inventory connectors), the national supplier graph from procurement data, sector-specific OT telemetry.
+
+## 19. The intelligence graph, risk lists and STIX, the TIP gap audit (1 Nov 2026, 05:45 to 07:00 IST)
+
+The team lead asked for a deep audit against the platforms CloudSEK's knowledge-base ranking lists (CloudSEK and
+Recorded Future first), inside our scope, and named one example gap: a well-defined adaptive, breathing intelligence
+graph. `docs/TIP_GAP_AUDIT.md` is the audit. Built to close the gap:
+
+- `backend/app/engine/graph.py`: `intel_graph(conn, focus, live)` builds the graph from the database, the ledger, the
+  live engine and the local ATT&CK and Feodo snapshots. Eleven node kinds (org, asset in org focus, product, cve,
+  campaign, technique, malware, actor, indicator, supplier, signal); edges with kind, label, provenance (REAL, SIM,
+  REAL · SIM), weight and last_seen; every node has `last_seen`, `age_h`, `pulse = exp(-age_h/48)`, `phase`
+  (fresh < 1 h, today, week, fading < 30 d, aged), `risk`, `tier`, `facts`, and a deterministic layout (`ring`,
+  `angle`, `r`): rings by kind, angles from the circular mean of inner neighbours with a minimum gap, evenly spaced when
+  the ring is full. Threat groups: ATT&CK intrusion-sets ranked malware-link first (Feodo family → ATT&CK software →
+  groups using it), then technique overlap (≥ 3 and ≥ 60% of observed), at most 8, every one labelled "overlap, not
+  attribution". Cached 4 s per focus. `node_card()` gives neighbours, the ledger evidence and how the kind is derived.
+- `backend/app/engine/export.py`: `risk_list()` for cves | ips | domains | products (scored, provenance, evidence;
+  C2 refanged with the defanged form beside it), `to_csv()`, `graph_stix()` (STIX 2.1 identities, infrastructure,
+  software, vulnerabilities, campaigns, attack-patterns, malware, intrusion-sets, indicators, sightings for beacons,
+  notes for live signals, relationships; no dangling references).
+- API: `GET /api/graph?focus=`, `GET /api/graph/node?id=&focus=`, `GET /api/graph/stix?focus=&tlp=`,
+  `GET /api/risklists`, `GET /api/risklists/{kind}?format=json|csv`.
+- UI: `frontend/src/IntelGraph.tsx` (Intel → Graph tab; focus pills; breath strip; SVG with ring captions, breathing
+  halos, one-shot ping for new nodes, collision-avoiding labels, hover panel, kind-chip filter, click → card sheet with
+  neighbours you can follow and the evidence list); `Orgs.tsx` gets "Open in the intelligence graph"; `Soc.tsx`
+  Intel overview gets the "Risk lists and STIX" tile and sheet; `App.tsx` handles `go('intel','graph:ORG')` and
+  `?focus=`; `index.css` has the `odyssey-breath` and `odyssey-ping` keyframes.
+- Verification: `tests/test_graph.py` (8 tests), the graph flow in `scripts/e2e_check.py`, the graph step in
+  `scripts/ui_audit.py`. The API was restarted so the running system serves the new code.
+- Still missing in scope (audit section 6): user-authored watchlists and alert rules on graph entities, bulk IOC
+  import, a TAXII server, graph history. Out of scope by rule: dark web, active scanning, brand/social monitoring,
+  takedowns, sandboxing (each with a plug-in point in the audit).
+- Lesson for the next thread: never run pytest, the e2e check and the UI audit at the same time on this laptop; the
+  advisory-analysis paths load models in each process and the machine runs out of memory (one MemoryError and one
+  guard-model failure in a concurrent run, both green when run alone).

@@ -61,6 +61,16 @@ completion pass:
 
 See `docs/THREAD_CONTEXT.md` for the full table.
 
+## Against the leading threat-intelligence platforms
+
+`docs/TIP_GAP_AUDIT.md` audits Odyssey against the platforms CloudSEK's knowledge-base ranking lists, with the most weight
+on CloudSEK and Recorded Future, inside our scope (one laptop, on-premise, PS-01, India). The parts a platform is
+recognised by were missing and are now built: the **intelligence graph** (every entity and relationship from the
+record, breathing with evidence age), an **evidence card per entity**, **threat-group and malware context** from the
+ATT&CK record stated as overlap and never as attribution, and **risk lists and a STIX 2.1 bundle** for the tools a SOC
+already runs. Dark-web collection, active attack-surface scanning of real organisations, brand and social monitoring
+and takedowns stay out of scope by rule; each has a named plug-in point in the audit.
+
 ## Honest limitations
 
 - **Forecast precision is low (5%)**, because exploitation is rare (base rate 0.16%). That is why forecasts are proposals for a human, never automatic notices.

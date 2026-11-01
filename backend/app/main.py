@@ -1010,6 +1010,64 @@ def adaptive_view() -> dict:
     return _engine().adaptive.status(_dt.datetime.now(_dt.timezone.utc))
 
 
+@app.get("/api/graph")
+def intel_graph_view(focus: str | None = None) -> dict:
+    """The intelligence graph: every entity Odyssey knows about and how they connect, breathing with live evidence."""
+    from . import live
+    from .engine.graph import intel_graph
+    try:
+        return intel_graph(db(), focus or None, live.ENGINE.status() if live.ENGINE else None)
+    except KeyError as exc:
+        raise HTTPException(404, "unknown organisation") from exc
+
+
+@app.get("/api/graph/node")
+def intel_graph_node(id: str, focus: str | None = None) -> dict:
+    """One entity's intelligence card: its neighbours and the evidence behind it, from the record."""
+    from . import live
+    from .engine.graph import node_card
+    try:
+        return node_card(db(), id, focus or None, live.ENGINE.status() if live.ENGINE else None)
+    except KeyError as exc:
+        raise HTTPException(404, "unknown node or organisation") from exc
+
+
+@app.get("/api/graph/stix")
+def intel_graph_stix(focus: str | None = None, tlp: str = "AMBER") -> dict:
+    """The intelligence graph as a STIX 2.1 bundle, for exchange with other platforms."""
+    from . import live
+    from .engine.export import graph_stix
+    from .engine.graph import intel_graph
+    try:
+        return graph_stix(intel_graph(db(), focus or None, live.ENGINE.status() if live.ENGINE else None), tlp.upper())
+    except KeyError as exc:
+        raise HTTPException(404, "unknown organisation") from exc
+
+
+@app.get("/api/risklists")
+def risklists_view() -> dict:
+    """The risk lists on offer: what each holds, who pulls it, how many rows right now."""
+    from . import live
+    from .engine import export
+    return export.summary(db(), live.ENGINE.status() if live.ENGINE else None)
+
+
+@app.get("/api/risklists/{kind}")
+def risklist_view(kind: str, format: str = "json"):
+    """One scored list (cves | ips | domains | products) as JSON, or CSV for a SIEM, firewall or spreadsheet."""
+    from fastapi.responses import PlainTextResponse
+    from . import live
+    from .engine import export
+    try:
+        rows = export.risk_list(db(), kind, live.ENGINE.status() if live.ENGINE else None)
+    except KeyError as exc:
+        raise HTTPException(404, "unknown list") from exc
+    if format == "csv":
+        return PlainTextResponse(export.to_csv(rows), media_type="text/csv",
+                                 headers={"Content-Disposition": f'attachment; filename="odyssey-risklist-{kind}.csv"'})
+    return {"kind": kind, "generated_at": export._now(), "rows": rows}
+
+
 @app.get("/api/sitrep")
 def sitrep() -> dict:
     """National cyber threat situation report, written from the live state (Markdown; every figure is on a screen)."""

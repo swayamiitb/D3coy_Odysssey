@@ -188,3 +188,14 @@ mode). The red-team runner only ever targets loopback or private (RFC-1918) addr
 as an exercise in the hash-chained audit trail. Unit tests: `tests/test_shield.py` (signature engine on
 encoded/evaded payloads and benign controls, the shield's detection/ledger/block-list wiring, and the red-team
 target guard).
+
+## Threat-group and malware context (deterministic, no model)
+
+The intelligence graph (`backend/app/engine/graph.py`) names threat groups and malware families without any model and
+without attribution. The malware family of a C2 address seen in telemetry comes from abuse.ch Feodo Tracker and is
+matched by name to the MITRE ATT&CK software record; groups that ATT&CK records using that family come first. Then
+groups whose documented techniques overlap most with the techniques observed here (explicit rules over vulnerability
+text, asset exposure and detector output; `engine/attack.py`) fill the remaining slots, at most eight, each requiring
+either a malware link or an overlap of at least three techniques and 60% of those observed. Every group node, card and
+STIX intrusion-set says "overlap with the ATT&CK record, not attribution" and links to the ATT&CK page. Pulse on every
+node is evidence age (e-folding 48 hours), not severity.

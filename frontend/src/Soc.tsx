@@ -148,7 +148,8 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
   const [camps, setCamps] = useState<Campaign[]>([])
   const [heat, setHeat] = useState<Record<string, HeatData>>()
   const [plan, setPlan] = useState<RiskPlan>()
-  const [sheet, setSheet] = useState<'tech' | 'forecast' | 'decoy' | 'campaigns' | 'sources' | 'advisories' | 'sitrep'>()
+  const [sheet, setSheet] = useState<'tech' | 'forecast' | 'decoy' | 'campaigns' | 'sources' | 'advisories' | 'sitrep' | 'exports'>()
+  const [lists, setLists] = useState<{ generated_at: string; how: string; lists: { id: string; title: string; for: string; rows: number }[] }>()
   const [report, setReport] = useState<{ generated_at: string; text: string }>()
   const toast = useToast()
   const openReport = () => {
@@ -164,6 +165,7 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
     api.campaigns().then(setCamps).catch(() => undefined)
     api.riskplan().then(setPlan).catch(() => undefined)
     fetch('/api/heatmaps').then((r) => r.json()).then(setHeat).catch(() => undefined)
+    fetch('/api/risklists').then((r) => r.json()).then(setLists).catch(() => undefined)
   }, [])
   if (!d) return <div className="py-10 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Assembling the threat picture…</div>
 
@@ -201,6 +203,8 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
           <div className="grid gap-4 md:grid-cols-3">
             <Tile value={new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} title="National situation report"
                   sub="the CERT's daily report, written from the live state: headline, compromises, clocks, activity, the risk plan" cta="Write it now" onClick={openReport} />
+            <Tile value={lists ? lists.lists.reduce((n, l) => n + l.rows, 0).toLocaleString('en-IN') : '…'} title="Risk lists and STIX"
+                  sub="scored lists of CVEs, addresses, domains and technologies for a SIEM, firewall or EDR, and the intelligence graph as a STIX 2.1 bundle" cta="Export" onClick={() => setSheet('exports')} />
           </div>
         </>
       )}
@@ -238,6 +242,34 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
       {sheet === 'campaigns' && <Sheet title="Campaigns" sub="Correlated threats: exploited CVEs, chained assets and decoy surges." onClose={close}><Campaigns rows={camps} /></Sheet>}
       {sheet === 'advisories' && <Sheet title="Real advisories that name our products" sub="Latest CISA advisories, matched to the inventory." onClose={close}><Advisories rows={adv} /></Sheet>}
       {sheet === 'sources' && <Sheet wide title="Where the intelligence comes from" sub="Hover a row for its funnel." onClose={close}><Sources rows={sources} /></Sheet>}
+      {sheet === 'exports' && (
+        <Sheet title="Risk lists and STIX" sub="Machine-readable and scored, with provenance on every row. Pull on a schedule, or stream the same alerts through the channels." onClose={close}>
+          {!lists ? <div className="text-mute">Counting the lists…</div> : (
+            <div>
+              {lists.lists.map((l) => (
+                <div key={l.id} className="flex items-center justify-between gap-4 border-t border-line py-3">
+                  <div className="min-w-0">
+                    <div className="font-medium">{l.title}</div>
+                    <div className="text-xs text-mute">{l.rows.toLocaleString('en-IN')} rows · for {l.for}</div>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <a className="rounded-full bg-panel-2 px-3 py-1.5 text-xs font-semibold hover:bg-panel-3" href={`/api/risklists/${l.id}?format=csv`} download={`odyssey-risklist-${l.id}.csv`}>CSV</a>
+                    <a className="rounded-full bg-panel-2 px-3 py-1.5 text-xs font-semibold hover:bg-panel-3" href={`/api/risklists/${l.id}`} target="_blank" rel="noreferrer">JSON</a>
+                  </div>
+                </div>
+              ))}
+              <div className="flex items-center justify-between gap-4 border-t border-line py-3">
+                <div className="min-w-0">
+                  <div className="font-medium">The intelligence graph as a STIX 2.1 bundle</div>
+                  <div className="text-xs text-mute">identities, vulnerabilities, software, campaigns, attack patterns, malware, intrusion sets (overlap, not attribution), indicators, sightings, relationships</div>
+                </div>
+                <a className="shrink-0 rounded-full bg-action px-4 py-1.5 text-xs font-semibold text-ink hover:opacity-85" href="/api/graph/stix" download="odyssey-graph.stix.json">Download</a>
+              </div>
+              <p className="pt-3 text-xs text-mute">{lists.how}</p>
+            </div>
+          )}
+        </Sheet>
+      )}
       {sheet === 'sitrep' && (
         <Sheet wide title="National cyber threat situation report" sub="Markdown, ready for CERT-In, NCIIPC and the sector CSIRTs. Every figure is on a screen here." onClose={close}>
           {!report ? <div className="text-mute"><Loader2 size={14} className="mr-1 inline animate-spin" />Writing the report from the live state…</div> : (

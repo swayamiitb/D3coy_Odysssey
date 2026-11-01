@@ -106,7 +106,7 @@ def main_() -> int:
             "SOC": ["/api/soc/metrics", "/api/cases?status=open", "/api/heatmaps", "/api/autopilot",
                     "/api/alerts?limit=400", "/api/telemetry", "/api/soc/handover"],
             "Intel": ["/api/intel/technologies", "/api/intel/sources", "/api/intel/advisories", "/api/campaigns",
-                      "/api/riskplan", "/api/advisories"],
+                      "/api/riskplan", "/api/advisories", "/api/graph"],
             "Organisations": ["/api/orgs"],
             "Proof": ["/api/scorecard", "/api/tests/last", "/api/ledger/verify", "/api/languages"],
         }
@@ -135,6 +135,38 @@ def main_() -> int:
             get(f"/api/replay/{org}/{cve}")
             return f"{org}:{cve}"
         check("alert sheet: detail, related, workflow, CERT-In report, STIX, replay", alert_sheet)
+
+        def graph():
+            from urllib.parse import quote
+            g = get("/api/graph")
+            ids = {n["id"] for n in g["nodes"]}
+            assert g["nodes"] and all(e["from"] in ids and e["to"] in ids for e in g["edges"]), "edge without a node"
+            kinds = {k["id"] for k in g["kinds"]}
+            assert {"org", "product", "cve", "technique", "actor"} <= kinds, f"kinds: {sorted(kinds)}"
+            oid = get("/api/orgs")[0]["id"]
+            focused = get(f"/api/graph?focus={oid}")
+            assert focused["focus"]["id"] == oid and all(n["facts"].get("org_id") == oid for n in focused["nodes"] if n["kind"] == "org")
+            cve_node = next(n["id"] for n in g["nodes"] if n["kind"] == "cve")
+            card = get(f"/api/graph/node?id={quote(cve_node)}")
+            assert card["neighbours"] and card["events"], "card without neighbours or evidence"
+            actor = next(n for n in g["nodes"] if n["kind"] == "actor")
+            assert "not attribution" in actor["sub"], actor["sub"]
+            assert c.get("/api/graph?focus=NOPE-99").status_code == 404
+            lists = get("/api/risklists")
+            assert {x["id"] for x in lists["lists"]} == {"cves", "ips", "domains", "products"}
+            ips = get("/api/risklists/ips")["rows"]
+            assert ips and ips[0]["score"] >= ips[-1]["score"] and all(r["provenance"] for r in ips)
+            csv_text = c.get("/api/risklists/cves?format=csv")
+            assert csv_text.status_code == 200 and csv_text.text.startswith("cve,score,tier,kev")
+            stix = get("/api/graph/stix")
+            sids = {o["id"] for o in stix["objects"]}
+            assert stix["type"] == "bundle" and all(o["source_ref"] in sids and o["target_ref"] in sids
+                                                    for o in stix["objects"] if o["type"] == "relationship")
+            assert any(o["type"] == "intrusion-set" and "not attribute" in o["description"] for o in stix["objects"])
+            return (f"{g['summary']['nodes']} nodes, {g['summary']['edges']} edges ({g['summary']['real_edges']} REAL); "
+                    f"{oid}: {focused['summary']['nodes']} nodes; card {card['node']['label']}: {len(card['events'])} events; "
+                    f"{len(ips)} addresses; STIX {len(stix['objects'])} objects")
+        check("intelligence graph: national, one organisation in focus, an entity card, risk lists, STIX", graph)
 
         # ---------------------------------------------------------------- human in the loop
         def approve():
