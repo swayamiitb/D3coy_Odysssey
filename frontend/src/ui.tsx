@@ -77,12 +77,12 @@ export function Band({ tone = 'white', children, className = '' }: { tone?: 'whi
     return (
       <section className="soc-dark relative overflow-hidden border-t border-line text-text">
         <Plexus />
-        <div className={`${WRAP} relative z-10 py-10 ${className}`}>{children}</div>
+        <div className={`${WRAP} relative z-10 py-12 ${className}`}>{children}</div>
       </section>
     )
   }
   const bg = tone === 'soft' ? 'bg-soft' : 'bg-ink'
-  return <section className={`${bg} border-t border-line text-text`}><div className={`${WRAP} py-10 ${className}`}>{children}</div></section>
+  return <section className={`${bg} border-t border-line text-text`}><div className={`${WRAP} py-12 ${className}`}>{children}</div></section>
 }
 
 /* Risk tiers are a scale, not a rainbow: one hue each, used identically everywhere. Pills are a pale tint with the

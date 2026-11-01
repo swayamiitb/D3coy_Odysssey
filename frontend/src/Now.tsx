@@ -1,15 +1,15 @@
 import { ArrowRight, FileText, Inbox, ShieldCheck, ShieldX, Siren, TrendingUp, Wrench } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { api, type Card, type Feed, type ForecastView, type Soc } from './api'
+import { api, type Card, type Feed, type ForecastView, type IntelSource, type Soc, type Summary, type Technology } from './api'
 import { CertInReportModal } from './ExportPanel'
 import { ApprovalQueue } from './proactive'
 import { Honeycomb } from './soc/Honeycomb'
-import { AlertCard, Delta, nf, SocCard, useJson } from './soc/kit'
+import { AlertCard, Delta, nf, SocCard, TabBoxes, useJson } from './soc/kit'
 import { Insight, ScoreCard, SectorExposure, SecurityKpis, TierDonut } from './soc/overview'
-import { IntelSources, LiveThreats, PostureGauges, TechThreats, ThreatTrend } from './soc/panels'
-import { DeadlineTimeline, EventTicker, LikelyNext, NoiseFunnel } from './soc/telemetry'
+import { IntelSources, LiveThreats, PostureGauges, TechThreats, ThreatTrend, useLiveThreatRows } from './soc/panels'
+import { deadlinesSummary, DeadlineTimeline, EventTicker, LikelyNext, NoiseFunnel } from './soc/telemetry'
 import { ThreatMap } from './soc/ThreatMap'
-import { Band, Figures, Row, TIER_FILL, TierPill, useToast, WRAP } from './ui'
+import { Band, Figures, Prov, Row, TIER_FILL, TierPill, useToast, WRAP } from './ui'
 
 /* The duty desk, for a national CERT on shift (SOC black, ui-07). The header: the one sentence that matters and the
    trip card (one warning, one countdown, one action). Then the command centre: three alert cards, the headline
@@ -99,6 +99,23 @@ function LiveStrip({ s, onOpen }: { s?: Live; onOpen: () => void }) {
   )
 }
 
+/** The warnings in order of deadline, after the one in the header; two columns in the strip's wide panel. */
+function UpNext({ rest, feed, onOpen, onGo }: { rest: Card[]; feed: Feed; onOpen: (c: Card) => void; onGo: (view: 'soc' | 'intel' | 'live', tab: string) => void }) {
+  return (
+    <SocCard title="Up next" sub="Warnings in order of deadline"
+             right={<button onClick={() => onGo('soc', 'warnings')} className="text-[13px] font-medium text-accent hover:underline">All warnings</button>}>
+      <div className="-mt-1 grid gap-x-8 lg:grid-cols-2">
+        {rest.slice(0, 8).map((c) => (
+          <Row key={c.id} onClick={() => onOpen(c)}
+               lead={<span className="h-2.5 w-2.5 rounded-full" style={{ background: TIER_FILL[c.tier] }} />}
+               title={title(c)} sub={`${c.org_name} · ${c.cve_id}`}
+               trail={<Countdown issuedAt={(c as Card & { issued_at?: string }).issued_at ?? feed.issued_at} hours={c.deadline_hours} />} />
+        ))}
+      </div>
+    </SocCard>
+  )
+}
+
 export function Now({ onOpen, onOrg, onGo, tick }: {
   onOpen: (c: Card) => void; onOrg: (id: string) => void; onGo: (view: 'soc' | 'intel' | 'live', tab: string) => void; tick: number
 }) {
@@ -110,6 +127,11 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
   const live = useJson<Live>('/api/live', [], 5000).data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const metrics = useJson<any>('/api/soc/metrics', [tick]).data
+  const { rows: liveRows } = useLiveThreatRows()
+  const tech = useJson<Technology[]>('/api/intel/technologies').data
+  const summary = useJson<Summary>('/api/summary').data
+  const sources = useJson<IntelSource[]>('/api/intel/sources').data
+  const scorecard = useJson<{ funnel: { cves_this_month: number; critical_or_compromise: number; noise_reduction_x: number } }>('/api/scorecard').data
   const toast = useToast()
   const load = () => {
     api.feed().then(setFeed).catch(() => undefined)
@@ -136,6 +158,14 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
   const compCard = feed.cards.find((c) => c.tier === 'Compromise')
   const fresh = live ? live.feeds.filter((f: { status: string }) => f.status === 'fresh').length : undefined
   const today = soc?.pressure.at(-1), yesterday = soc?.pressure.at(-2)
+  const dl = deadlinesSummary(feed)
+  const topFc = fc ? [...fc.items].sort((a, b) => b.p - a.p)[0] : undefined
+  const techTop = (tech ?? []).filter((t) => t.critical > 0).sort((a, b) => b.critical - a.critical)[0]
+  const sectorRows = summary ? Object.entries(summary.sector_heatmap).map(([k, t]) => [k, (t.Critical ?? 0) + (t.Compromise ?? 0)] as [string, number]).sort((a, b) => b[1] - a[1]) : []
+  const sectorTop = sectorRows[0], sectorN = sectorRows.length
+  const srcRows = (sources ?? []).filter((x) => (x.relevant ?? 0) > 0).sort((a, b) => (b.relevant ?? 0) - (a.relevant ?? 0))
+  const srcTop = srcRows[0], srcN = sources ? srcRows.length : undefined
+  const funnel = scorecard?.funnel
 
   return (
     <>
@@ -198,7 +228,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
         </div>
       </section>
 
-      <main className={`${WRAP} space-y-6 py-8`}>
+      <main className={`${WRAP} space-y-8 py-12`}>
         <div className="grid gap-4 lg:grid-cols-3">
           {compCard ? (
             <AlertCard tone="comp" icon={<Siren size={18} />} onClick={() => onOpen(compCard)} action="Review the incident"
@@ -242,25 +272,21 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
 
         <ThreatMap orgs={soc?.orgs} onOrg={onOrg} />
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-          <DeadlineTimeline feed={feed} onOpen={(c) => onOpen(c as Card)} />
-          <SocCard title="Noise funnel" prov={['REAL']} sub="From every CVE this month to the warnings that matter"><NoiseFunnel /></SocCard>
-        </div>
-
-        <div className="grid gap-6 xl:grid-cols-2">
-          <LiveThreats onAll={() => onGo('live', '')} />
-          <SocCard title="Up next" sub="Warnings in order of deadline"
-                   right={<button onClick={() => onGo('soc', 'warnings')} className="text-[13px] font-medium text-accent hover:underline">All warnings</button>}>
-            <div className="-mt-1">
-              {rest.slice(0, 7).map((c) => (
-                <Row key={c.id} onClick={() => onOpen(c)}
-                     lead={<span className="h-2.5 w-2.5 rounded-full" style={{ background: TIER_FILL[c.tier] }} />}
-                     title={title(c)} sub={`${c.org_name} · ${c.cve_id}`}
-                     trail={<Countdown issuedAt={(c as Card & { issued_at?: string }).issued_at ?? feed.issued_at} hours={c.deadline_hours} />} />
-              ))}
-            </div>
-          </SocCard>
-        </div>
+        {/* The feeds, as a strip of summary boxes with one panel open: less to scan, nothing taken away. */}
+        <TabBoxes label="Feeds and deadlines" defaultOpen="next" items={[
+          { key: 'live', title: 'Live threats', chip: <span className="soc-live h-2 w-2 shrink-0 rounded-full bg-ok" />, count: nf(liveRows.length),
+            preview: liveRows[0] ? `Newest: ${liveRows[0].title}` : 'Quiet: no detections; run a drill on Live to see one',
+            panel: <LiveThreats onAll={() => onGo('live', '')} cols /> },
+          { key: 'next', title: 'Up next', count: nf(rest.length),
+            preview: rest[0] ? <>{rest[0].org_name} · {rest[0].cve_id} · <Countdown issuedAt={(rest[0] as Card & { issued_at?: string }).issued_at ?? feed.issued_at} hours={rest[0].deadline_hours} /></> : 'No further warning waiting',
+            panel: <UpNext rest={rest} feed={feed} onOpen={onOpen} onGo={onGo} /> },
+          { key: 'due', title: 'Deadlines, next 24 h', count: nf(dl.due),
+            preview: dl.late ? `${dl.late} already late${dl.next ? ` · next ${dl.next.c.org_name}` : ''}` : dl.next ? `None late · next: ${dl.next.c.org_name} · ${dl.next.c.cve_id}` : 'Nothing due in the next 24 hours',
+            panel: <DeadlineTimeline feed={feed} onOpen={(c) => onOpen(c as Card)} /> },
+          { key: 'likely', title: 'Likely to be exploited next', chip: <Prov p="REAL" />, count: fc ? nf(fc.flagged) : '—',
+            preview: topFc ? `${topFc.cve} · ${topFc.product ?? 'product in text'} · ${Math.round(topFc.p * 100)}% · ${topFc.orgs} operators` : 'flagged on the day they were published',
+            panel: <SocCard title="Likely to be exploited next" prov={['REAL']} sub="New CVEs on our exposed assets, flagged on the day they were published, before CISA confirms exploitation"><LikelyNext onOpen={() => onGo('intel', 'overview')} /></SocCard> },
+        ]} />
 
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
           <div className="soc-dark rounded-2xl"><ThreatTrend soc={soc} /></div>
@@ -270,20 +296,25 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-3">
+        <TabBoxes label="Analysis" defaultOpen="tech" items={[
+          { key: 'tech', title: 'Threats by technology', chip: <Prov p="REAL" />, count: techTop ? nf(techTop.critical) : '—',
+            preview: techTop ? `${techTop.label} carries the most Critical warnings${techTop.campaign === 'ACTIVE' ? ' and is under an active campaign' : ''}` : 'Critical warnings per product in the inventory',
+            panel: <TechThreats onOpen={() => onGo('intel', 'threats')} /> },
+          { key: 'sector', title: 'Exposure by sector', count: sectorTop ? nf(sectorTop[1]) : '—',
+            preview: sectorTop ? `${sectorTop[0]} has the most Critical warnings; ${sectorN} sectors watched` : 'Critical warnings and suspected compromises per sector',
+            panel: <SocCard title="Exposure by sector" prov={['REAL', 'SIM']} sub="Critical warnings and suspected compromises per sector"><SectorExposure /></SocCard> },
+          { key: 'sources', title: 'Intelligence sources', count: srcN != null ? nf(srcN) : '—',
+            preview: srcTop ? `${srcTop.name} contributed the most relevant signals` : 'Signals that touched our inventory, by source',
+            panel: <IntelSources /> },
+          { key: 'funnel', title: 'Noise funnel', chip: <Prov p="REAL" />, count: funnel ? `${funnel.noise_reduction_x}×` : '—',
+            preview: funnel ? `${nf(funnel.cves_this_month)} CVEs this month → ${nf(funnel.critical_or_compromise)} warnings that matter` : 'From every CVE this month to the warnings that matter',
+            panel: <SocCard title="Noise funnel" prov={['REAL']} sub="From every CVE this month to the warnings that matter"><NoiseFunnel /></SocCard> },
+        ]} />
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
           <PostureGauges soc={soc} />
-          <SocCard title="Exposure by sector" prov={['REAL', 'SIM']} sub="Critical warnings and suspected compromises per sector"><SectorExposure /></SocCard>
           <SocCard title="Security KPIs" sub="Each with its basis"><SecurityKpis soc={soc} /></SocCard>
         </div>
-
-        <div className="grid gap-6 xl:grid-cols-2">
-          <TechThreats onOpen={() => onGo('intel', 'threats')} />
-          <IntelSources />
-        </div>
-
-        <SocCard title="Likely to be exploited next" prov={['REAL']} sub="New CVEs on our exposed assets, flagged on the day they were published, before CISA confirms exploitation">
-          <LikelyNext onOpen={() => onGo('intel', 'overview')} />
-        </SocCard>
       </main>
 
       <Band tone="black">

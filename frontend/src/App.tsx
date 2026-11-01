@@ -10,9 +10,7 @@ import { Proof } from './Proof'
 import { Footer, IntelFigures, OrgsFigures, ProofFigures, SocFigures, TopNav, type Go, type View } from './Shell'
 import { Soc } from './Soc'
 import { CaseBoard, OpsLog, OpsOverview, SystemView, WarningList } from './SocOps'
-import { AttackTelemetry, CaseLoad, Throughput } from './soc/extras'
-import { SocCard } from './soc/kit'
-import { AttackFamilies, DecisionsToday, ExposedHosts, FeedHealth, SensorGrid } from './soc/telemetry'
+import { AttackTelemetry, LiveStrip, SocStrip, Throughput } from './soc/extras'
 import { AlertChip } from './soc/overview'
 import { IntelSources } from './soc/panels'
 import { Rail, RAIL_NARROW, RAIL_WIDE, useRail } from './soc/Rail'
@@ -45,12 +43,8 @@ function LivePage({ go }: { go: Go }) {
       <Hero title="Live" sub="Odyssey running right now: sensors, real feeds, detectors and the autopilot, refreshed every few seconds.">
         <LiveFigures s={s} />
       </Hero>
-      <main className={`${WRAP} flex flex-1 flex-col gap-10 py-10`}>
-        <div className="grid gap-6 xl:grid-cols-3">
-          <SocCard title="Decoy grid" prov={['SIM']} sub="Sessions per decoy product this cycle, and the 24 sensors"><SensorGrid s={s} /></SocCard>
-          <SocCard title="Feed health" prov={['REAL']} sub="The real feeds read live, checked every 15 minutes"><FeedHealth s={s} /></SocCard>
-          <SocCard title="Attack families on the shield" prov={['SIM']} sub="What the HTTP shield caught, by family"><AttackFamilies onGo={() => window.scrollTo({ top: 900, behavior: 'smooth' })} /></SocCard>
-        </div>
+      <main className={`${WRAP} flex flex-1 flex-col gap-12 py-12`}>
+        <LiveStrip s={s} onShield={() => window.scrollTo({ top: 900, behavior: 'smooth' })} />
         <Throughput s={s} />
         <Live s={s} onGo={(v, t) => go(v, t)} />
       </main>
@@ -153,12 +147,8 @@ export default function App() {
           </Hero>
           <main className={`${WRAP} flex flex-1 py-12`}>
             {socTab === 'overview' ? (
-              <div className="w-full min-w-0 space-y-10">
-                <CaseLoad tick={tick} />
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-                  <SocCard title="Decisions" prov={['SIM']} sub="Approved and rejected, by day; who decided; how long proposals waited"><DecisionsToday tick={tick} /></SocCard>
-                  <SocCard title="Most exposed hosts" prov={['SIM']} sub="Internet- and DMZ-facing hosts across every operator, worst warning first"><ExposedHosts orgs={socOrgs} onOrg={(id) => { setOrg(id); go('orgs') }} /></SocCard>
-                </div>
+              <div className="w-full min-w-0 space-y-12">
+                <SocStrip tick={tick} orgs={socOrgs} onOrg={(id) => { setOrg(id); go('orgs') }} />
                 <OpsOverview tick={tick} onCases={() => setSocTab('cases')} onWarnings={() => setSocTab('warnings')} />
               </div>
             )

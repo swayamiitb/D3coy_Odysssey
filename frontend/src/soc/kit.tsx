@@ -1,5 +1,5 @@
-import { ChevronRight } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { fetchJson } from '../api'
 import { Prov } from '../ui'
 
@@ -178,6 +178,80 @@ export function BarList({ rows, color, onPick }: {
       })}
     </ul>
   )
+}
+
+/** A strip of compact boxes, one panel open below (ui-10). Each box is a short summary with a visible Open/Close
+ *  chevron; the open box is outlined and a notch points at its panel, which grows and shrinks in place, so the rows
+ *  below simply move. One panel at a time; none open is allowed. Keyboard: Enter or Space on a box. */
+export function TabBoxes<K extends string>({ label, items, defaultOpen = null }: {
+  label: string
+  items: { key: K; title: ReactNode; chip?: ReactNode; count?: ReactNode; preview: ReactNode; panel: ReactNode }[]
+  defaultOpen?: K | null
+}) {
+  const [open, setOpen] = useState<K | null>(defaultOpen)
+  const [shown, setShown] = useState<K | null>(defaultOpen)
+  const [grown, setGrown] = useState(!!defaultOpen)
+  useEffect(() => {
+    if (open) {
+      setShown(open)
+      const id = requestAnimationFrame(() => requestAnimationFrame(() => setGrown(true)))
+      return () => cancelAnimationFrame(id)
+    }
+    setGrown(false)
+    const t = window.setTimeout(() => setShown(null), 360)
+    return () => window.clearTimeout(t)
+  }, [open])
+  const cols = items.length >= 4 ? 'sm:grid-cols-2 xl:grid-cols-4' : items.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+  const current = items.find((it) => it.key === shown)
+  return (
+    <div role="group" aria-label={label}>
+      <div className={`grid gap-4 ${cols}`}>
+        {items.map((it) => {
+          const on = open === it.key
+          return (
+            <button key={it.key} onClick={() => setOpen(on ? null : it.key)} aria-expanded={on} aria-controls={`tabbox-${label}-${it.key}`}
+                    className={`relative flex min-h-[124px] flex-col rounded-2xl border p-4 text-left transition-colors ${on ? 'border-text bg-panel' : 'border-line bg-panel hover:border-line-2'}`}>
+              <span className="flex min-w-0 items-center gap-2 text-[15px] font-semibold"><span className="truncate">{it.title}</span>{it.chip}</span>
+              <span className="mt-1.5 line-clamp-2 min-w-0 flex-1 text-[13px] leading-snug text-mute">{it.preview}</span>
+              <span className="mt-3 flex items-end justify-between gap-3">
+                <span className="text-[22px] font-semibold leading-none tabular-nums">{it.count ?? ''}</span>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold transition-colors ${on ? 'bg-text text-ink' : 'bg-panel-2 text-text'}`}>
+                  {on ? 'Close' : 'Open'}<ChevronDown size={14} className={`transition-transform duration-200 ${on ? 'rotate-180' : ''}`} />
+                </span>
+              </span>
+              {on && <span aria-hidden className="absolute -bottom-[9px] left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-b border-r border-text bg-panel" />}
+            </button>
+          )
+        })}
+      </div>
+      <div className="soc-reveal" data-open={grown}>
+        <div className="min-h-0 overflow-hidden">
+          {current && <div id={`tabbox-${label}-${current.key}`} role="region" aria-label={typeof current.title === 'string' ? current.title : label} className="pt-4">{current.panel}</div>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** A whole number that counts to its new value when the data changes (600 ms, still under reduced motion). */
+export function AnimatedNumber({ value, format = (v) => v.toLocaleString('en-IN') }: { value: number; format?: (v: number) => string }) {
+  const [shown, setShown] = useState(value)
+  const prev = useRef(value)
+  useEffect(() => {
+    const from = prev.current, to = value
+    prev.current = value
+    if (from === to || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setShown(to); return }
+    const t0 = performance.now()
+    let raf = 0
+    const step = (now: number) => {
+      const p = Math.min(1, (now - t0) / 600)
+      setShown(Math.round(from + (to - from) * (1 - (1 - p) ** 3)))
+      if (p < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [value])
+  return <>{format(shown)}</>
 }
 
 /** A block's four states share one frame: loading keeps the shape, error says what broke. */

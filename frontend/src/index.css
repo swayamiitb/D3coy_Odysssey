@@ -279,3 +279,7 @@ html.soc .font-mono { font-variant-numeric: tabular-nums slashed-zero; letter-sp
    the numbers; the text itself stays at full strength. */
 .soc-seams.is-glass { background: transparent; border-color: color-mix(in oklab, var(--color-line-2) 85%, transparent); }
 .soc-seams.is-glass > * { background: color-mix(in oklab, var(--color-panel) 55%, transparent); box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-line-2) 70%, transparent); backdrop-filter: blur(2px); }
+/* A strip's panel (soc/kit.tsx TabBoxes) grows and shrinks in place, so everything below just moves. */
+.soc-reveal { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 320ms cubic-bezier(0.23, 1, 0.32, 1); }
+.soc-reveal[data-open="true"] { grid-template-rows: 1fr; }
+@media (prefers-reduced-motion: reduce) { .soc-reveal { transition: none; } }

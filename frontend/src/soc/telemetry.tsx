@@ -53,6 +53,15 @@ function dueOf(c: Card, fallback: string): number | null {
   return new Date(c.issued_at ?? fallback).getTime() + c.deadline_hours * HOUR
 }
 
+/** How many warnings are due in the next 24 hours, and how many are already late (for the strip's summary box). */
+export function deadlinesSummary(feed: Feed | undefined, now = Date.now()): { due: number; late: number; next?: { c: Card; due: number } } {
+  if (!feed) return { due: 0, late: 0 }
+  const items = feed.cards.map((c) => ({ c: c as Card, due: dueOf(c as Card, feed.issued_at) }))
+    .filter((x): x is { c: Card; due: number } => x.due != null && x.due - now < 24 * HOUR)
+    .sort((a, b) => a.due - b.due)
+  return { due: items.length, late: items.filter((x) => x.due < now).length, next: items.find((x) => x.due >= now) }
+}
+
 /** The next 24 hours of CERT-In and KEV deadlines on one line; what is already late sits at the left edge. */
 export function DeadlineTimeline({ feed, onOpen }: { feed?: Feed; onOpen: (c: Card) => void }) {
   const [now, setNow] = useState(Date.now())

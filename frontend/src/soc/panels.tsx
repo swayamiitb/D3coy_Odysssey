@@ -1,9 +1,9 @@
 import { Activity, Bug, FileWarning, Radar, ShieldAlert, Siren } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { IntelSource, LedgerEvent, ShieldStatus, Soc, Technology } from '../api'
 import { Prov, TIER_FILL, TierPill } from '../ui'
-import { ago, BarList, Delta, Gauge, nf, Pending, Seg, SocCard, StackBar, useJson } from './kit'
+import { ago, AnimatedNumber, BarList, Delta, Gauge, nf, Pending, Seg, SocCard, StackBar, useJson } from './kit'
 
 /* The screenshot set's panels, on the console's real data (ui-07): a live threats feed, the threat trend, a gauge pair,
    threats by technology and the intelligence sources. Every panel names where its numbers come from. */
@@ -13,8 +13,8 @@ interface LiveState { detections: LiveDetection[]; feeds: { name: string; status
 
 type FeedRow = { id: string; ts: string; icon: 'web' | 'decoy' | 'beacon' | 'flow' | 'intel'; title: string; line: string; tier?: 'Compromise' | 'Critical' | 'High' | 'Medium' | 'Watch'; tag?: string }
 
-/** Live threats: what the HTTP Shield and the decoy grid saw, newest first. */
-export function LiveThreats({ onAll }: { onAll: () => void }) {
+/** The live threat rows, shared by the feed card and the strip's summary box. */
+export function useLiveThreatRows(): { rows: FeedRow[]; loaded: boolean; error?: string } {
   const shield = useJson<ShieldStatus>('/api/shield', [], 5000)
   const live = useJson<LiveState>('/api/live', [], 5000)
   const ledger = useJson<LedgerEvent[]>('/api/events/recent?limit=80', [], 10000)
@@ -38,22 +38,28 @@ export function LiveThreats({ onAll }: { onAll: () => void }) {
       if (out.length >= 7) break
       if (e.kind === 'kev.added') out.push({ id: `l-${e.seq}`, ts: e.ts, icon: 'intel', title: `${e.subject} confirmed exploited`, line: 'CISA KEV catalogue · REAL', tag: 'KEV' })
     }
-    return out.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 7)
+    return out.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 8)
   }, [shield.data, live.data, ledger.data])
+  return { rows, loaded: !!(shield.data || live.data), error: shield.error ?? live.error }
+}
+
+/** Live threats: what the HTTP Shield and the decoy grid saw, newest first. */
+export function LiveThreats({ onAll, cols }: { onAll: () => void; cols?: boolean }) {
+  const { rows, loaded, error } = useLiveThreatRows()
   const Icon = { web: Bug, decoy: Radar, beacon: Siren, flow: Activity, intel: FileWarning }
   const tile = { web: 'bg-crit/12 text-crit-ink', decoy: 'bg-high/12 text-high-ink', beacon: 'bg-comp/15 text-comp-ink', flow: 'bg-med/15 text-med-ink', intel: 'bg-panel-2 text-mute' }
   return (
     <SocCard title={<><span className="soc-live h-2 w-2 rounded-full bg-ok" />Live threats</>} prov={['REAL', 'SIM']}
              sub="HTTP Shield detections, decoy-grid surges and new CISA KEV entries, newest first"
              right={<button onClick={onAll} className="text-[13px] font-medium text-accent hover:underline">Open Live</button>}>
-      {!shield.data && !live.data ? <Pending error={shield.error ?? live.error} what="live threats" h={300} /> : rows.length === 0 ? (
+      {!loaded ? <Pending error={error} what="live threats" h={300} /> : rows.length === 0 ? (
         <div className="flex h-[300px] flex-col items-center justify-center gap-1 text-center">
           <ShieldAlert size={20} className="text-faint" />
           <div className="text-[14px] font-medium">Quiet: no detections</div>
           <div className="text-[13px] text-faint">Run an attack drill on the Live page to see one arrive.</div>
         </div>
       ) : (
-        <ul className="-mx-1">
+        <ul className={`-mx-1 ${cols ? 'grid gap-x-8 lg:grid-cols-2' : ''}`}>
           {rows.map((r) => {
             const I = Icon[r.icon]
             return (
@@ -76,31 +82,49 @@ export function LiveThreats({ onAll }: { onAll: () => void }) {
   )
 }
 
-/** Threat trend: open warnings by tier per day, replayed from every alert's timeline (the lead's `pressure`). */
+/** Threat trend: open warnings by tier per day, replayed from every alert's timeline (the lead's `pressure`). Live for
+ *  an analyst: hover any day for its readout and its change on the day before; the range's peak, low and mean; the
+ *  mean as a dashed line; the latest point pulses; the headline counts to its new value when the data changes. */
 export function ThreatTrend({ soc }: { soc?: Soc }) {
   const [range, setRange] = useState<'7' | '30' | '90'>('30')
+  const [hov, setHov] = useState<number | null>(null)
   const all = soc?.pressure ?? []
   const data = all.slice(-Number(range))
   const last = data.at(-1), first = data[0]
+  const i = hov != null && hov >= 0 && hov < data.length ? hov : data.length - 1
+  const at = data[i], before = i > 0 ? data[i - 1] : undefined
+  const peak = data.reduce((m, d) => (d.Critical > m.Critical ? d : m), data[0] ?? { date: '', Critical: 0, High: 0, Compromise: 0 })
+  const low = data.reduce((m, d) => (d.Critical < m.Critical ? d : m), data[0] ?? peak)
+  const mean = data.length ? Math.round(data.reduce((s, d) => s + d.Critical, 0) / data.length) : 0
+  const built = soc?.built_at ? new Date(soc.built_at) : undefined
   return (
     <SocCard title="Threat trend" prov={['REAL', 'SIM']}
-             sub="Open warnings on each day, replayed from every alert's timeline"
+             sub="Open warnings on each day, replayed from every alert's timeline; hover a day for its readout"
              right={<Seg label="Range" value={range} onChange={setRange} items={[['7', '7 days'], ['30', '30 days'], ['90', '90 days']]} />}>
-      {!soc ? <Pending what="the trend" h={260} /> : (
+      {!soc || !at ? <Pending what="the trend" h={260} /> : (
         <>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="text-[30px] font-semibold leading-none tracking-tight tabular-nums">{nf(last?.Critical)}</span>
-            <span className="text-[13px] text-mute">open Critical today</span>
-            {last && first && <Delta now={last.Critical} before={first.Critical} good="down" window={`vs ${range} days ago`} />}
+            <span className="text-[30px] font-semibold leading-none tracking-tight tabular-nums"><AnimatedNumber value={at.Critical} /></span>
+            <span className="text-[13px] text-mute">open Critical {hov == null ? 'today' : `on ${at.date.slice(5)}`}</span>
+            {before && <Delta now={at.Critical} before={before.Critical} good="down" window={hov == null ? 'vs yesterday' : 'vs the day before'} />}
+            {hov == null && last && first && last !== first && <Delta now={last.Critical} before={first.Critical} good="down" window={`vs ${range} days ago`} />}
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-faint">
+            <span><b className="font-mono text-mute">{nf(at.High)}</b> High · <b className="font-mono text-mute">{nf(at.Compromise)}</b> suspected compromise</span>
+            <span>peak <b className="font-mono text-mute">{nf(peak.Critical)}</b> on {peak.date.slice(5)} · low <b className="font-mono text-mute">{nf(low.Critical)}</b> · mean <b className="font-mono text-mute">{nf(mean)}</b> over {data.length} days</span>
+            {built && <span className="flex items-center gap-1.5"><span className="soc-live h-1.5 w-1.5 rounded-full bg-ok" />live · rebuilt {built.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>}
           </div>
           <div className="mt-3 flex flex-wrap gap-4 text-[12px] text-mute">
             {(['Critical', 'High', 'Compromise'] as const).map((t) => (
               <span key={t} className="flex items-center gap-1.5"><span className="h-[3px] w-3.5 rounded-full" style={{ background: TIER_FILL[t] }} />{t === 'Compromise' ? 'Suspected compromise' : t}</span>
             ))}
+            <span className="flex items-center gap-1.5"><span className="h-0 w-3.5 border-t border-dashed border-line-2" />mean</span>
           </div>
           <div className="mt-2 h-[330px]">
             <ResponsiveContainer>
-              <ComposedChart data={data} margin={{ top: 8, right: 6, bottom: 0, left: -18 }}>
+              <ComposedChart data={data} margin={{ top: 8, right: 6, bottom: 0, left: -18 }}
+                             onMouseMove={(st) => { const l = st?.activeLabel; setHov(l == null ? null : data.findIndex((d) => d.date === String(l))) }}
+                             onMouseLeave={() => setHov(null)}>
                 <defs>
                   <linearGradient id="trend-crit" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={TIER_FILL.Critical} stopOpacity={0.32} />
@@ -113,7 +137,11 @@ export function ThreatTrend({ soc }: { soc?: Soc }) {
                 <Tooltip cursor={{ stroke: 'var(--color-line-2)' }}
                          contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line-2)', borderRadius: 10, fontSize: 12 }}
                          labelStyle={{ color: 'var(--color-text)', fontWeight: 600 }} itemStyle={{ color: 'var(--color-text)' }} />
-                <Area type="monotone" dataKey="Critical" stroke={TIER_FILL.Critical} strokeWidth={2} fill="url(#trend-crit)" isAnimationActive={false} />
+                <ReferenceLine y={mean} stroke="var(--color-line-2)" strokeDasharray="3 4" />
+                <Area type="monotone" dataKey="Critical" stroke={TIER_FILL.Critical} strokeWidth={2} fill="url(#trend-crit)" isAnimationActive={false}
+                      dot={(p: { index?: number; cx?: number; cy?: number }) => (p.index === data.length - 1
+                        ? <circle key="last" cx={p.cx} cy={p.cy} r={4.5} fill={TIER_FILL.Critical} stroke="var(--color-panel)" strokeWidth={2} className="soc-live" />
+                        : <g key={p.index} />)} />
                 <Line type="monotone" dataKey="High" stroke={TIER_FILL.High} strokeWidth={1.6} dot={false} isAnimationActive={false} />
                 <Line type="stepAfter" dataKey="Compromise" name="Suspected compromise" stroke={TIER_FILL.Compromise} strokeWidth={2} dot={false} isAnimationActive={false} />
               </ComposedChart>
