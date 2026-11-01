@@ -15,8 +15,9 @@ export interface GraphView {
 }
 export interface Hit { id: string; x: number; y: number; r: number }
 
-const TIER: Record<string, string> = { Compromise: '#8a63e8', Critical: '#e5383b', High: '#ff7a3d', Medium: '#f5c242' }
-const TIER_LIGHT: Record<string, string> = { Compromise: '#7356bf', Critical: '#e11900', High: '#ff6937', Medium: '#f5b800' }
+// one restrained scale: the tiers are muted so the drawing reads as an instrument, and only the compromise is vivid
+const TIER: Record<string, string> = { Compromise: '#9b7bff', Critical: '#d94c4c', High: '#c9834f', Medium: '#9a8a54' }
+const TIER_LIGHT: Record<string, string> = { Compromise: '#7356bf', Critical: '#c21d1d', High: '#b85f2c', Medium: '#8a7a3a' }
 
 /** Draw the graph each frame. Coordinates are unit-circle based: the layout is in [-1, 1], scaled to the box. */
 export function GraphCanvas({ view, onHover, onPick, dark }: {
@@ -68,11 +69,11 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
 
       // rings and their names
       ctx.lineWidth = 1
-      ctx.font = `600 ${Math.max(9, Math.min(11, R / 34))}px "Inter Variable", "Segoe UI", system-ui, sans-serif`
+      ctx.font = `500 ${Math.max(9, Math.min(10.5, R / 36))}px "Inter Variable", "Segoe UI", system-ui, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       for (const rg of rings) {
-        ctx.strokeStyle = `rgba(${line},${isDark ? 0.09 : 0.07})`
+        ctx.strokeStyle = `rgba(${line},${isDark ? 0.11 : 0.08})`
         ctx.beginPath()
         ctx.arc(cx, cy, rg.r * R, 0, Math.PI * 2)
         ctx.stroke()
@@ -80,12 +81,32 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
         const ang = -Math.PI * 0.72
         const lx = cx + rg.r * R * Math.cos(ang), ly = cy + rg.r * R * Math.sin(ang)
         const w = ctx.measureText(rg.label).width + 14
-        ctx.fillStyle = isDark ? '#141416' : '#ececec'
-        ctx.beginPath()
-        ctx.roundRect(lx - w / 2, ly - 8, w, 16, 8)
-        ctx.fill()
-        ctx.fillStyle = `rgba(${ink},0.6)`
+        ctx.fillStyle = isDark ? '#0e0e10' : '#f6f6f6'
+        ctx.fillRect(lx - w / 2, ly - 8, w, 16)
+        ctx.strokeStyle = `rgba(${line},${isDark ? 0.18 : 0.14})`
+        ctx.lineWidth = 1
+        ctx.strokeRect(lx - w / 2 + 0.5, ly - 7.5, w - 1, 15)
+        ctx.fillStyle = `rgba(${ink},0.55)`
         ctx.fillText(rg.label, lx, ly)
+      }
+
+      // the bezel: four cardinal ticks on the outer ring and a faint crosshair through the centre
+      if (rings.length) {
+        const outer = rings[rings.length - 1].r * R
+        ctx.strokeStyle = `rgba(${line},${isDark ? 0.22 : 0.16})`
+        ctx.lineWidth = 1
+        for (let i = 0; i < 4; i++) {
+          const a = (i * Math.PI) / 2
+          ctx.beginPath()
+          ctx.moveTo(cx + (outer - 6) * Math.cos(a), cy + (outer - 6) * Math.sin(a))
+          ctx.lineTo(cx + (outer + 6) * Math.cos(a), cy + (outer + 6) * Math.sin(a))
+          ctx.stroke()
+        }
+        ctx.strokeStyle = `rgba(${line},${isDark ? 0.05 : 0.04})`
+        ctx.beginPath()
+        ctx.moveTo(cx - outer, cy); ctx.lineTo(cx + outer, cy)
+        ctx.moveTo(cx, cy - outer); ctx.lineTo(cx, cy + outer)
+        ctx.stroke()
       }
 
       const hover = v.hover
@@ -103,11 +124,11 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
         const [ax, ay] = P(a), [bx, by] = P(b)
         const mx = (ax + bx) / 2, my = (ay + by) / 2
         const qx = mx + (cx - mx) * 0.22, qy = my + (cy - my) * 0.22
-        const base = e.kind === 'runs' || e.kind === 'owns' ? 0.07 : 0.16
-        ctx.strokeStyle = on ? (isDark ? '#f4f4f5' : '#000000') : `rgba(${line},${off ? 0.025 : base})`
-        ctx.lineWidth = (0.6 + Math.min(3, e.weight) * 0.3 + (on ? 0.8 : 0)) * Math.min(1.4, R / 330)
+        const base = e.kind === 'runs' || e.kind === 'owns' ? 0.08 : 0.15
+        ctx.strokeStyle = on ? `rgba(${ink},0.75)` : `rgba(${line},${off ? 0.025 : base})`
+        ctx.lineWidth = (on ? 1.1 : 0.7) * Math.min(1.3, R / 330)
         ctx.setLineDash(e.provenance === 'SIM' ? [3, 3] : e.provenance === 'REAL · SIM' ? [6, 3] : [])
-        ctx.globalAlpha = on ? 0.95 : 1
+        ctx.globalAlpha = 1
         ctx.beginPath()
         ctx.moveTo(ax, ay)
         ctx.quadraticCurveTo(qx, qy, bx, by)
@@ -118,16 +139,16 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
 
       // moving light along the freshest edges: evidence travelling through the record
       if (!reduced) {
-        const t = (now / 2600) % 1
+        const t = (now / 5200) % 1
         let k = 0
         for (const e of v.edges) {
           const na = byId.get(e.from), nb = byId.get(e.to)
           if (!na || !nb) continue
           const pulse = Math.max(na.pulse, nb.pulse)
-          if (pulse < 0.6) continue
+          if (pulse < 0.85) continue
           if (hover && !(e.from === hover || e.to === hover)) continue
           k++
-          if (k > 60) break
+          if (k > 24) break
           const a = pos[e.from], b = pos[e.to]
           const [ax, ay] = P(a), [bx, by] = P(b)
           const mx = (ax + bx) / 2, my = (ay + by) / 2
@@ -135,11 +156,10 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
           const tt = (t + k * 0.137) % 1
           const u = 1 - tt
           const x = u * u * ax + 2 * u * tt * qx + tt * tt * bx, y = u * u * ay + 2 * u * tt * qy + tt * tt * by
-          const col = TIER[nb.tier ?? ''] ?? TIER[na.tier ?? ''] ?? (isDark ? '#f4f4f5' : '#000000')
-          ctx.fillStyle = col
-          ctx.globalAlpha = 0.9 * pulse
+          ctx.fillStyle = isDark ? '#f4f4f5' : '#000000'
+          ctx.globalAlpha = 0.55 * pulse
           ctx.beginPath()
-          ctx.arc(x, y, 1.8 * Math.min(1.4, R / 330), 0, Math.PI * 2)
+          ctx.arc(x, y, 1.3 * Math.min(1.3, R / 330), 0, Math.PI * 2)
           ctx.fill()
         }
         ctx.globalAlpha = 1
@@ -153,13 +173,13 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
         const [x, y] = P(p)
         const r = p.r * Math.min(1.4, R / 330)
         if (n.pulse >= 0.05 && a > 0.5) {
-          const period = 1600 + 3400 * (1 - n.pulse)
+          const period = 2800 + 3600 * (1 - n.pulse)
           const ph = reduced ? 0.5 : (now % period) / period
-          const s = 1 + 0.9 * Math.sin(ph * Math.PI)
+          const s = 1 + 0.45 * Math.sin(ph * Math.PI)
           ctx.fillStyle = (isDark ? TIER : TIER_LIGHT)[n.tier ?? ''] ?? `rgba(${ink},0.6)`
-          ctx.globalAlpha = 0.22 * n.pulse * (1 - 0.5 * Math.sin(ph * Math.PI)) * a
+          ctx.globalAlpha = 0.1 * n.pulse * (1 - 0.5 * Math.sin(ph * Math.PI)) * a
           ctx.beginPath()
-          ctx.arc(x, y, (r + 3) * s, 0, Math.PI * 2)
+          ctx.arc(x, y, (r + 2.5) * s, 0, Math.PI * 2)
           ctx.fill()
         }
         if (v.fresh.has(n.id) && !reduced) {
@@ -193,8 +213,8 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
         shape(n, x, y, hover === n.id ? r + 1.5 : r)
         ctx.fillStyle = fill
         ctx.fill()
-        ctx.lineWidth = n.tier ? 1.5 : 1.3
-        ctx.strokeStyle = n.tier ? (isDark ? '#0e0e10' : '#ffffff') : (isDark ? '#f4f4f5' : '#000000')
+        ctx.lineWidth = 1
+        ctx.strokeStyle = n.tier ? `rgba(${isDark ? '14,14,16' : '255,255,255'},0.9)` : `rgba(${ink},0.7)`
         ctx.stroke()
         hitList.push({ id: n.id, x, y, r: Math.max(9, r + 4) })
       }
@@ -206,8 +226,8 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
         const h = byId.get(hover), hp = hover ? pos[hover] : undefined
         if (h && hp) {
           const [x, y] = P(hp)
-          ctx.strokeStyle = isDark ? '#f4f4f5' : '#000000'
-          ctx.lineWidth = 1.6
+          ctx.strokeStyle = `rgba(${ink},0.85)`
+          ctx.lineWidth = 1
           ctx.beginPath()
           ctx.arc(x, y, hp.r * Math.min(1.4, R / 330) + 5, 0, Math.PI * 2)
           ctx.stroke()
@@ -219,16 +239,19 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
             if (!q) return
             const [nx, ny] = P(q)
             const text = n.label.length > 34 ? n.label.slice(0, 33) + '…' : n.label
-            if (bold) ctx.font = `700 ${Math.max(11, Math.min(13, R / 28))}px "Inter Variable", "Segoe UI", system-ui, sans-serif`
+            if (bold) ctx.font = `600 ${Math.max(11, Math.min(12.5, R / 30))}px "Inter Variable", "Segoe UI", system-ui, sans-serif`
             const w = ctx.measureText(text).width + 10
             const right = nx >= cx
             let lx = right ? nx + q.r + 7 : nx - q.r - 7 - w, ly = ny
             // slide down until the label is clear of the ones already placed
             for (let i = 0; i < 12 && placed.some((b) => lx < b.x2 && lx + w > b.x1 && ly - 8 < b.y2 && ly + 8 > b.y1); i++) ly += 14
             placed.push({ x1: lx, x2: lx + w, y1: ly - 8, y2: ly + 8 })
-            ctx.fillStyle = isDark ? 'rgba(14,14,16,0.92)' : 'rgba(255,255,255,0.92)'
+            ctx.fillStyle = isDark ? 'rgba(14,14,16,0.94)' : 'rgba(255,255,255,0.94)'
             ctx.fillRect(lx, ly - 8, w, 16)
-            ctx.fillStyle = bold ? (isDark ? '#f4f4f5' : '#000000') : `rgba(${ink},0.85)`
+            ctx.strokeStyle = `rgba(${line},${bold ? 0.5 : 0.18})`
+            ctx.lineWidth = 1
+            ctx.strokeRect(lx + 0.5, ly - 7.5, w - 1, 15)
+            ctx.fillStyle = bold ? (isDark ? '#f4f4f5' : '#000000') : `rgba(${ink},0.8)`
             ctx.textAlign = 'left'
             ctx.fillText(text, lx + 5, ly)
             if (bold) ctx.font = `500 ${Math.max(10, Math.min(11.5, R / 32))}px "Inter Variable", "Segoe UI", system-ui, sans-serif`
@@ -252,7 +275,7 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
           const [nx, ny] = P(q)
           const text = (n.kind === 'product' ? n.label.replace(/\s*\([^)]*\)\s*$/, '') : n.label)
           const t = text.length > 26 ? text.slice(0, 25) + '…' : text
-          ctx.font = `${n.kind === 'org' ? 600 : 500} ${Math.max(9.5, Math.min(11, R / 34))}px "Inter Variable", "Segoe UI", system-ui, sans-serif`
+          ctx.font = `${n.kind === 'org' ? 500 : 400} ${Math.max(9.5, Math.min(10.5, R / 36))}px "Inter Variable", "Segoe UI", system-ui, sans-serif`
           const w = ctx.measureText(t).width + 8
           const right = nx >= cx
           const lx = right ? nx + q.r + 6 : nx - q.r - 6 - w
@@ -261,17 +284,17 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
           placed.push(bx)
           ctx.fillStyle = isDark ? 'rgba(14,14,16,0.85)' : 'rgba(246,246,246,0.85)'
           ctx.fillRect(lx, ny - 7, w, 14)
-          ctx.fillStyle = `rgba(${ink},${n.kind === 'org' ? 0.95 : 0.75})`
+          ctx.fillStyle = `rgba(${ink},${n.kind === 'org' ? 0.9 : 0.6})`
           ctx.textAlign = 'left'
           ctx.fillText(t, lx + 4, ny)
         }
         // the centre
         ctx.textAlign = 'center'
-        ctx.font = `700 ${Math.max(12, Math.min(15, R / 24))}px "Inter Variable", "Segoe UI", system-ui, sans-serif`
-        ctx.fillStyle = `rgba(${ink},0.95)`
+        ctx.font = `600 ${Math.max(12, Math.min(14, R / 26))}px "Inter Variable", "Segoe UI", system-ui, sans-serif`
+        ctx.fillStyle = `rgba(${ink},0.92)`
         ctx.fillText(v.focusLabel, cx, cy - 7)
-        ctx.font = `400 ${Math.max(9.5, Math.min(11, R / 34))}px "Inter Variable", "Segoe UI", system-ui, sans-serif`
-        ctx.fillStyle = `rgba(${ink},0.55)`
+        ctx.font = `400 ${Math.max(9.5, Math.min(10.5, R / 36))}px "Cascadia Mono", Consolas, ui-monospace, monospace`
+        ctx.fillStyle = `rgba(${ink},0.5)`
         ctx.fillText(v.centre, cx, cy + 9)
       }
     }
@@ -354,7 +377,7 @@ export function circleLayout(nodes: GraphNode[], rings: number, kindLabel: Recor
   const ringsOf: Record<number, { r: number; kinds: string[] }> = {}
   for (const n of nodes) {
     const rr = n.r <= 0 ? 0 : table[n.ring] ?? 1
-    pos[n.id] = { x: rr * Math.cos(n.angle), y: rr * Math.sin(n.angle), r: 4 + (n.risk ?? 0) / 22, ring: n.ring }
+    pos[n.id] = { x: rr * Math.cos(n.angle), y: rr * Math.sin(n.angle), r: 3.2 + (n.risk ?? 0) / 30, ring: n.ring }
     if (rr > 0) {
       const e = (ringsOf[n.ring] ??= { r: rr, kinds: [] })
       if (!e.kinds.includes(n.kind)) e.kinds.push(n.kind)
