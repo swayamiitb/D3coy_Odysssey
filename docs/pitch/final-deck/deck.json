@@ -11,7 +11,8 @@
   },
   "faces": {
     "big-shoulders": {"family": "Big Shoulders", "src": "/_blob/52ee9fa3df3efd99bc5440035c01f053"},
-    "instrument-sans": {"family": "Instrument Sans", "href": "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&display=swap"},
+    "fraunces": {"family": "Fraunces", "href": "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&display=swap"},
+    "space-grotesk": {"family": "Space Grotesk", "href": "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400..700&display=swap"},
     "jetbrains-mono": {"family": "JetBrains Mono", "href": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap"}
   },
   "designSystems": []
