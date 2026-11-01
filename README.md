@@ -14,6 +14,7 @@ Everything runs locally on an RTX 4070 Laptop (8 GB VRAM), with **0 cloud calls*
 | Aggregate threat intelligence | 13 sources: NVD, CISA KEV, SSVC, EPSS, CISA advisories, SANS ISC DShield, Feodo Tracker, OpenPhish and MITRE ATT&CK (real), plus a national decoy grid, firewall logs and CERT-In-style advisories (simulated, labelled SIM). |
 | AI-based threat analysis | A security-tuned LLM (MiST 8B) writes a fact-checked brief for every warning. It reads advisories with SecureBERT 2.0 and a prompt-injection guard, forecasts exploitation on day 0, and runs a Bayesian compromise model and three live detectors (surge, C2 beacon, IsolationForest flow anomaly). |
 | Protect & red-team a real app | An **HTTP shield** (inline WAF/IDS) protects a *real* connected web application through a drop-in agent (ASGI/WSGI/Express, or an access-log tailer). It detects SQLi, XSS, path traversal, command injection, SSTI/SSRF/Log4Shell, scanning and brute force, blocks them inline in block mode, and can be proved by a built-in **red-team** that fires real attacks at the app over the wire (loopback/private only) and measures detection rate, block rate, precision and time-to-detect. |
+| Deliver alerts to your apps | What Odyssey decides reaches the apps a team already uses, as one card per alert: **Slack, Discord, Microsoft Teams, e-mail (SMTP) or any webhook** (your own dashboard, a Jira/Trello automation), fed by a tap on the audit trail with a severity floor, de-duplication and a per-minute cap. The lab ships an **Ops Console** destination (:8090) so the whole loop runs with no external account; the same card reaches a real channel the moment its URL is configured. Every delivery is audited. |
 | Early warnings | Pre-disclosure surge warnings, day-0 forecasts, and immediate notices in 22 Indian languages. The autopilot acts every 5 seconds. |
 | Risk prioritisation | `Risk = 100·R·K·(0.55·L + 0.30·S + 0.15·V)`, with version-verified exposure. An SSVC decision sets the tier and the CERT-In deadline. |
 | Actionable recommendations | A named fixed release, owner and deadline per change ticket, and a national and per-organisation risk plan (the fewest changes that remove the most risk). Also: indicators to block, STIX export, and a pre-filled CERT-In report. |
@@ -34,7 +35,7 @@ Everything runs locally on an RTX 4070 Laptop (8 GB VRAM), with **0 cloud calls*
 powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1   # Ollama, API :8000, translation :8010, dashboard :5173
 ```
 
-Open http://127.0.0.1:5173. `start_all.ps1` also launches the protected demo app (CityPower portal, :8080) behind the HTTP shield; set `ODYSSEY_TARGET=0` to skip it. To protect your own app instead, drop in an agent from `agent/` (see `agent/README.md`).
+Open http://127.0.0.1:5173. `start_all.ps1` also launches the protected demo app (CityPower portal, :8080) behind the HTTP shield, and the Ops Console (:8090) where the alerts land; set `ODYSSEY_TARGET=0` / `ODYSSEY_CONSOLE=0` to skip them. To protect your own app, drop in an agent from `agent/`; to route alerts to your Slack, Discord, Teams or e-mail, see `agent/README.md`.
 
 **Before a demo, run `scripts\demo_reset.ps1` (about 5 minutes).** It rebuilds the database from the offline feed snapshot, restarts the API and pre-computes what the demo touches. The CERT-In 6-hour clock on the incident starts at build time, so a build from the night before shows that deadline as overdue.
 
@@ -42,11 +43,11 @@ Open http://127.0.0.1:5173. `start_all.ps1` also launches the protected demo app
 
 | Check | Command | What it proves |
 |---|---|---|
-| Engine tests | `.venv\Scripts\python -m pytest -q` | 101 tests: exposure, scoring, the proactive layer, SOC, advisories, the audit trail under concurrent writers, and the HTTP shield (signature engine on encoded/evaded payloads, block list, a registration that survives an API restart, red-team safety). |
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 110 tests: exposure, scoring, the proactive layer, SOC, advisories, the audit trail under concurrent writers, the HTTP shield (signature engine on encoded/evaded payloads, block list, a registration that survives an API restart, red-team safety) and the channels (one card per event in five shapes, the severity floor, de-duplication, the per-minute cap, back-off, audited deliveries). |
 | HTTP shield red-team | Live → *Red-team the shield* → *Run all attacks* (or `POST /api/redteam/run`) | Fires real SQLi/XSS/traversal/cmdi/SSTI/SSRF/Log4Shell/scanning/brute-force requests at the protected app over the wire and measures detection rate, block rate, precision and time-to-detect. Loopback/private targets only. |
-| Test bench | Proof → *Run them now* | 112 checks: 5 attack drills on a copy of the data, detectors with negative controls, the audit-trail chain, and the engine tests. |
-| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 17 flows through the API on a private copy: approve and reject, a warning from issued to closed, a SOC case from new to closed, advisory analysis, three live drills, the HTTP shield (an agent announces an app, an attack is detected and opens a case, block mode drops the next one, a public red-team target is refused), and the audit trail. |
-| Interface | `python scripts\ui_audit.py` | A real browser clicks through every screen, sheet and button on another copy, and reports any page error, console error or failed request. |
+| Test bench | Proof → *Run them now* | 121 checks: 5 attack drills on a copy of the data, detectors with negative controls, the audit-trail chain, and the engine tests. |
+| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 18 flows through the API on a private copy: approve and reject, a warning from issued to closed, a SOC case from new to closed, advisory analysis, three live drills, the HTTP shield (an agent announces an app, an attack is detected and opens a case, block mode drops the next one, a public red-team target is refused), the channels (a test alert and an attack's card reach a real webhook; an unconfigured channel refuses), and the audit trail. |
+| Interface | `python scripts\ui_audit.py` | A real browser clicks through every screen, sheet and button on another copy (20 steps, including the shield card and a test alert delivered to a webhook), and reports any page error, console error or failed request. |
 
 ## Honesty
 
@@ -54,6 +55,7 @@ Open http://127.0.0.1:5173. `start_all.ps1` also launches the protected demo app
 - **Live sensors:** the live decoy grid and firewall flows are SIM, accelerated so one 5-second tick is one sensor-hour.
 - **Live feeds:** NVD (new CVEs), CISA KEV, Feodo Tracker and OpenPhish are re-read every 15 minutes when the network is up; new CVEs that name a product we run are taken in at once.
 - **HTTP shield:** it inspects real HTTP requests from the connected app; the bundled target and the red-team are a local lab (the runner only ever attacks loopback/private addresses), and every red-team request is labelled as an exercise in the audit trail.
+- **Channels:** nothing leaves the laptop until you configure a destination; the bundled Ops Console is a local webhook receiver. Only the alert cards you route go out, to the URLs you set, and every delivery is in the audit trail with the destination host, never the secret. The analysis itself never leaves.
 - **Audit trail:** every action is in a hash-chained trail; editing any past entry breaks the chain.
 
 More detail:

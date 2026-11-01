@@ -964,6 +964,13 @@ async def _start_live() -> None:
         print(f"HTTP shield failed to start: {exc!r}", flush=True)
     if os.environ.get("ODYSSEY_LIVE", "1") == "0":
         return
+    if os.environ.get("ODYSSEY_NOTIFY", "1") != "0":
+        from . import notify
+        try:
+            notify.ENGINE = notify.Notifier(db)  # the alerts leave the laptop: a tap on the ledger, from its head onwards
+            notify.ENGINE.start()
+        except Exception as exc:  # noqa: BLE001
+            print(f"channels failed to start: {exc!r}", flush=True)
     try:
         live.ENGINE = live.Live(db)
         live.ENGINE.start()
@@ -1164,3 +1171,43 @@ def _default_target(sh) -> str:
         if app_meta.get("base_url"):
             return app_meta["base_url"]
     return "http://127.0.0.1:8080"
+
+
+# ---------------------------------------------------------------- channels: the alerts leave the laptop
+def _notify():
+    from . import notify
+    if notify.ENGINE is None:
+        raise HTTPException(503, "channels are off (ODYSSEY_NOTIFY=0 or ODYSSEY_LIVE=0)")
+    return notify.ENGINE
+
+
+@app.get("/api/notify")
+def notify_status() -> dict:
+    """Where alerts go: each channel with its state and recent deliveries, the routing policy, the Ops Console link."""
+    return _notify().status()
+
+
+@app.post("/api/notify/test/{name}")
+def notify_test(name: str) -> dict:
+    """Send a real test alert to one channel, now."""
+    try:
+        return _notify().test(name)
+    except KeyError as exc:
+        raise HTTPException(404, f"unknown channel {name}") from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/notify/channels/{name}/enabled")
+def notify_enabled(name: str, on: bool = Query(...)) -> dict:
+    """Mute or unmute a channel from the dashboard; the choice outlives an API restart."""
+    try:
+        return _notify().set_enabled(name, on)
+    except KeyError as exc:
+        raise HTTPException(404, f"unknown channel {name}") from exc
+
+
+@app.post("/api/notify/reload")
+def notify_reload() -> dict:
+    """Re-read config/notify.json and config/notify.local.json, so a pasted webhook URL works without a restart."""
+    return _notify().reload()

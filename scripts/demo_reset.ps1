@@ -20,4 +20,13 @@ if (-not $up -and $env:ODYSSEY_TARGET -ne '0') {
         -RedirectStandardOutput "$root\data\target.log" -RedirectStandardError "$root\data\target.err.log"
 }
 
-"Demo state is fresh: open http://127.0.0.1:5173"
+# ...and the Ops Console (:8090), where the alerts land.
+$up = $false
+try { $c = New-Object System.Net.Sockets.TcpClient; $up = $c.ConnectAsync('127.0.0.1', 8090).Wait(500) -and $c.Connected; $c.Dispose() } catch { }
+if (-not $up -and $env:ODYSSEY_CONSOLE -ne '0') {
+    Start-Process -WindowStyle Hidden -WorkingDirectory $root -FilePath "$root\.venv\Scripts\python.exe" `
+        -ArgumentList '-m', 'uvicorn', 'target.console:app', '--host', '127.0.0.1', '--port', '8090' `
+        -RedirectStandardOutput "$root\data\console.log" -RedirectStandardError "$root\data\console.err.log"
+}
+
+"Demo state is fresh: open http://127.0.0.1:5173   (Ops Console: http://127.0.0.1:8090)"

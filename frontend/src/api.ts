@@ -409,6 +409,21 @@ export interface Soc {
 }
 
 // --- HTTP shield: a real connected app, protected and red-teamed ---------------------------------------------
+export interface NotifyChannel {
+  name: string; type: 'slack' | 'discord' | 'teams' | 'webhook' | 'email'; enabled: boolean; configured: boolean
+  destination: string | null; about: string | null; status: 'idle' | 'ok' | 'failing'; sent: number; failed: number
+  last_ok: string | null; last_error: string | null; backing_off: boolean
+}
+export interface NotifyDelivery {
+  ts: string; channel: string; type: string; destination: string; kind: string; subject: string; severity: string
+  title: string; ok: boolean; ms: number; error: string | null; test: boolean; summary: boolean
+}
+export interface NotifyStatus {
+  running: boolean; started: string; cursor: number; public_url: string | null; channels: NotifyChannel[]
+  routing: { min_severity: string; kinds: string[]; dedupe_minutes: number; per_minute_cap: number }
+  stats: { sent: number; failed: number; configured: number; live: number; duplicates_suppressed: number; held_by_cap: number }
+  recent: NotifyDelivery[]; console_url: string | null
+}
 export interface ShieldApp {
   id: string; name: string; base_url: string | null; mode: 'monitor' | 'block'
   agent_mode: string | null; announced: boolean
@@ -501,6 +516,22 @@ export const api = {
     return res.json() as Promise<Workflow>
   },
   shield: () => get<ShieldStatus>('/api/shield'),
+  notify: () => get<NotifyStatus>('/api/notify'),
+  notifyTest: async (name: string) => {
+    const res = await fetch(`/api/notify/test/${name}`, { method: 'POST' })
+    if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
+    return res.json() as Promise<NotifyDelivery>
+  },
+  notifyEnabled: async (name: string, on: boolean) => {
+    const res = await fetch(`/api/notify/channels/${name}/enabled?on=${on}`, { method: 'POST' })
+    if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
+    return res.json() as Promise<NotifyChannel>
+  },
+  notifyReload: async () => {
+    const res = await fetch('/api/notify/reload', { method: 'POST' })
+    if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
+    return res.json() as Promise<NotifyStatus>
+  },
   redteamCatalogue: () => get<{ scenarios: RedteamScenario[] }>('/api/redteam/catalogue'),
   redteamRun: async (scenario?: string) => {
     const res = await fetch('/api/redteam/run', { method: 'POST', headers: { 'content-type': 'application/json' },

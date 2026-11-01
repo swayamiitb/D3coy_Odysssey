@@ -38,8 +38,16 @@ BENIGN = [
 ]
 
 
+def _scratch() -> str:
+    """The bench's scratch (a database copy, the JUnit report) lives beside the data, not in the system temp: the
+    copies are large, and a full system drive must not fail the bench on stage."""
+    d = ROOT / "data" / ".tmp"
+    d.mkdir(parents=True, exist_ok=True)
+    return str(d)
+
+
 def _pytest() -> list[dict]:
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory(dir=_scratch()) as tmp:
         report = Path(tmp) / "report.xml"
         subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--junitxml={report}",
                         "tests"], cwd=ROOT, capture_output=True, timeout=600)
@@ -135,7 +143,7 @@ def _drills(conn) -> list[dict]:
     from pathlib import Path
 
     from .. import live
-    tmp = Path(tempfile.mkdtemp(prefix="odyssey-bench-"))
+    tmp = Path(tempfile.mkdtemp(prefix="odyssey-bench-", dir=_scratch()))
     copy = sqlite3.connect(tmp / "ews.db")
     conn.backup(copy)
     copy.close()

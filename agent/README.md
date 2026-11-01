@@ -72,6 +72,52 @@ ngrok http 8000
 
 Keep the shield private unless you intend otherwise — it accepts request metadata from any agent that can reach it.
 
+## Where the alerts go: your team's apps
+
+The other direction. What Odyssey decides reaches the apps your team already watches, as one card per alert: an attack
+blocked at a protected app, a C2 beacon, a new CVE taken in, a case opened, a decision waiting for a person. Channels
+(`config/notify.json`): **Slack** and **Discord** incoming webhooks, **Microsoft Teams** (Workflows webhook, Adaptive
+Card), **e-mail** over SMTP, and a plain **webhook** for any app of yours. The lab ships a destination you can run with
+no account: the **Ops Console** (`target/console.py`, http://127.0.0.1:8090), a team console that renders the cards as
+they arrive; `start_all.ps1` launches it.
+
+Put real URLs and credentials in `config/notify.local.json` (git-ignored; same shape as `notify.json`, merged by channel
+name) or in the environment, then **Live → Alerts delivered to your apps → Reload channels → Send test**:
+
+```json
+{"channels": [
+  {"name": "slack",   "url": "https://hooks.slack.com/services/T000/B000/XXXX"},
+  {"name": "discord", "url": "https://discord.com/api/webhooks/123/XXXX"},
+  {"name": "teams",   "url": "https://prod-00.westus.logic.azure.com:443/workflows/XXXX"},
+  {"name": "email",   "smtp_host": "smtp.gmail.com", "smtp_port": "587", "username": "you@gmail.com",
+                      "password": "an app password", "from": "you@gmail.com", "to": "soc@example.org"}
+]}
+```
+
+Environment variables work too: `ODYSSEY_SLACK_WEBHOOK`, `ODYSSEY_DISCORD_WEBHOOK`, `ODYSSEY_TEAMS_WEBHOOK`,
+`ODYSSEY_SMTP_HOST` / `_PORT` / `_USER` / `_PASS` / `_FROM`, `ODYSSEY_ALERT_TO`, and `ODYSSEY_CONSOLE_WEBHOOK` for the
+console.
+
+What any app of yours receives on the plain webhook (what a Jira or Trello automation, Zapier, n8n or your own dashboard
+would consume):
+
+```json
+{"source": "odyssey",
+ "event": {"seq": 3051, "ts": "2026-11-01T00:12:09Z", "kind": "shield.detect.sqli",
+           "subject": "citypower-portal:203.0.113.66", "provenance": "REAL"},
+ "severity": "High", "title": "Blocked: SQL injection on citypower-portal from 203.0.113.66",
+ "lines": ["CWE-89 · ATT&CK T1190 · REAL", "path /search", "evidence: q=' OR 1=1--"],
+ "link": "http://127.0.0.1:5173/?view=live", "when_ist": "01 Nov 05:42:09 IST"}
+```
+
+Policy, in `config/notify.json`: which audit-trail kinds route, a severity floor (High), one card per (kind, subject)
+per 10 minutes, and a cap of 20 a minute with one summary line for what was held back, so a red-team burst never floods
+a real channel. Every delivery, success or failure, is a `notify.sent` / `notify.failed` event in the audit trail (the
+destination host only, never the secret). A failing destination is backed off for a minute, so one dead URL never
+delays the others. Links in the cards use `ODYSSEY_PUBLIC_URL`: tunnel the dashboard
+(`cloudflared tunnel --url http://127.0.0.1:5173`) and set it, and a card on a phone opens the warning. The analysis
+stays on this laptop; only the alerts you route leave it.
+
 ## Prove it works — red-team the shield
 From the dashboard: **Live → Red-team the shield → Run all attacks**. Or via the API:
 ```bash

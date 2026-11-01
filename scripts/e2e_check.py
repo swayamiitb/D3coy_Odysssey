@@ -10,12 +10,15 @@ writing), the API is pointed at the copies, and the script makes the same HTTP c
   - analyses a pasted advisory (guard model and encoders; skipped with --no-ai);
   - connects an app to the HTTP shield through the agents' webhook, detects an attack, drops the next one in block
     mode, and checks that the red-team runner refuses a public target;
+  - routes alerts to a real webhook receiver (the stand-in for Slack / Discord / Teams / your app): a test alert, then
+    an attack on the protected app, each audited; an unconfigured channel refuses;
   - re-verifies the hash-chained audit trail.
 The live databases are never touched. Exit code 1 if any check fails.
 """
 
 from __future__ import annotations
 
+import shutil
 import sqlite3
 import sys
 import tempfile
@@ -28,6 +31,7 @@ sys.path.insert(0, str(ROOT))
 import os  # noqa: E402
 
 os.environ.setdefault("ODYSSEY_LIVE", "0")  # the copy is driven by this script, not by a second live engine
+os.environ.setdefault("ODYSSEY_NOTIFY", "0")  # channels are built here against a local receiver, never the real destinations
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -35,6 +39,18 @@ import backend.app.cache as cache  # noqa: E402
 import backend.app.main as main  # noqa: E402
 
 RESULTS: list[tuple[bool | None, str, str, float]] = []
+
+
+def _scratch() -> None:
+    """The database copies are large: keep them beside the data (the repository's drive), not in the system temp, and
+    drop what an earlier run left behind."""
+    root = ROOT / "data" / ".tmp"
+    root.mkdir(parents=True, exist_ok=True)
+    cutoff = time.time() - 3600
+    for d in root.glob("odyssey-*"):
+        if d.stat().st_mtime < cutoff:
+            shutil.rmtree(d, ignore_errors=True)
+    tempfile.tempdir = str(root)
 
 
 def _copy(src: Path, dst: Path) -> Path:
@@ -65,6 +81,7 @@ class Skip(Exception):
 
 def main_() -> int:
     no_ai = "--no-ai" in sys.argv
+    _scratch()
     tmp = Path(tempfile.mkdtemp(prefix="odyssey-e2e-"))
     main.DB_PATH = _copy(main.DB_PATH, tmp / "ews.db")
     cache.PATH = _copy(cache.PATH, tmp / "cache.db")
@@ -282,6 +299,57 @@ def main_() -> int:
             return (f"{hit['worst']} {hit['findings'][0]['cwe']} detected in monitor mode and a case opened; "
                     f"block mode dropped the next attack and listed the source; public target refused (400)")
         check("HTTP shield: announce, detect, open a case, block inline, refuse a public target", http_shield)
+
+        def channels():
+            # the alerts leave the laptop: a webhook receiver on loopback stands in for Slack / Discord / Teams / your app
+            import json as _json
+            import threading
+            from http.server import BaseHTTPRequestHandler, HTTPServer
+            got: list[dict] = []
+
+            class H(BaseHTTPRequestHandler):
+                def do_POST(self):
+                    got.append(_json.loads(self.rfile.read(int(self.headers.get("content-length", 0))) or b"{}"))
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b"{}")
+
+                def log_message(self, *a):
+                    pass
+            srv = HTTPServer(("127.0.0.1", 0), H)
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            try:
+                from backend.app import notify
+                cfg = tmp / "notify.json"
+                cfg.write_text(_json.dumps({
+                    "public_url": "http://127.0.0.1:5173",
+                    "routing": {"min_severity": "High", "kinds": ["shield.detect.*", "auto.proposed", "auto.case_opened"], "dedupe_minutes": 10, "per_minute_cap": 20},
+                    "channels": [{"name": "ops-console", "type": "webhook", "url": f"http://127.0.0.1:{srv.server_port}/hooks/odyssey", "enabled": True},
+                                 {"name": "slack", "type": "slack", "url": "", "enabled": True}]}), encoding="utf-8")
+                notify.ENGINE = eng = notify.Notifier(main.db, config_path=cfg, local_path=tmp / "none.json")
+                st = get("/api/notify")
+                assert st["stats"]["configured"] == 1 and not next(x for x in st["channels"] if x["name"] == "slack")["configured"], st["channels"]
+                t = post("/api/notify/test/ops-console")
+                assert t["ok"] and got and got[-1]["title"].startswith("Test alert"), (t, got[-1:])
+                r = c.post("/api/notify/test/slack")
+                assert r.status_code == 400, "an unconfigured channel must refuse a test, not pretend"
+                post("/api/sensor/http", {"app": "e2e-portal", "method": "GET", "path": "/download", "query": "file=../../../../etc/passwd",
+                                          "source_ip": "203.0.113.77", "status": 200, "headers": {"x-odyssey-redteam": "e2e-channels"}})
+                n = eng.poll_once()
+                titles = [g.get("title", "") for g in got]
+                assert any("203.0.113.77" in x for x in titles), titles
+                st = get("/api/notify")
+                real = [d for d in st["recent"] if not d["test"]]
+                assert real and real[0]["ok"] and "127.0.0.1" in real[0]["destination"], real[:1]
+                post("/api/notify/channels/ops-console/enabled?on=false")
+                assert not next(x for x in get("/api/notify")["channels"] if x["name"] == "ops-console")["enabled"]
+                post("/api/notify/channels/ops-console/enabled?on=true")
+                kinds = sorted({g["event"]["kind"] for g in got if "event" in g and g["event"].get("kind") != "notify.test"})
+                return (f"test alert received; an attack on the protected app became {n} card(s) ({', '.join(kinds)}); "
+                        f"unconfigured Slack refused (400); muted and unmuted; {st['stats']['sent']} deliveries audited")
+            finally:
+                srv.shutdown()
+        check("channels: alerts reach a real webhook and are audited; an unconfigured channel refuses", channels)
 
         def ledger():
             v = get("/api/ledger/verify")

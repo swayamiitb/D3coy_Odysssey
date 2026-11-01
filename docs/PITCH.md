@@ -23,16 +23,23 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
    (Bayesian 98.7%, the three-source version check) and *How it unfolded* (warned 12 days before disclosure). Close.
 2. **Needs your decision (30 s).** Approve one proposal: notices go out in Marathi, Gujarati, Hindi. "Odyssey proposes;
    a person approves anything consequential."
-3. **Live (2 min).** The pipeline stage by stage. Start the *Full intrusion* drill and keep talking: scanning surge,
+3. **Live (3 min).** The pipeline stage by stage. Start the *Full intrusion* drill and keep talking: scanning surge,
    implant beacon, lateral movement caught in order in about 30 seconds; an incident case opens on its own; the
    host's warnings are re-scored to suspected compromise with a fresh clock; the regulator report waits for you.
    Show the real feeds fresh and the new CVEs taken in from NVD since the last check.
+   Then *Odyssey in action on a real app*: scroll up to *A real app, protected*. The CityPower portal is a real web
+   application behind the Odyssey agent; keep the Ops Console (http://127.0.0.1:8090) open beside it (your Slack or
+   Discord, once its URL is in). Flip *Block inline*, press *Run all attacks*: real SQLi, XSS, traversal,
+   command-injection, scanning and brute-force requests over HTTP; 45/45 caught, 45/45 dropped with 403, 0 false
+   positives, about 15 ms each, while the legitimate customer keeps browsing. The block proposal and the incident case
+   appear, and every alert lands in the console as a card as it happens. "The same engine, on your traffic, telling
+   your team."
 4. **SOC → Cases (45 s).** CASE-0001: *Start response*, tick two playbook steps, add a note. The header figures move.
 5. **Intel (60 s).** What is under attack and the exposure heatmap; *Risk plan*: 93 changes remove half of the
    national risk, 205 remove 80%; *Advisories*: the real CISA Siemens WinCC advisory, 13 assets at 7 operators,
    version ranges parsed; then the hostile advisory, blocked by the guard with the deterministic layer still working.
 6. **Organisations (45 s).** Vidyut Grid West Corp opens on its threat map: hover the VPN gateway (compromised, calling a real QakBot C2), the HTTPS port under real attack pressure, the Ivanti scanning surge; then what outsiders see, its suppliers, its Marathi inbox. "Country threat maps draw arcs between nations; this is the same idea per operator, every line with its source."
-7. **Proof (60 s).** Eight claims, each with its evidence; press *Run them now* (103 checks, about two minutes,
+7. **Proof (60 s).** Eight claims, each with its evidence; press *Run them now* (121 checks, about two minutes,
    let it run while you take questions); *How it works*: six steps, the model table, the open formula.
 8. **Close (20 s).** "Real data, measured claims, a human in the loop, zero cloud calls, and it runs on this laptop."
 
@@ -63,6 +70,10 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
 - **"How is this different from a TIP or a vulnerability scanner?"** A scanner finds flaws; a TIP stores indicators.
   Odyssey connects real threat intelligence to who is exposed in the country, decides urgency against Indian
   obligations, warns in the operator's language, and proves its lead time.
+- **"Is anything here connected to something real?"** Yes. A real web application runs behind the Odyssey agent and
+  is attacked by a real HTTP client over the wire, and the alerts leave the laptop by real webhooks: Slack, Discord,
+  Teams, e-mail or your own app (the Ops Console in the demo). The organisations and sensors stay simulated and
+  labelled.
 - **"Can it scale to thousands of operators?"** The engine is SQLite and vectorised scoring; a rebuild of 44,000
   asset × CVE assessments takes 90 seconds on a laptop. The design is event-sourced, so a server deployment adds
   workers, not architecture.
@@ -75,3 +86,5 @@ Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://
 - A brief shows "writing…" for long: the model is cold; move on, it will appear. Pre-computed briefs cover the
   walk-through.
 - Network down: the feeds show "offline, serving the snapshot"; everything else works. Say so; it is a feature.
+- Portal or Ops Console down: `start_all.ps1` brings them back; the shield card says "agent silent" until the portal
+  is up, and the channels row says "failing" until the console is.

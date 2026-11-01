@@ -16,5 +16,8 @@ frontend/node_modules/
 .venv-mt/
 data/cache.db*
 .claude/settings.local.json
+config/notify.local.json
+data/.tmp/
+data/.pytest-tmp/
 data/testbench_last.json
 data/build.log
