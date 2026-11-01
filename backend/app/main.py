@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import datetime as dt
 import sqlite3
 import threading
 from pathlib import Path
@@ -960,10 +961,21 @@ async def _start_live() -> None:
     from . import shield
     try:
         shield.ENGINE = shield.Shield(db)  # HTTP shield is event-driven (no background loop); always on for the sensor API
+        if os.environ.get("ODYSSEY_SACHET", "1") != "0":
+            from . import sachet as _sachet
+            _sachet.ENGINE = _sachet.CapGuard(db)  # SACHET reader + CAP ingest guard; the feed is read lazily, snapshot-backed
+            threading.Thread(target=lambda: _sachet.ENGINE.read_feed(live=True), daemon=True).start()
     except Exception as exc:  # noqa: BLE001 - the dashboard must come up even if an optional engine cannot
         print(f"HTTP shield failed to start: {exc!r}", flush=True)
     if os.environ.get("ODYSSEY_LIVE", "1") == "0":
         return
+    if os.environ.get("ODYSSEY_NOTIFY", "1") != "0":
+        from . import notify
+        try:
+            notify.ENGINE = notify.Notifier(db)  # the alerts leave the laptop: a tap on the ledger, from its head onwards
+            notify.ENGINE.start()
+        except Exception as exc:  # noqa: BLE001
+            print(f"channels failed to start: {exc!r}", flush=True)
     try:
         live.ENGINE = live.Live(db)
         live.ENGINE.start()
@@ -1001,6 +1013,171 @@ def adaptive_view() -> dict:
     """How the live detectors have tuned themselves from people's decisions, and where the engine is focusing."""
     import datetime as _dt
     return _engine().adaptive.status(_dt.datetime.now(_dt.timezone.utc))
+
+
+def _instant(value: str | None):
+    import datetime as _dt
+    if not value:
+        return None
+    try:
+        at = _dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(400, "as_of must be an ISO-8601 instant") from exc
+    return at if at.tzinfo else at.replace(tzinfo=_dt.timezone.utc)
+
+
+@app.get("/api/graph")
+def intel_graph_view(focus: str | None = None, as_of: str | None = None) -> dict:
+    """The intelligence graph: every entity Odyssey knows about and how they connect, breathing with live evidence.
+    `as_of` replays the record as it stood at that instant."""
+    from . import live
+    from .engine.graph import intel_graph
+    try:
+        return intel_graph(db(), focus or None, live.ENGINE.status() if live.ENGINE else None, as_of=_instant(as_of))
+    except KeyError as exc:
+        raise HTTPException(404, "unknown organisation") from exc
+
+
+@app.get("/api/graph/replay")
+def intel_graph_replay() -> dict:
+    """The instants the interface offers for replaying the graph."""
+    from .engine.graph import replay_steps
+    return {"steps": replay_steps(db())}
+
+
+# ------------------------------------------------------------------------------------------- watchlists
+@app.get("/api/watches")
+def watches_view() -> dict:
+    """Every watch with its rule and recent firings, the latest events, and suggestions worth watching now."""
+    from . import live
+    from .engine import watch
+    conn = db()
+    status = live.ENGINE.status() if live.ENGINE else None
+    return {"watches": watch.list_watches(conn), "events": watch.events(conn, 40), "suggestions": watch.suggestions(conn, status),
+            "rules": watch.RULE_KINDS, "default_rule": watch.DEFAULT_RULE}
+
+
+@app.post("/api/watches")
+def watches_add(body: dict = Body(...)) -> dict:
+    """Watch a graph entity: body {target, rule?: {kind, pulse, tier}, owner?, label?, note?}."""
+    from . import live
+    from .engine import watch
+    try:
+        return watch.add(db(), body["target"], body.get("rule"), body.get("owner"), body.get("label"), body.get("note"),
+                         live.ENGINE.status() if live.ENGINE else None)
+    except KeyError as exc:
+        raise HTTPException(404, f"no such entity in the graph: {exc}") from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/watches/evaluate")
+def watches_evaluate() -> dict:
+    """Evaluate every active watch now (the live engine also does this every 15 seconds)."""
+    from . import live
+    from .engine import watch
+    return {"fired": watch.evaluate(db(), live.ENGINE.status() if live.ENGINE else None)}
+
+
+@app.post("/api/watches/{watch_id}/{action}")
+def watches_action(watch_id: int, action: str) -> dict:
+    from .engine import watch
+    status = {"pause": "paused", "resume": "active", "delete": "deleted"}.get(action)
+    if not status:
+        raise HTTPException(400, "action must be pause, resume or delete")
+    try:
+        return {"watch": watch.set_status(db(), watch_id, status), "status": status}
+    except KeyError as exc:
+        raise HTTPException(404, "unknown watch") from exc
+
+
+# ------------------------------------------------------------------------------------------- indicators
+def _live_with_flows() -> dict | None:
+    from . import live
+    if not live.ENGINE:
+        return None
+    s = live.ENGINE.status()
+    with live.ENGINE.lock:
+        s["flow_rows"] = list(live.ENGINE.flows)
+    return s
+
+
+@app.post("/api/iocs/import")
+def iocs_import(body: dict = Body(...)) -> dict:
+    """Bulk indicator import: body {text, source?, tlp?, tags?}. Extracts, stores, matches against telemetry and exposure."""
+    from .engine import iocs
+    text = body.get("text") or ""
+    if not text.strip():
+        raise HTTPException(400, "nothing to import")
+    if len(text) > 2_000_000:
+        raise HTTPException(413, "paste at most 2 MB at a time")
+    return iocs.import_text(db(), text, body.get("source") or "analyst paste", body.get("tlp") or "AMBER", _live_with_flows(), tags=body.get("tags"))
+
+
+@app.get("/api/iocs")
+def iocs_view(matched_only: bool = False, limit: int = 200) -> dict:
+    from .engine import iocs
+    return iocs.list_iocs(db(), matched_only, min(limit, 2000))
+
+
+@app.get("/api/iocs/export")
+def iocs_export(format: str = "csv", matched_only: bool = False):
+    """The imported indicators with their matches, as CSV or as STIX 2.1 indicators."""
+    from fastapi.responses import PlainTextResponse
+    from .engine import export, iocs
+    if format == "stix":
+        from . import taxii
+        objs = [o for o in taxii.objects_for("indicators") if o["type"] != "indicator" or "imported" in o.get("labels", [])]
+        return {"type": "bundle", "id": f"bundle--{__import__('uuid').uuid4()}", "objects": objs}
+    return PlainTextResponse(export.to_csv(iocs.export_rows(db(), matched_only)), media_type="text/csv",
+                             headers={"Content-Disposition": 'attachment; filename="odyssey-indicators.csv"'})
+
+
+@app.get("/api/graph/node")
+def intel_graph_node(id: str, focus: str | None = None) -> dict:
+    """One entity's intelligence card: its neighbours and the evidence behind it, from the record."""
+    from . import live
+    from .engine.graph import node_card
+    try:
+        return node_card(db(), id, focus or None, live.ENGINE.status() if live.ENGINE else None)
+    except KeyError as exc:
+        raise HTTPException(404, "unknown node or organisation") from exc
+
+
+@app.get("/api/graph/stix")
+def intel_graph_stix(focus: str | None = None, tlp: str = "AMBER") -> dict:
+    """The intelligence graph as a STIX 2.1 bundle, for exchange with other platforms."""
+    from . import live
+    from .engine.export import graph_stix
+    from .engine.graph import intel_graph
+    try:
+        return graph_stix(intel_graph(db(), focus or None, live.ENGINE.status() if live.ENGINE else None), tlp.upper())
+    except KeyError as exc:
+        raise HTTPException(404, "unknown organisation") from exc
+
+
+@app.get("/api/risklists")
+def risklists_view() -> dict:
+    """The risk lists on offer: what each holds, who pulls it, how many rows right now."""
+    from . import live
+    from .engine import export
+    return export.summary(db(), live.ENGINE.status() if live.ENGINE else None)
+
+
+@app.get("/api/risklists/{kind}")
+def risklist_view(kind: str, format: str = "json"):
+    """One scored list (cves | ips | domains | products) as JSON, or CSV for a SIEM, firewall or spreadsheet."""
+    from fastapi.responses import PlainTextResponse
+    from . import live
+    from .engine import export
+    try:
+        rows = export.risk_list(db(), kind, live.ENGINE.status() if live.ENGINE else None)
+    except KeyError as exc:
+        raise HTTPException(404, "unknown list") from exc
+    if format == "csv":
+        return PlainTextResponse(export.to_csv(rows), media_type="text/csv",
+                                 headers={"Content-Disposition": f'attachment; filename="odyssey-risklist-{kind}.csv"'})
+    return {"kind": kind, "generated_at": export._now(), "rows": rows}
 
 
 @app.get("/api/sitrep")
@@ -1164,3 +1341,163 @@ def _default_target(sh) -> str:
         if app_meta.get("base_url"):
             return app_meta["base_url"]
     return "http://127.0.0.1:8080"
+
+
+# ---------------------------------------------------------------- channels: the alerts leave the laptop
+def _notify():
+    from . import notify
+    if notify.ENGINE is None:
+        raise HTTPException(503, "channels are off (ODYSSEY_NOTIFY=0 or ODYSSEY_LIVE=0)")
+    return notify.ENGINE
+
+
+@app.get("/api/notify")
+def notify_status() -> dict:
+    """Where alerts go: each channel with its state and recent deliveries, the routing policy, the Ops Console link."""
+    return _notify().status()
+
+
+@app.post("/api/notify/test/{name}")
+def notify_test(name: str) -> dict:
+    """Send a real test alert to one channel, now."""
+    try:
+        return _notify().test(name)
+    except KeyError as exc:
+        raise HTTPException(404, f"unknown channel {name}") from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/notify/channels/{name}/enabled")
+def notify_enabled(name: str, on: bool = Query(...)) -> dict:
+    """Mute or unmute a channel from the dashboard; the choice outlives an API restart."""
+    try:
+        return _notify().set_enabled(name, on)
+    except KeyError as exc:
+        raise HTTPException(404, f"unknown channel {name}") from exc
+
+
+@app.post("/api/notify/reload")
+def notify_reload() -> dict:
+    """Re-read config/notify.json and config/notify.local.json, so a pasted webhook URL works without a restart."""
+    return _notify().reload()
+
+
+# ------------------------------------------------------------------------------------------------- SACHET / CAP
+def _cap_guard():
+    from . import sachet
+    if sachet.ENGINE is None:
+        sachet.ENGINE = sachet.CapGuard(db)
+    return sachet.ENGINE
+
+
+@app.get("/api/sachet")
+def sachet_view(live: bool = True, limit: int = 40) -> dict:
+    """India's SACHET alert feed (public domain, read-only) matched to the operators' states, the inbound CAP decisions,
+    and the guard's counters."""
+    g = _cap_guard()
+    feed = g.read_feed(live=live)
+    items = feed.pop("items")
+    status = g.status()
+    return {"feed": feed, "alerts": items[:limit], "matched_alerts": [i for i in items if i["orgs"]][:limit], "inbound": g.inbound_alerts(20),
+            "decisions": g.decisions(30), "ingest": status["ingest"], "trusted": status["trusted"], "limits": status["limits"], "how": status["how"],
+            "endpoint": "/api/sensor/cap", "provenance": {"feed": "REAL", "inbound": "REAL unless marked as an exercise"}}
+
+
+@app.get("/api/sachet/alert")
+def sachet_alert(url: str) -> dict:
+    """One SACHET alert's full CAP message (fetched only from sachet.ndma.gov.in), with the states it concerns."""
+    try:
+        return _cap_guard().fetch_cap(url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(502, f"could not fetch the alert: {type(exc).__name__}") from exc
+
+
+@app.post("/api/sensor/cap")
+async def cap_ingest(request: Request) -> dict:
+    """Inbound CAP 1.2 from any upstream. Validate, don't trust: every decision is a ledger event."""
+    body = await request.body()
+    redteam = request.headers.get("x-odyssey-redteam")
+    src = request.client.host if request.client else None
+    return _cap_guard().ingest(body, source_ip=src, redteam=redteam)
+
+
+@app.post("/api/sensor/cap/redteam")
+def cap_redteam(request: Request) -> dict:
+    """Fire the hostile CAP cases at this Odyssey's own ingest on loopback and score the guard."""
+    from .engine import capredteam
+    port = request.url.port or 8000
+    try:
+        return capredteam.run(db, f"http://127.0.0.1:{port}/api/sensor/cap")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.get("/api/warnings/{org_id}/{cve_id}/cap")
+def warning_cap(org_id: str, cve_id: str, langs: str = "", status: str = "Exercise"):
+    """Odyssey's warning as a CAP 1.2 message, one <info> per language (English always; others through the local
+    translator). SACHET-compatible format; Exercise unless an authorised desk routes it as Actual."""
+    from fastapi.responses import Response
+    from . import sachet
+    if status not in ("Exercise", "Actual", "Test", "Draft"):
+        raise HTTPException(400, "status must be Exercise, Actual, Test or Draft")
+    detail = alert_detail(org_id, cve_id)
+    brief = alert_brief(org_id, cve_id)
+    b = brief.get("brief") or {}
+    v = detail["vulnerability"]
+    headline = b.get("headline") or f"{v['id']} on {detail['org']['name']}: {(v.get('description') or '')[:120]}"
+    why = " ".join(x["text"] for x in b.get("why_it_matters", [])) or (v.get("description") or "")[:600]
+    todo = " ".join(x["text"] for x in b.get("what_to_do", [])) or " ".join(a["step"] for a in detail.get("actions", [])[:4])
+    infos = [{"language": "en-IN", "headline": headline, "description": why, "instruction": todo}]
+    missing = []
+    for lang in [x.strip() for x in langs.split(",") if x.strip()]:
+        try:
+            t = brief_translate(org_id, cve_id, lang)
+            ok = lambda x: isinstance(x, dict) and x.get("text") and x.get("status", "validated") == "validated"  # noqa: E731
+            head = (t.get("headline") or {}).get("text") if isinstance(t.get("headline"), dict) else None
+            why_t = [x["text"] for x in t.get("why_it_matters", []) if ok(x)]
+            todo_t = [x["text"] for x in t.get("what_to_do", []) if ok(x)]
+            withheld = sum(1 for x in t.get("why_it_matters", []) + t.get("what_to_do", []) if not ok(x))
+            if head and (why_t or todo_t):  # validated sentences only; withheld ones are dropped, never guessed
+                infos.append({"language": f"{lang}-IN", "headline": head, "description": " ".join(why_t),
+                              "instruction": " ".join(todo_t) or todo})
+                if withheld:
+                    missing.append(f"{lang} ({withheld} sentence(s) withheld, English kept for those)")
+            else:
+                missing.append(lang)
+        except HTTPException:
+            missing.append(lang)
+    org = detail["org"]
+    rank = {"Compromise": 4, "Critical": 3, "High": 2, "Medium": 1, "Watch": 0}
+    assets = detail.get("assets") or []
+    tier = max((a.get("tier") or "High" for a in assets), key=lambda t: rank.get(t, 0), default="High")
+    risk = max((a.get("risk") or 0 for a in assets), default=0)
+    deadline = min((a["deadline_hours"] for a in assets if a.get("deadline_hours") is not None), default=None)
+    alert = {"identifier": f"ODY-{org_id}-{cve_id}-{dt.datetime.now(dt.timezone.utc):%Y%m%d%H%M}", "tier": tier,
+             "event": f"Cyber threat warning: {v['id']} on {org['name']}", "areas": [f"{org['name']}, {org.get('state') or 'India'}"],
+             "web": f"http://127.0.0.1:5173/?view=soc&tab=warnings", "contact": "duty officer, Odyssey SOC (prototype)",
+             "note": "SACHET-compatible CAP produced by the Odyssey prototype; not an NDMA/SACHET message." + (
+                 f" Translation notes: {'; '.join(missing)}." if missing else ""),
+             "parameters": {"odyssey:risk": round(risk, 1), "odyssey:tier": tier, "odyssey:deadline_hours": deadline,
+                            "cve": v["id"], "kev": bool(v.get("kev"))}}
+    xml = sachet.write_cap(alert, infos, status=status)
+    return Response(content=xml, media_type="application/cap+xml",
+                    headers={"Content-Disposition": f'attachment; filename="odyssey-{org_id}-{cve_id}.cap.xml"', "X-Odyssey-Languages": ",".join(i["language"] for i in infos)})
+
+
+# ------------------------------------------------------------------------------------ TAXII 2.1 and the OSINT router
+from . import taxii as _taxii  # noqa: E402
+
+_taxii.connect = db
+_taxii.live_status = lambda: (__import__("backend.app.live", fromlist=["ENGINE"]).ENGINE.status()
+                              if __import__("backend.app.live", fromlist=["ENGINE"]).ENGINE else None)
+app.include_router(_taxii.router)
+try:
+    from . import osint_api as _osint  # brand and social monitoring, consented attack-surface scans
+
+    _osint.connect = db
+    app.include_router(_osint.router)
+except ImportError:  # the module arrives with its own thread's work
+    pass

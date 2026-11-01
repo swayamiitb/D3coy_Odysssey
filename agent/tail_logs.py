@@ -18,6 +18,7 @@ import datetime as dt
 import json
 import os
 import re
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -60,13 +61,21 @@ def to_event(rec: dict, meta: dict) -> dict:
             "source_ip": rec["ip"], "headers": headers}
 
 
-def post(url: str, payload: dict, timeout: float = 2.0) -> None:
+def post(url: str, payload: dict, timeout: float = 2.0) -> bool:
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={"content-type": "application/json"}, method="POST")
     try:
         urllib.request.urlopen(req, timeout=timeout).read()  # noqa: S310
+        return True
     except Exception:  # noqa: BLE001 - fail open
-        pass
+        return False
+
+
+def heartbeat(url: str, meta: dict) -> None:
+    """Announce the app now and every 10 s (the shield's registry is in memory and forgets on a restart); retry every
+    2 s while the shield is unreachable."""
+    while True:
+        time.sleep(10.0 if post(url, meta) else 2.0)
 
 
 def tail(path: Path, from_start: bool):
@@ -99,7 +108,7 @@ def main() -> None:
     meta = {"app": args.app, "name": args.name or args.app, "org_id": args.org, "mode": "monitor",
             "framework": "log-tail", "base_url": None}
     ingest = args.shield.rstrip("/") + "/api/sensor/http"
-    post(args.shield.rstrip("/") + "/api/sensor/register", meta)
+    threading.Thread(target=heartbeat, args=(args.shield.rstrip("/") + "/api/sensor/register", meta), daemon=True).start()
     print(f"Odyssey log tailer: {args.log} -> {ingest} (app={args.app}, format={args.format})", flush=True)
 
     n = 0

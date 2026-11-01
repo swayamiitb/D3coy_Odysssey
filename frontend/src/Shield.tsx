@@ -35,6 +35,9 @@ function AppCard({ app, onChange }: { app: ShieldApp; onChange: () => void }) {
       .catch((e) => toast(String(e.message ?? e)))
       .finally(() => setBusy(false))
   }
+  // The agent announces itself every 10 s and every forwarded request counts, so silence beyond 30 s means it is gone.
+  const ago = app.last_seen ? Math.max(0, Math.round((Date.now() - Date.parse(app.last_seen)) / 1000)) : null
+  const alive = ago != null && ago < 30
   return (
     <div className="rounded-3xl bg-band p-7 text-white">
       <div className="flex flex-wrap items-center gap-3">
@@ -42,8 +45,8 @@ function AppCard({ app, onChange }: { app: ShieldApp; onChange: () => void }) {
         <span className="text-xl font-bold">{app.name}</span>
         <span className="rounded-full bg-band-3 px-2.5 py-0.5 text-xs text-band-mute">{app.framework ?? 'app'}</span>
         <span className="ml-auto flex items-center gap-2 text-sm text-band-mute">
-          <span className={`h-2 w-2 rounded-full ${app.mode === 'block' ? 'animate-pulse bg-ok' : 'bg-accent'}`} />
-          agent connected
+          <span className={`h-2 w-2 rounded-full ${alive ? 'animate-pulse bg-ok' : 'bg-watch'}`} />
+          {alive ? 'agent connected' : ago == null ? 'agent not announced' : `agent silent for ${ago < 120 ? `${ago}s` : `${Math.round(ago / 60)} min`}`}
         </span>
       </div>
       {app.base_url && <div className="mt-1 font-mono text-sm text-band-mute">{app.base_url}</div>}
@@ -71,6 +74,12 @@ function AppCard({ app, onChange }: { app: ShieldApp; onChange: () => void }) {
             ? 'Attacks are dropped before they reach the app (HTTP 403); the source is added to the block list.'
             : 'Attacks are detected and recorded; a block is proposed for an analyst. The app serves every request.'}
         </p>
+        {app.agent_mode && app.agent_mode !== 'enforce' && (
+          <p className="mt-2 text-sm text-watch">
+            The agent runs in monitor mode: it forwards requests asynchronously and cannot drop one. Blocking takes
+            effect inline once the agent is started with <code className="font-mono">mode="enforce"</code>.
+          </p>
+        )}
       </div>
     </div>
   )
@@ -193,7 +202,7 @@ export function ShieldSection({ onGo }: { onGo: (view: 'soc' | 'now', tab?: stri
         )}
         <p className="mt-5 text-sm text-mute">
           Connect any app in three lines: <code className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-[13px]">app.add_middleware(OdysseyShield, app_id="my-app", mode="enforce")</code>.
-          Agents ship for ASGI (FastAPI/Starlette/Django), WSGI (Flask) and Express, plus an access-log tailer for apps you can't modify. See <span className="font-mono">agent/README.md</span>.
+          Agents ship for ASGI (FastAPI/Starlette/Django), WSGI (Flask) and Express, a reverse proxy for any stack you cannot modify, and an access-log tailer. See <span className="font-mono">agent/README.md</span>.
         </p>
       </Section>
 

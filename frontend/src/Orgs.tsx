@@ -4,6 +4,7 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Too
 import { api, type OrgProfile, type RiskPlan, type Soc } from './api'
 import { AutopilotFeed, useLanguages } from './proactive'
 import { Heatmap, type HeatData } from './Heatmap'
+import { BrandWatch } from './BrandWatch'
 import { OrgThreatMap } from './OrgThreatMap'
 import { Spark } from './Soc'
 import { BarList, Gauge, nf, SocCard } from './soc/kit'
@@ -115,7 +116,7 @@ function OrgInbox({ orgId }: { orgId: string }) {
   )
 }
 
-function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId: string) => void }) {
+function Profile({ p, onAlert, onGraph }: { p: OrgProfile; onAlert: (orgId: string, cveId: string) => void; onGraph?: (orgId: string) => void }) {
   const langs = useLanguages()
   const xdb = useExploitDb()
   const lang = langs[p.language]
@@ -147,7 +148,8 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
             ].map((k) => <Stat key={k.l} value={k.v} label={k.l} sub={k.s} />)}
           </div>
           <OrgPosture p={p} />
-          <Section title="Threat map" sub="What is recorded against this organisation, from the outside world through its internet-facing services to its crown jewels. A subset of the national picture; every line carries its source.">
+          <Section title="Threat map" sub="What is recorded against this organisation, from the outside world through its internet-facing services to its crown jewels. A subset of the national picture; every line carries its source."
+                   action={onGraph ? <Pill onClick={() => onGraph(p.org.id)}>Open in the intelligence graph</Pill> : undefined}>
             <OrgThreatMap orgId={p.org.id} onAlert={onAlert} />
           </Section>
           <div className="grid gap-12 xl:grid-cols-2">
@@ -168,6 +170,7 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
 
       {tab === 'osint' && (
         <div className="grid gap-12 xl:grid-cols-2">
+          <div className="xl:col-span-2"><BrandWatch orgId={p.org.id} /></div>
           <Section title="Services anyone can reach" sub="From the inventory: internet- and DMZ-facing hosts, worst warning first." action={<Globe size={18} className="text-mute" />}>
             {p.surface.exposed.slice(0, 10).map((a) => (
               <Row key={a.hostname} lead={<span className="text-[10px] font-bold uppercase">{a.zone.slice(0, 3)}</span>}
@@ -223,7 +226,7 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
   )
 }
 
-export function Orgs({ selected, onSelect, onAlert }: { selected?: string; onSelect: (id: string) => void; onAlert: (orgId: string, cveId: string) => void }) {
+export function Orgs({ selected, onSelect, onAlert, onGraph }: { selected?: string; onSelect: (id: string) => void; onAlert: (orgId: string, cveId: string) => void; onGraph?: (orgId: string) => void }) {
   const [list, setList] = useState<Soc['orgs']>([])
   const [p, setP] = useState<OrgProfile>()
   const langs = useLanguages()
@@ -252,7 +255,7 @@ export function Orgs({ selected, onSelect, onAlert }: { selected?: string; onSel
           </button>
         ))}
       </aside>
-      {p ? <Profile p={p} onAlert={onAlert} /> : <div className="p-8 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Building the organisation profile…</div>}
+      {p ? <Profile p={p} onAlert={onAlert} onGraph={onGraph} /> : <div className="p-8 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Building the organisation profile…</div>}
     </>
   )
 }

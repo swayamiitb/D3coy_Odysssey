@@ -409,9 +409,25 @@ export interface Soc {
 }
 
 // --- HTTP shield: a real connected app, protected and red-teamed ---------------------------------------------
+export interface NotifyChannel {
+  name: string; type: 'slack' | 'discord' | 'teams' | 'webhook' | 'email'; enabled: boolean; configured: boolean
+  destination: string | null; about: string | null; status: 'idle' | 'ok' | 'failing'; sent: number; failed: number
+  last_ok: string | null; last_error: string | null; backing_off: boolean
+}
+export interface NotifyDelivery {
+  ts: string; channel: string; type: string; destination: string; kind: string; subject: string; severity: string
+  title: string; ok: boolean; ms: number; error: string | null; test: boolean; summary: boolean
+}
+export interface NotifyStatus {
+  running: boolean; started: string; cursor: number; public_url: string | null; channels: NotifyChannel[]
+  routing: { min_severity: string; kinds: string[]; dedupe_minutes: number; per_minute_cap: number }
+  stats: { sent: number; failed: number; configured: number; live: number; duplicates_suppressed: number; held_by_cap: number }
+  recent: NotifyDelivery[]; console_url: string | null
+}
 export interface ShieldApp {
   id: string; name: string; base_url: string | null; mode: 'monitor' | 'block'
-  org_id: string | null; framework: string | null; first_seen: string
+  agent_mode: string | null; announced: boolean
+  org_id: string | null; framework: string | null; first_seen: string; last_seen: string | null
   requests: number; attacks: number; blocked: number
 }
 export interface ShieldFinding {
@@ -451,6 +467,32 @@ export interface RedteamReport {
   missed: number; false_positives: number
   detection_rate: number | null; block_rate: number | null; precision: number | null; mean_ttd_ms: number | null
   scenarios: string[]; cases: RedteamCase[]; missed_cases: string[]; fp_cases: string[]
+}
+
+/* ---------------------------------------------------------------- the intelligence graph (/api/graph) */
+export type FactValue = string | number | boolean | null | string[]
+export interface GraphNode {
+  id: string; kind: string; label: string; sub: string; risk: number | null; tier: Tier | null
+  provenance: string; source: string; facts: Record<string, FactValue | undefined>
+  last_seen: string | null; age_h: number | null; pulse: number; phase: string; degree: number
+  ring: number; angle: number; r: number
+}
+export interface GraphEdge { from: string; to: string; kind: string; label: string; provenance: string; weight: number; last_seen: string | null }
+export interface IntelGraph {
+  focus: { kind: string; id: string | null; label: string }
+  built_at: string; snapshot: string
+  nodes: GraphNode[]; edges: GraphEdge[]; rings: number
+  kinds: { id: string; label: string; count: number }[]
+  breath: { fresh: number; today: number; week: number; fading: number; aged: number; events_last_hour: number
+    last_event: string | null; live_ticks: number | null; live_detections: number }
+  summary: { nodes: number; edges: number; real_edges: number; sim_edges: number; mixed_edges: number }
+  provenance: { REAL: string[]; SIM: string[]; note: string }
+}
+export interface GraphNeighbour { id: string; kind: string; label: string; tier: Tier | null; pulse: number; relation: string; edge: string; provenance: string; direction: 'in' | 'out' }
+export interface GraphEvent { ts: string; kind: string; subject: string; source: string; provenance: string; text: string }
+export interface GraphCard {
+  node: GraphNode; neighbours: GraphNeighbour[]; events: GraphEvent[]; live: Record<string, unknown>[]
+  focus: IntelGraph['focus']; record: { kind: string; how: string }
 }
 
 /* Several components ask for the same URL within the same second (the figures strips, the duty desk and the top bar
@@ -517,6 +559,22 @@ export const api = {
     return res.json() as Promise<Workflow>
   },
   shield: () => get<ShieldStatus>('/api/shield'),
+  notify: () => get<NotifyStatus>('/api/notify'),
+  notifyTest: async (name: string) => {
+    const res = await fetch(`/api/notify/test/${name}`, { method: 'POST' })
+    if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
+    return res.json() as Promise<NotifyDelivery>
+  },
+  notifyEnabled: async (name: string, on: boolean) => {
+    const res = await fetch(`/api/notify/channels/${name}/enabled?on=${on}`, { method: 'POST' })
+    if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
+    return res.json() as Promise<NotifyChannel>
+  },
+  notifyReload: async () => {
+    const res = await fetch('/api/notify/reload', { method: 'POST' })
+    if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
+    return res.json() as Promise<NotifyStatus>
+  },
   redteamCatalogue: () => get<{ scenarios: RedteamScenario[] }>('/api/redteam/catalogue'),
   redteamRun: async (scenario?: string) => {
     const res = await fetch('/api/redteam/run', { method: 'POST', headers: { 'content-type': 'application/json' },
@@ -539,4 +597,7 @@ export const api = {
     if (!res.ok) throw new Error((await res.json()).detail ?? res.statusText)
     return res.json()
   },
+  graph: (focus?: string) => get<IntelGraph>(`/api/graph${focus ? `?focus=${encodeURIComponent(focus)}` : ''}`),
+  graphNode: (id: string, focus?: string) =>
+    get<GraphCard>(`/api/graph/node?id=${encodeURIComponent(id)}${focus ? `&focus=${encodeURIComponent(focus)}` : ''}`),
 }

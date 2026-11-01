@@ -15,7 +15,7 @@ const ITEMS: { view: View; label: string; icon: typeof Shield; tabs?: [string, s
   { view: 'now', label: 'Now', icon: LayoutDashboard },
   { view: 'live', label: 'Live', icon: Activity },
   { view: 'soc', label: 'SOC', icon: Shield, tabs: [['overview', 'Overview'], ['cases', 'Cases'], ['warnings', 'Warnings'], ['log', 'Autopilot log'], ['system', 'System']] },
-  { view: 'intel', label: 'Intel', icon: Crosshair, tabs: [['overview', 'Threat picture'], ['threats', 'Threats & sources'], ['risk', 'Risk plan'], ['advisories', 'Advisories']] },
+  { view: 'intel', label: 'Intel', icon: Crosshair, tabs: [['overview', 'Threat picture'], ['graph', 'Intelligence graph'], ['indicators', 'Indicators'], ['threats', 'Threats & sources'], ['risk', 'Risk plan'], ['advisories', 'Advisories']] },
   { view: 'orgs', label: 'Organisations', icon: Building2 },
   { view: 'proof', label: 'Proof', icon: BadgeCheck, tabs: [['evidence', 'Evidence'], ['how', 'How it works']] },
 ]

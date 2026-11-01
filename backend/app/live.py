@@ -117,6 +117,7 @@ class Live:
         self.nvd_since = max(self.nvd_since, dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=7))
         self.kev_live: dict[str, dict] = {}
         self.intakes: collections.deque = collections.deque(maxlen=40)
+        self.ioc_sets: dict[str, set[str]] = {"ipv4-addr": set(), "domain-name": set()}  # bulk-imported indicators, matched per tick
         self.next_feed = time.time() + 8
         self._feed_thread: threading.Thread | None = None
         self.drill: dict | None = None
@@ -124,6 +125,7 @@ class Live:
         from .engine.adaptive import Adaptive
         self.adaptive = Adaptive(list(simtel.TAGS), list(self.orgs))
         self.ip_org = {a["ip"]: a["org_id"] for a in self.assets.values()}
+        self.ip_asset = {a['ip']: a for a in self.assets.values()}
         self.forest = None
         self._task: asyncio.Task | None = None
         self.sensor_clock = dt.datetime(2026, 11, 1, 0, 0, tzinfo=dt.timezone.utc)
@@ -269,6 +271,12 @@ class Live:
                                       "threshold": gate,
                                       "connections": int(round(math.expm1(f[0]))), "destinations": int(f[1]),
                                       "internal": int(f[2]), "ports": int(f[3])})
+        if self.ioc_sets["ipv4-addr"]:  # imported indicators against this tick's flows (the matching engine, live)
+            for r in rows:
+                hit = r["dst"] if r["dst"] in self.ioc_sets["ipv4-addr"] else r["src"] if r["src"] in self.ioc_sets["ipv4-addr"] else None
+                if hit and self.cooldown.get(f"ioc:{hit}", -99) < self.ticks - 60:
+                    self.cooldown[f"ioc:{hit}"] = self.ticks
+                    found.append({"kind": "ioc", "value": hit, "src": r["src"], "dst": r["dst"], "dport": r["dport"]})
         if found:
             conn = self.connect()
             try:
@@ -278,6 +286,21 @@ class Live:
                 conn.close()
         with self.lock:
             self._advance_drill(now)
+        if self.ticks % 3 == 0:  # watchlists: evaluate every analyst's rule against the current graph (edge-triggered)
+            conn = self.connect()
+            try:
+                from .engine import iocs, watch
+                self.ioc_sets = iocs.live_sets(conn)
+                fired = watch.evaluate(conn, self.status(), now)
+                for f in fired:
+                    with self.lock:
+                        self.detections.appendleft({"id": f"DET-{self.ticks:05d}-W{f['watch_id']}", "ts": _iso(now), "kind": "watch",
+                                                    "title": f"Watchlist: {f['label']}: {'; '.join(f['reasons'])}", "drill": None,
+                                                    "seconds_to_detect": None, "target": f["target"], "severity": f["severity"]})
+            except Exception as exc:  # noqa: BLE001 - a watch must never stop detection
+                print(f"live: watch evaluation failed: {exc!r}", flush=True)
+            finally:
+                conn.close()
         if self.ticks == 1 or self.ticks % 12 == 0:  # re-learn thresholds from the record every minute
             conn = self.connect()
             try:
@@ -316,6 +339,16 @@ class Live:
 
     def _act(self, conn, f: dict, now: dt.datetime, drill: dict | None) -> None:
         tag_drill = {"drill": drill["id"]} if drill else {}
+        if f["kind"] == "ioc":  # an imported indicator seen in live flows: record, no automatic action
+            from .engine import iocs
+            inside = self.ip_asset.get(f["src"]) or self.ip_asset.get(f["dst"])
+            host = inside["hostname"] if inside else f["src"]
+            title = f"Imported indicator {f['value'].replace('.', '[.]')} seen in flows ({host} -> {f['dst'].replace('.', '[.]')}:{f['dport']})"
+            payload = {"value": f["value"].replace(".", "[.]"), "src": f["src"], "dst": f["dst"], "dport": f["dport"], "asset": host,
+                       "org_id": inside["org_id"] if inside else None, **tag_drill}
+            self._detected(conn, now, "ioc", f"ioc:{f['value']}", title, payload, drill)
+            iocs.mark_live_match(conn, f["value"], {"title": title, **payload}, now)
+            return
         if f["kind"] == "surge":
             tag, label = f["tag"], self.labels.get(f["tag"], f["tag"])
             running = [a for a in self.assets.values() if a["product_key"] == tag]

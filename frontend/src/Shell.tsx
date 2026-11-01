@@ -105,7 +105,7 @@ export function TopNav({ view, go, pending, connected, status, health, onSearch,
 
 const FOOT: [string, [string, View, string?][]][] = [
   ['Operate', [['Now', 'now'], ['Live and attack drills', 'live'], ['SOC overview', 'soc', 'overview'], ['Cases', 'soc', 'cases'], ['All warnings', 'soc', 'warnings'], ['Autopilot log', 'soc', 'log']]],
-  ['Understand', [['Threat picture', 'intel', 'overview'], ['Threats & sources', 'intel', 'threats'], ['Risk plan', 'intel', 'risk'], ['Advisories', 'intel', 'advisories'], ['Organisations', 'orgs']]],
+  ['Understand', [['Threat picture', 'intel', 'overview'], ['Intelligence graph', 'intel', 'graph'], ['Indicators', 'intel', 'indicators'], ['Threats & sources', 'intel', 'threats'], ['Risk plan', 'intel', 'risk'], ['Advisories', 'intel', 'advisories'], ['Organisations', 'orgs']]],
   ['Trust', [['Evidence', 'proof', 'evidence'], ['How it works', 'proof', 'how'], ['System telemetry', 'soc', 'system']]],
 ]
 

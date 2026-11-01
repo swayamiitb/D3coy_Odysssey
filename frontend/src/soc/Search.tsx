@@ -18,6 +18,8 @@ const PAGES: { label: string; hint: string; view: View; tab?: string }[] = [
   { label: 'Autopilot log', hint: 'everything Odyssey did', view: 'soc', tab: 'log' },
   { label: 'System', hint: 'telemetry of the running system', view: 'soc', tab: 'system' },
   { label: 'Threat picture', hint: 'what is under attack', view: 'intel', tab: 'overview' },
+  { label: 'Intelligence graph', hint: 'every entity and how they connect, with the watchlist', view: 'intel', tab: 'graph' },
+  { label: 'Indicators', hint: 'import IOCs, STIX and TAXII', view: 'intel', tab: 'indicators' },
   { label: 'Threats & sources', hint: 'technologies, campaigns, feeds', view: 'intel', tab: 'threats' },
   { label: 'Risk plan', hint: 'the changes that remove the most risk', view: 'intel', tab: 'risk' },
   { label: 'Advisories', hint: 'CISA and CERT-In style advisories', view: 'intel', tab: 'advisories' },

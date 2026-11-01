@@ -3,8 +3,9 @@
 Every number below is measured on this laptop from public 2026 data or local test runs. SIM marks simulated
 telemetry, which the UI labels everywhere. The **Proof** page recomputes these numbers live, and its test bench
 re-runs the checks on demand. `scripts/e2e_check.py` drives every screen and every button through the API on a
-private copy of the database (15 flows: approve and reject, a warning from issued to closed, a SOC case from new to
-closed, a pasted advisory, three live attack drills, the audit trail); `scripts/ui_audit.py` clicks through the
+private copy of the database (18 flows: approve and reject, a warning from issued to closed, a SOC case from new to
+closed, a pasted advisory, three live attack drills, the HTTP shield from an agent's announcement to an inline block,
+alerts delivered to a webhook, the audit trail); `scripts/ui_audit.py` clicks through the
 whole interface in a real browser on another copy, so the product is checked end to end, not just the engine.
 
 ## Key objectives
@@ -28,7 +29,7 @@ whole interface in a real browser on another copy, so the product is checked end
 ## Expected deliverables
 
 - **Functional prototype:** runs fully offline on an RTX 4070 laptop, with 0 cloud calls.
-- **Dashboard of detected threats, risk levels and alerts:** Now, SOC (Overview, Cases, Warnings, Log, System), Intel (Overview, Threats, Risk plan, Advisories) and Organisations.
+- **Dashboard of detected threats, risk levels and alerts:** Now, SOC (Overview, Cases, Warnings, Log, System), Intel (Overview, Graph, Indicators, Threats, Risk plan, Advisories) and Organisations.
 - **Demonstration on public threat intelligence plus a controlled simulated dataset:**
   - REAL: CVEs, KEV, SSVC, EPSS, advisories, DShield, Feodo and phishing.
   - SIM: decoy grid, firewall logs and organisations.
@@ -40,9 +41,9 @@ whole interface in a real browser on another copy, so the product is checked end
 | Feedback | Response |
 |---|---|
 | Make the system **proactive** (judge) | Odyssey runs continuously (**Live**): sensors, detectors and the autopilot every 5 s, real feeds (CISA KEV, Feodo, OpenPhish) re-checked every 15 min. It acts without being asked:<br>• day-0 exploitation forecast<br>• pre-disclosure surge warnings, with confirmation or stand-down<br>• autopilot notices in the organisation's language and daily digests<br>• SLA watch<br>• peer hunt on compromise<br>• CERT-In report pre-drafted<br>286 automatic actions since go-live (227 more proposed for a human); every one is in the hash-chained audit trail. |
-| TI aggregation, dashboard, **SOC**, **real tests and attacks** | • **Adaptive detectors:** thresholds re-derived every minute from analysts' decisions (false alarms raise, confirmed detections lower, within bounds), shown on the SOC with their reasons and audited<br>• **SOC destination:** cases opened automatically (one incident per compromised asset, one remediation case per organisation × product × version for known-exploited Critical exposure), owners by rule, SLA clocks from CERT-In timelines, playbook checklists, notes, MTTA / MTTR / SLA measured from analysts' recorded actions, one-click shift handover<br>• **System telemetry**, live every 3 s: CPU, GPU, VRAM, memory, the models resident on the GPU, every AI job timed and checked, API latency per route, audit-trail growth, build stages<br>• Intel view and aggregation, real global attack telemetry (DShield) next to the SIM decoy grid<br>• a **test bench** that runs on demand: 109 checks (98 engine tests, 5 attack drills on a copy of the data, 5 detection checks with negative controls, 1 audit-trail check)<br>• **attack drills** on the Live page (mass scanning, implant beacon, full intrusion) that anyone can start; the test bench runs the same drills on a copy of the data<br>• `scripts/e2e_check.py` (14 product flows through the API) and `scripts/ui_audit.py` (17 click-through steps in a real browser) |
+| TI aggregation, dashboard, **SOC**, **real tests and attacks** | • **Adaptive detectors:** thresholds re-derived every minute from analysts' decisions (false alarms raise, confirmed detections lower, within bounds), shown on the SOC with their reasons and audited<br>• **SOC destination:** cases opened automatically (one incident per compromised asset, one remediation case per organisation × product × version for known-exploited Critical exposure), owners by rule, SLA clocks from CERT-In timelines, playbook checklists, notes, MTTA / MTTR / SLA measured from analysts' recorded actions, one-click shift handover<br>• **System telemetry**, live every 3 s: CPU, GPU, VRAM, memory, the models resident on the GPU, every AI job timed and checked, API latency per route, audit-trail growth, build stages<br>• Intel view and aggregation, real global attack telemetry (DShield) next to the SIM decoy grid<br>• a **test bench** that runs on demand: 127 checks (116 engine tests, 5 attack drills on a copy of the data, 5 detection checks with negative controls, 1 audit-trail check)<br>• **attack drills** on the Live page (mass scanning, implant beacon, full intrusion) that anyone can start; the test bench runs the same drills on a copy of the data<br>• `scripts/e2e_check.py` (18 product flows through the API, including the HTTP shield and the channels) and `scripts/ui_audit.py` (20 click-through steps in a real browser, including the shield card, its Block toggle and a test alert delivered to a webhook) |
 | AI-based threat analysis | Built into every screen rather than a chat box: a validated AI brief on every warning (in the organisation's language), advisory analysis against the inventory, the day-0 exploitation forecast, the Bayesian compromise model, and three live detectors (surge, C2 beacon, IsolationForest flow anomaly) running every 5 seconds. |
-| Protect and attack a **real application** (judge: real tests and attacks) | An **HTTP shield** (inline WAF/IDS) protects a real connected web app through a drop-in agent (ASGI/WSGI/Express, or an access-log tailer for apps you can't modify). It inspects every request — decoding URL/double-URL/HTML-entity/base64/SQL-comment evasion — for SQLi, XSS, path traversal, command injection, SSTI, SSRF, Log4Shell, scanning and brute force, each mapped to a CWE and an ATT&CK technique, and in **block** mode drops the attack inline (HTTP 403) and block-lists the source while legitimate users keep browsing. A built-in **red-team** (Live → *Red-team the shield*) fires the real attacks over the wire and measures it: on this laptop, **45/45 attacks detected, 45/45 blocked, 100% precision (0 false positives on benign controls), ~15 ms mean time-to-detect**. A successful attack opens a SOC incident case; every detection is in the audit trail. Safety: the red-team only ever targets loopback/private addresses. |
+| Protect and attack a **real application** (judge: real tests and attacks) | An **HTTP shield** (inline WAF/IDS) protects a real connected web app through a drop-in agent (ASGI/WSGI/Express, or an access-log tailer for apps you can't modify). It inspects every request — decoding URL/double-URL/HTML-entity/base64/SQL-comment evasion — for SQLi, XSS, path traversal, command injection, SSTI, SSRF, Log4Shell, scanning and brute force, each mapped to a CWE and an ATT&CK technique, and in **block** mode drops the attack inline (HTTP 403) and block-lists the source while legitimate users keep browsing. A built-in **red-team** (Live → *Red-team the shield*) fires the real attacks over the wire and measures it: on this laptop, **45/45 attacks detected, 45/45 blocked, 100% precision (0 false positives on benign controls), ~15 ms mean time-to-detect**. A successful attack opens a SOC incident case; every detection is in the audit trail. Safety: the red-team only ever targets loopback/private addresses. And the alerts leave the laptop to the apps a team already uses — **Slack, Discord, Microsoft Teams, e-mail or any webhook** (the lab's Ops Console stands in, so the loop runs with no account) — one audited card per event, with a severity floor, de-duplication and a per-minute cap. |
 | Early warning and **organisation-based OSINT** | Organisations → an **organisation threat map** (country threat maps draw arcs between nations; this draws, per operator, what is recorded against it: attack pressure on its ports, scanning of its products, exploited CVEs, implants calling out, look-alikes, suppliers, blast radius, every line with its source) plus OSINT and Inbox tabs, per organisation:<br>• internet-facing services<br>• global attack activity on its ports<br>• C2 indicators in its traffic<br>• look-alike domains in live phishing feeds<br>• real advisories naming its products<br>• everything Odyssey sent it |
 | **Risk minimisation and mitigation → risk management** | Risk plan:<br>• change tickets per (organisation, product, version)<br>• ordered by urgency, then by risk removed per unit of effort<br>• burn-down curve<br>• named fix targets and owners |
 | Actionable intelligence and recommendations | Named fixed release, owner and deadline per ticket; block and hunt steps; STIX export; CERT-In report draft. |
@@ -59,6 +60,24 @@ completion pass:
 - **Live re-scoring:** a beacon detected now turns that host's warnings into suspected compromises at once, each with its own clock.
 
 See `docs/THREAD_CONTEXT.md` for the full table.
+
+## Against the leading threat-intelligence platforms
+
+`docs/TIP_GAP_AUDIT.md` audits Odyssey against the platforms CloudSEK's knowledge-base ranking lists, with the most weight
+on CloudSEK and Recorded Future, inside our scope (one laptop, on-premise, PS-01, India). The parts a platform is
+recognised by were missing and are now built: the **intelligence graph** (every entity and relationship from the
+record, breathing with evidence age, with a replay of the record as it stood at nine earlier instants), an **evidence
+card per entity**, **threat-group and malware context** from the ATT&CK record stated as overlap and never as
+attribution, and **risk lists and a STIX 2.1 bundle** for the tools a SOC already runs. Built after the audit, the same
+morning: **watchlists and alert rules** on any graph entity (edge-triggered, evaluated every 15 s, delivered through
+the channels); **bulk indicator import** (text, CSV or STIX in; matched against our own flows, C2 sightings, the
+shield's attackers, our assets and domains and their look-alikes, and the exposure record; enriched from Feodo,
+DShield, OpenPhish and KEV; out again as CSV, STIX or a read-only **TAXII 2.1** server); **brand and social
+monitoring** from passive public sources (certificate transparency, URLhaus, OpenPhish, news, Hacker News, Reddit;
+scored, audited, drawn in the graph); and **attack-surface discovery with consent**, for systems the operator owns
+only (a loopback or private address, or an app the Odyssey agent announced; GET and HEAD, at most 40 requests; a
+score and a grade). Dark-web collection, scanning of networks we do not own, takedowns and sandboxing stay out of
+scope by rule; each has a named plug-in point in the audit.
 
 ## Honest limitations
 

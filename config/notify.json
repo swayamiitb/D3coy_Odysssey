@@ -1,0 +1,41 @@
+{
+  "_comment": "Where Odyssey's alerts go, outside this laptop: the apps your team already uses. Every string may use ${ENV_VAR} or ${ENV_VAR:default}. Put real webhook URLs and SMTP credentials in config/notify.local.json (git-ignored; same shape, merged over this file by channel name) or in the environment, never here. A channel whose url (or SMTP host and recipient) is empty is shown as 'not configured' and is never sent to. The analysis stays on this laptop; only the alerts you route leave it, to the destinations you name.",
+  "public_url": "${ODYSSEY_PUBLIC_URL:http://127.0.0.1:5173}",
+  "routing": {
+    "_comment": "Which audit-trail events become alerts. kinds are glob patterns on the ledger kind; min_severity drops anything below it; dedupe_minutes sends one alert per (kind, subject) in that window; per_minute_cap bounds the flood into a real channel, with one summary line for what was held back. The story is told once: the detection, the CVE taken in, the re-score, the case, the escalation and the decision waiting. Per-organisation notices (auto.notify: one per operator, eleven for one CVE) and the hunt/report mechanics are deliberately not routed; add them here if a channel should carry every notice.",
+    "min_severity": "High",
+    "kinds": [
+      "shield.detect.*", "shield.block", "live.detect.*", "live.intake", "live.rescore", "live.drill.end",
+      "auto.escalate", "auto.case_opened", "auto.proposed",
+      "watch.fired", "ioc.match", "brand.hit", "surface.finding"
+    ],
+    "dedupe_minutes": 10,
+    "per_minute_cap": 20
+  },
+  "channels": [
+    {
+      "name": "ops-console", "type": "webhook", "enabled": true,
+      "url": "${ODYSSEY_CONSOLE_WEBHOOK:http://127.0.0.1:8090/hooks/odyssey}",
+      "about": "The lab's Ops Console (target/console.py, :8090): a stand-in for any app of yours that accepts a webhook"
+    },
+    {
+      "name": "slack", "type": "slack", "enabled": true, "url": "${ODYSSEY_SLACK_WEBHOOK:}",
+      "about": "Slack incoming webhook (api.slack.com/messaging/webhooks)"
+    },
+    {
+      "name": "discord", "type": "discord", "enabled": true, "url": "${ODYSSEY_DISCORD_WEBHOOK:}",
+      "about": "Discord channel webhook (Channel settings -> Integrations -> Webhooks)"
+    },
+    {
+      "name": "teams", "type": "teams", "enabled": true, "url": "${ODYSSEY_TEAMS_WEBHOOK:}",
+      "about": "Microsoft Teams Workflows webhook ('Post to a channel when a webhook request is received'), Adaptive Card"
+    },
+    {
+      "name": "email", "type": "email", "enabled": true,
+      "smtp_host": "${ODYSSEY_SMTP_HOST:}", "smtp_port": "${ODYSSEY_SMTP_PORT:587}",
+      "username": "${ODYSSEY_SMTP_USER:}", "password": "${ODYSSEY_SMTP_PASS:}",
+      "from": "${ODYSSEY_SMTP_FROM:}", "to": "${ODYSSEY_ALERT_TO:}",
+      "about": "Any SMTP server (STARTTLS on 587, SSL on 465), e.g. a Gmail app password"
+    }
+  ]
+}

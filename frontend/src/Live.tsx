@@ -1,5 +1,6 @@
 import { Activity, ArrowRight, Check, Loader2, Radar, ScanSearch, ShieldAlert, Waypoints } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { ChannelsSection } from './Channels'
 import { istTime } from './proactive'
 import { ShieldSection } from './Shield'
 import { Spark } from './Soc'
@@ -13,6 +14,8 @@ const KIND: Record<string, { icon: typeof Radar; label: string }> = {
   surge: { icon: Radar, label: 'Scanning surge' },
   beacon: { icon: ShieldAlert, label: 'C2 beacon' },
   anomaly: { icon: Waypoints, label: 'Flow anomaly' },
+  ioc: { icon: ShieldAlert, label: 'Imported indicator seen' },
+  watch: { icon: Radar, label: 'Watchlist fired' },
 }
 
 function ago(iso?: string | null): string {
@@ -121,6 +124,7 @@ export function Live({ s, onGo }: { s?: LiveState; onGo: (view: 'soc' | 'now', t
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-16">
       <ShieldSection onGo={onGo} />
+      <ChannelsSection />
       <Section title="The pipeline, right now" sub="What each stage did in the last hour. Every number refreshes on its own; nothing here is a static report.">
         <div className="flex flex-col gap-2 xl:flex-row xl:items-stretch">
           {[

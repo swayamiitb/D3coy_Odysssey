@@ -102,7 +102,7 @@ is checked against numbered facts; unverifiable text is withheld. Outputs are ca
 - **Now:** one headline ("A suspected compromise needs you now"), the incident card with its CERT-In countdown, journey bar and one action; a live status line; the India tile map (no contested borders); "Up next"; the black "Odyssey at work" band; the decisions waiting.
 - **Live:** the pipeline stage by stage; attack drills with step-by-step progress and time to detect; new CVEs taken in from NVD; sensor streams with z-scores; detections; real-feed freshness.
 - **SOC:** Overview (decision queue, team on shift, autopilot heatmap, **detectors adapting to your decisions**, replay/handover/warnings cards); Cases (opened automatically, owners by rule, SLA clocks, playbooks, notes, audited MTTA/MTTR/SLA); Warnings (ranked, tier and sector filters); Log; System (CPU, GPU, VRAM, memory, resident models, every AI job timed and checked, API latency, audit trail, build stages).
-- **Intel:** Overview (what is under attack, the exposure heatmap technology × sector, the likely-next forecast, the **national situation report**); Threats (real DShield heatmap port × day; decoy grid, campaigns, CISA advisories, sources as sheets); Risk plan (93 changes remove 50% of national risk, 205 remove 80%, of 344 tickets); Advisories (inbox, paste-any-advisory, who must act, through suppliers, ready to block, how it was read; the hostile advisory shows the guard's block).
+- **Intel:** Overview (what is under attack, the exposure heatmap technology × sector, the likely-next forecast, the **national situation report**, **risk lists and STIX** export); **Graph** (the intelligence graph, section 19); Threats (real DShield heatmap port × day; decoy grid, campaigns, CISA advisories, sources as sheets); Risk plan (93 changes remove 50% of national risk, 205 remove 80%, of 344 tickets); Advisories (inbox, paste-any-advisory, who must act, through suppliers, ready to block, how it was read; the hostile advisory shows the guard's block).
 - **Organisations:** each operator opens on its **threat map** (`engine/threatmap.py`): assets laid out by zone (internet-facing, DMZ, internal, crown jewels; the worst ~10 per column drawn, the rest folded into one circle with its counts); threats on the left with their record (attack pressure per listening port with the DShield 28-day trend, decoy-grid scanning, exploited CVEs, phishing look-alikes, suppliers); implants calling out to C2 on the right; blast-radius lines to the crown jewels; REAL/SIM provenance on every node and line; hover shows the record, click opens the warning; refreshes every 10 s. Then open warnings, fix first, risk plan, "What outsiders see" (OSINT: exposed services, C2 in traffic, look-alike domains, DShield on its ports, advisories naming its products, its suppliers) and its inbox in its own language.
 - **Proof:** eight claim cards each opening its evidence (test bench, lead over KEV, day-0 forecast, EPSS comparison, 22 languages, exposure precision, briefs, model comparison); "How it works": six steps, the model table, the open formula with a live worked example, who does what.
 - **"Why this warning?" sheet:** three figures (time to act, SSVC decision, chance of compromise), then four tabs: What to do (the clocks that apply, the brief in 22 languages, actions, CERT-In draft, STIX 2.1 export), Why this score (Bayesian model, factor breakdown, evidence rules with age and weight, three-source exposure votes), How it unfolded (replay, ledger timeline), Related (through suppliers, ATT&CK, related threats, source text).
@@ -126,10 +126,10 @@ is checked against numbered facts; unverifiable text is withheld. Outputs are ca
 
 | Check | How | Result |
 |---|---|---|
-| Engine tests | `.venv\Scripts\python -m pytest -q` | 98/98: 67 core plus 31 from the shield thread. Include: concurrent writers never fork the audit chain; SOC seeding and live case ids safe under concurrent requests; evidence decay; the clocks; supplier fan-out; the hostile advisory; live intake (matched, scored, acted on; patched versions cleared); the threat map a consistent subset of the record with provenance on every edge; adaptive thresholds follow recorded decisions within bounds. |
+| Engine tests | `.venv\Scripts\python -m pytest -q` | 124/124 at the graph commit (section 19): 75 core plus 49 from the shield thread. Earlier, 98/98: 67 core plus 31 from the shield thread. Include: concurrent writers never fork the audit chain; SOC seeding and live case ids safe under concurrent requests; evidence decay; the clocks; supplier fan-out; the hostile advisory; live intake (matched, scored, acted on; patched versions cleared); the threat map a consistent subset of the record with provenance on every edge; adaptive thresholds follow recorded decisions within bounds. |
 | Test bench | Proof → *Run them now* (`POST /api/tests/run`) | 109/109: 5 attack drills on a data copy, 5 detection checks with negative controls, the audit-trail chain, the engine tests. |
-| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 16/16 on a private DB copy: every screen; approve and reject; a warning from issued to closed; a SOC case from new to closed; advisory analysis; compliance clocks, supplier fan-out and the hostile advisory; the organisation threat map; three drills plus a live CVE intake with live re-scoring and the adaptive layer focusing; the audit trail. |
-| Interface | `python scripts\ui_audit.py` (Playwright drives the installed Edge against a copy API on :8001) | 18/18: every screen, sheet and button including the report, the threat map drawn and hovered, the adaptive section, the CVE and implant drills; 0 page or console errors, 0 HTTP 5xx. |
+| Product flows | `.venv\Scripts\python scripts\e2e_check.py` | 19/19 at the graph commit (the shield thread added two, section 19 added the graph flow). Earlier, 16/16 on a private DB copy: every screen; approve and reject; a warning from issued to closed; a SOC case from new to closed; advisory analysis; compliance clocks, supplier fan-out and the hostile advisory; the organisation threat map; three drills plus a live CVE intake with live re-scoring and the adaptive layer focusing; the audit trail. |
+| Interface | `python scripts\ui_audit.py` (Playwright drives the installed Edge against a copy API on :8001) | 21/21 at the graph commit. Earlier, 18/18: every screen, sheet and button including the report, the threat map drawn and hovered, the adaptive section, the CVE and implant drills; 0 page or console errors, 0 HTTP 5xx. |
 | Production build | `cd frontend && npm run build` | OK |
 
 Headline measurements, recomputed live on the Proof page: 47× noise reduction (16,730 CVEs this month → 356 warnings
@@ -193,9 +193,9 @@ tell the shield thread first, because it clears that thread's test data too.
 | Area | Files |
 |---|---|
 | Build | `backend/app/pipeline.py`, `backend/app/sim/` (world, telemetry), `scripts/snapshot_feeds.py` |
-| Engines (`backend/app/engine/`) | `exposure`, `versions`, `products`, `scoring`, `bayes`, `forecast`, `detectors`, `campaigns`, `sentinel` (autopilot), `riskplan`, `intel`, `soc`, `workflow`, `replay`, `reports` (CERT-In, STIX), `attack` (ATT&CK), `scorecard`, `testbench`, `ledger`, `obligations`, `suppliers`, `intake`, `adaptive`, `threatmap`, `sitrep` |
+| Engines (`backend/app/engine/`) | `exposure`, `versions`, `products`, `scoring`, `bayes`, `forecast`, `detectors`, `campaigns`, `sentinel` (autopilot), `riskplan`, `intel`, `soc`, `workflow`, `replay`, `reports` (CERT-In, STIX), `attack` (ATT&CK), `scorecard`, `testbench`, `ledger`, `obligations`, `suppliers`, `intake`, `adaptive`, `threatmap`, `sitrep`, `graph` (intelligence graph, replay), `export` (risk lists, STIX bundle), `watch` (watchlists), `iocs` (indicator import), `brand` (brand and social watch), `surface` (consented attack surface) |
 | AI (`backend/app/ai/`) | `llm` (role registry), `narrate` (grounded briefs), `advisory` (IOCs, NER, mapping), `guard`, `embed`; `backend/mt_service.py` (IndicTrans2) |
-| Runtime | `backend/app/main.py` (API, SSE, startup warm-up), `backend/app/live.py`, `backend/app/telemetry.py`, `backend/app/cache.py` |
+| Runtime | `backend/app/main.py` (API, SSE, startup warm-up), `backend/app/live.py`, `backend/app/telemetry.py`, `backend/app/cache.py`, `backend/app/taxii.py` (TAXII 2.1 router), `backend/app/osint_api.py` (brand and surface routes) |
 | UI (`frontend/src/`) | `App`, `Shell`, `ui`, `Now`, `Live`, `Adaptive`, `SocOps`, `SystemView`, `Soc` (Intel), `Advisories`, `Orgs`, `OrgThreatMap`, `Proof`, `ProofProactive`, `HowItWorks`, `AlertDetail` and its panels, `Heatmap`, `IndiaMap`, `Rewind`, `proactive` |
 | Config | `config/scoring.json` (rules, deadlines, clocks, regulators, decay, sentinel policy), `config/models.json`, `config/suppliers.json` |
 | Checks | `tests/`, `scripts/e2e_check.py`, `scripts/ui_audit.py`, `scripts/demo_reset.ps1` |
@@ -219,8 +219,24 @@ A second Claude Code thread works in the same `d:\DECOY` folder on "Odyssey in a
 web app and red-teams it (`agent/` middleware for ASGI/WSGI/Express, `backend/app/shield.py`,
 `backend/app/engine/webattack.py`, `backend/app/engine/redteam.py`, `target/portal.py` on :8080, `frontend/src/Shield.tsx`,
 `tests/test_shield.py`, its own entry in `README.md`). It shares the ledger, the autopilot and the database, so its attacks
-create real proposals and cases; its 31 tests run in the same suite. Both threads' turns trigger the auto-sync. The main
-thread's commits list their files explicitly so as not to sweep the shield's in-progress work in.
+create real proposals and cases; its tests run in the same suite (49 of the 124). Both threads' turns trigger the auto-sync.
+The main thread's commits list their files explicitly so as not to sweep the shield's in-progress work in.
+
+Since the first version of this document the shield thread also delivered, all committed and verified: **Channels**
+(`backend/app/notify.py`, `config/notify.json`, secrets in the git-ignored `config/notify.local.json` or the environment):
+a tap on the ledger, cursor at the head on API start, one card per routable event to Slack, Discord, Teams, e-mail or any
+webhook, severity floor High, one per (kind, subject) per 10 min, cap 20/min, back-off 60 s per failing destination; new
+ledger kinds `notify.sent` / `notify.failed` (destination host only, never the URL); endpoints `GET /api/notify`,
+`POST /api/notify/test/{name}`, `POST /api/notify/channels/{name}/enabled?on=`, `POST /api/notify/reload`; starts only
+when `ODYSSEY_LIVE != 0` and `ODYSSEY_NOTIFY != 0`; `auto.notify` is deliberately not routed (one CVE intake would be
+eleven org notices), `live.intake`, `live.detect.*`, `live.rescore`, `live.drill.end`, `auto.case_opened`,
+`auto.escalate`, `auto.proposed` and `shield.*` are. The **Ops Console** (`target/console.py`, :8090) is a webhook receiver
+with a live card page. `agent/odyssey_proxy.py` is a reverse-proxy agent for any stack (drops with 403 before the upstream).
+The Live page gained "A real app, protected" and "Alerts delivered to your apps" above the pipeline section.
+`scripts/demo_reset.ps1` also launches the console if it is down and, as its last step, clears it, so the proposals that
+`warm_cache.py` creates leave no cards before a demo; after an API restart the shield registry is empty for up to 10 s
+until the portal's heartbeat re-announces it. The shield thread also moved all test scratch off the full C: drive (see
+`machine-c-drive-nearly-full` in the team lead's memory notes and `tests/conftest.py`).
 
 ## 17. Known limits
 
@@ -230,9 +246,156 @@ thread's commits list their files explicitly so as not to sweep the shield's in-
 - Each drill and each shield attack adds proposals and cases to the live database; `demo_reset.ps1` clears them.
 - The deadlines run in real time from the build (see section 13).
 - A background task started from Claude Code may show as still running after `demo_reset.ps1` finishes, because the API it launched inherits the task's output handles; it is harmless.
+- The brand and social watch reads public sources over the network: crt.sh rate-limits for a minute at a time and is then shown offline, a live scan takes 10 to 25 s, and a hit is a scored match of a term, not a finding of abuse. The attack-surface scan covers only systems the operator owns (section 20); a public target is refused by rule.
 
 ## 18. Suggested next steps
 
 1. Rehearse the nine-step demo once with `docs/PITCH.md` open; run `demo_reset.ps1` ten minutes before each slot.
 2. If the shield demo is in the pitch, make sure it works on the reset data; otherwise leave it out.
 3. After the hackathon: real operator onboarding (inventory connectors), the national supplier graph from procurement data, sector-specific OT telemetry.
+
+## 19. The intelligence graph, risk lists and STIX, the TIP gap audit (1 Nov 2026, 05:45 to 07:00 IST)
+
+The team lead asked for a deep audit against the platforms CloudSEK's knowledge-base ranking lists (CloudSEK and
+Recorded Future first), inside our scope, and named one example gap: a well-defined adaptive, breathing intelligence
+graph. `docs/TIP_GAP_AUDIT.md` is the audit. Built to close the gap:
+
+- `backend/app/engine/graph.py`: `intel_graph(conn, focus, live)` builds the graph from the database, the ledger, the
+  live engine and the local ATT&CK and Feodo snapshots. Eleven node kinds (org, asset in org focus, product, cve,
+  campaign, technique, malware, actor, indicator, supplier, signal); edges with kind, label, provenance (REAL, SIM,
+  REAL · SIM), weight and last_seen; every node has `last_seen`, `age_h`, `pulse = exp(-age_h/48)`, `phase`
+  (fresh < 1 h, today, week, fading < 30 d, aged), `risk`, `tier`, `facts`, and a deterministic layout (`ring`,
+  `angle`, `r`): rings by kind, angles from the circular mean of inner neighbours with a minimum gap, evenly spaced when
+  the ring is full. Threat groups: ATT&CK intrusion-sets ranked malware-link first (Feodo family → ATT&CK software →
+  groups using it), then technique overlap (≥ 3 and ≥ 60% of observed), at most 8, every one labelled "overlap, not
+  attribution". Cached 4 s per focus. `node_card()` gives neighbours, the ledger evidence and how the kind is derived.
+- `backend/app/engine/export.py`: `risk_list()` for cves | ips | domains | products (scored, provenance, evidence;
+  C2 refanged with the defanged form beside it), `to_csv()`, `graph_stix()` (STIX 2.1 identities, infrastructure,
+  software, vulnerabilities, campaigns, attack-patterns, malware, intrusion-sets, indicators, sightings for beacons,
+  notes for live signals, relationships; no dangling references).
+- API: `GET /api/graph?focus=`, `GET /api/graph/node?id=&focus=`, `GET /api/graph/stix?focus=&tlp=`,
+  `GET /api/risklists`, `GET /api/risklists/{kind}?format=json|csv`.
+- UI: `frontend/src/IntelGraph.tsx` (Intel → Graph tab; focus pills; breath strip; SVG with ring captions, breathing
+  halos, one-shot ping for new nodes, collision-avoiding labels, hover panel, kind-chip filter, click → card sheet with
+  neighbours you can follow and the evidence list); `Orgs.tsx` gets "Open in the intelligence graph"; `Soc.tsx`
+  Intel overview gets the "Risk lists and STIX" tile and sheet; `App.tsx` handles `go('intel','graph:ORG')` and
+  `?focus=`; `index.css` has the `odyssey-breath` and `odyssey-ping` keyframes.
+- Verification: `tests/test_graph.py` (8 tests), the graph flow in `scripts/e2e_check.py`, the graph step in
+  `scripts/ui_audit.py`. The API was restarted so the running system serves the new code.
+- Still missing in scope at that point (audit section 6): user-authored watchlists and alert rules on graph entities,
+  bulk IOC import, a TAXII server, graph history. All four, plus passive brand and social monitoring and a consented
+  attack-surface scan of owned systems, were built in the next hour (section 20). Out of scope by rule: dark web,
+  scanning of networks we do not own, takedowns, sandboxing (each with a plug-in point in the audit).
+- Lesson for the next thread: never run pytest, the e2e check and the UI audit at the same time on this laptop; the
+  advisory-analysis paths load models in each process and the machine runs out of memory (one MemoryError and one
+  guard-model failure in a concurrent run, both green when run alone).
+
+## 20. Watchlists, indicator import, TAXII, replay, brand and social watch, consented attack surface (1 Nov 2026, 07:15 to 08:15 IST)
+
+The four items the audit's section 6 listed as still worth building, and two its section 5 had placed out of scope,
+built within the rules the team lead set (passive public sources for anyone else's systems; active checks only on
+systems we own and prove we own). All six are deterministic services with no model call. Built and tested on the
+backend first, by parallel sub-threads; the interface landed right after. The API serves the new routes after the
+next restart; the sub-threads never restart :8000 while a demo may be running, so the main thread does it.
+
+**Files.** `backend/app/engine/watch.py` (watchlists), `backend/app/engine/iocs.py` (indicator import and matching),
+`backend/app/taxii.py` (TAXII 2.1 router, mounted by `main.py`), `backend/app/engine/brand.py` (brand and social
+watch), `backend/app/engine/surface.py` (consented attack surface), `backend/app/osint_api.py` (the brand and surface
+routes), `backend/app/engine/graph.py` (`as_of` on the builder, `replay_steps()`, and the new node sources: matched
+imports, brand hits of weight, surface scans, watch firings), `backend/app/live.py` (watch evaluation every third tick,
+the imported address sets and `iocs.mark_live_match` on every tick), `backend/app/main.py` (graph replay, watch and
+indicator routes), `tests/test_brand_surface.py`. UI: `frontend/src/IntelGraph.tsx` gains the replay slider, a Watch
+button on every card and the Watchlist section; Intel gets a new Indicators tab (import, what is held, CSV, STIX and
+TAXII); Intel → Threats gets "Brand and social watch" and "Attack surface, with consent"; Organisations → OSINT gets
+the brand watch for that organisation. The UI files are new files under `frontend/src/` wired in by the main thread.
+
+**Endpoints.**
+
+- Graph: `GET /api/graph?focus=&as_of=` (the record as it stood at `as_of`; later evidence left out, pulses aged to
+  it), `GET /api/graph/replay` (nine instants: snapshot date, 30, 14, 7, 3 and 1 days ago, 6 h and 1 h ago, now),
+  `GET /api/graph/node?id=&focus=`.
+- Watchlists: `GET /api/watches` (watches, events, suggestions, rule texts, the default rule), `POST /api/watches`
+  `{target, rule?, owner?, label?, note?}` (404 when the target is not in the graph, 400 on a bad rule),
+  `POST /api/watches/{id}/pause|resume|delete`, `POST /api/watches/evaluate`.
+- Indicators: `POST /api/iocs/import {text, source?, tlp?, tags?}` (400 when empty), `GET /api/iocs?matched_only=&limit=`,
+  `GET /api/iocs/export?format=csv|stix&matched_only=`.
+- TAXII 2.1 (read-only, media type `application/taxii+json;version=2.1`, bearer token when `ODYSSEY_TAXII_TOKEN` is
+  set): `GET /taxii2/`, `/taxii2/odyssey/`, `/taxii2/odyssey/collections/`, `.../collections/{id or alias}/`,
+  `.../objects/?limit=&next=&added_after=&match[type]=&match[id]=`, `.../manifest/`, `.../objects/{object_id}/`,
+  `.../objects/{object_id}/versions/`. Collections: `graph`, `indicators`, `vulnerabilities`, fixed UUIDs.
+- Brand: `GET /api/brand?org_id=`, `POST /api/brand/scan {term | org_id}` (10 to 25 s), `GET /api/brand/hits?term=&org_id=&limit=`.
+- Surface: `POST /api/surface/scan {url, consent: true, org_id?}` (400 with the reason when refused),
+  `GET /api/surface?org_id=`, `GET /api/surface/can-scan?url=`, `GET /api/surface/{scan_id}`.
+- Live: `GET /api/live` detections gain kinds `ioc` and `watch`.
+
+**Ledger kinds.** `watch.added`, `watch.paused`, `watch.active`, `watch.deleted`, `watch.fired` (source WATCHLIST,
+provenance AUTO; the channels route it); `ioc.import`, `ioc.match`; `brand.hit` (score 70 or above, provenance REAL);
+`surface.scan`, `surface.finding`.
+
+**Tables** (all created on first use by each engine's `ensure()`):
+
+- `watches` (id, created_at, owner, target, label, kind, rule JSON, note, status active|paused, last_state JSON,
+  last_eval, fired, last_fired); `watch_events` (id, ts, watch_id, target, label, reason, severity, payload JSON).
+- `iocs` (id, value, type, defanged, source, tlp, tags, note, added_at, first_seen, last_seen, matched, matches JSON,
+  enrich JSON, severity; unique on value and type); `ioc_imports` (id, ts, source, tlp, format text|csv|stix, found,
+  new, matched, by_type JSON, seconds).
+- `brand_hits` (id, ts, term, org_id, source, kind, channel, value defanged, url, title, snippet, score, provenance,
+  evidence, raw, first_seen, last_seen; unique on term, source, kind, value); `brand_scans` (id, ts, term, org_id,
+  sources JSON with status and ms per source, hits, new_hits, seconds).
+- `surface_scans` (id, ts, target, host, org_id, app_id, consent, score, grade, findings, seconds, requests, status
+  done|refused|unreachable, reason); `surface_findings` (id, scan_id, check_name, severity, title, detail, evidence,
+  cwe, fix, path, provenance).
+
+**Rules.**
+
+- Watch rules: `any` (fresh evidence, a worsening tier or a new connection), `fresh` (pulse rises above the threshold,
+  or new evidence is recorded), `tier` (the worst open tier reaches the threshold or worse), `connect` (a new edge).
+  Default `{kind: any, pulse: 0.5, tier: Critical}`. Edge-triggered against `last_state`: a watch fires on the change,
+  never on every evaluation while the condition holds. Evaluated by the live engine every third tick (15 s) and on
+  `POST /api/watches/evaluate`; an exception in a watch is logged and never stops detection. Event severity follows the
+  entity's tier: Compromise to Critical, Critical to High, High to Medium, Medium and Watch to Low. Assets are watched
+  in their organisation's focus graph (the asset id starts with the organisation id).
+- Indicators: types `ipv4-addr`, `domain-name`, `url`, `file:sha256`, `file:sha1`, `file:md5`, `vulnerability`;
+  refanged on the way in (`[.]`, `hxxp`, `[:]`), stored once per (value, type), defanged for display. Matched against
+  the live flows and C2 sightings (SIM), the shield's attackers (`shield.detect.*`), our own addresses and domains and
+  their look-alikes, and the exposure record (CVEs); enriched from Feodo Tracker, DShield, OpenPhish and CISA KEV
+  (REAL). Imported addresses and domains join the live engine's flow matching on every tick (`live flows` match,
+  severity High). Export as CSV or a STIX 2.1 bundle.
+- Replay: nothing recorded after the instant is drawn, a CVE not yet published at that date is not in anyone's
+  picture, every pulse is aged to the instant, and the layout rules are unchanged so stepping through does not jitter.
+- Brand: six passive public sources (crt.sh, URLhaus, OpenPhish, Google News RSS, Hacker News, Reddit RSS), 20 s
+  timeout each, run in parallel; a source that does not answer is reported offline, never raised. For an organisation
+  the terms are its name's words of five letters or more minus generic words, its domain and that domain's look-alike
+  permutations. Hit kinds `lookalike_cert`, `malicious_url`, `phishing_url`, `mention`; score 0 to 100 by explicit
+  rules; `LEDGER_FLOOR = 70` for `brand.hit`; the graph draws hits at 70 or above that belong to an organisation.
+- Surface: two gates in code, both required: `consent: true` and a host that is loopback, RFC 1918, link-local or
+  carrier-grade NAT, or an app the HTTP-shield agent has registered; otherwise refused with the reason (HTTP 400).
+  GET and HEAD only, no payloads, `MAX_REQUESTS = 40`, `COOLDOWN_S = 60` per target. Checks: `transport`, `tls`,
+  `headers`, `cookies`, `disclosure`, `exposure` (files and admin paths), `ports` (a TCP connect to 21, 22, 23, 80,
+  443, 445, 1433, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 9200, 27017 on the target host; the sensitive ones are
+  High findings). Framework fingerprints map to product keys so the scan links to known CVEs in the constituency.
+  Grade A at 90 or more, B 80, C 70, D 55, E 40, else F.
+- Honesty: a brand hit is a scored match of a term in a public source, not a finding of abuse; a surface grade describes
+  an owned system as it answered, and nothing else was touched; an imported indicator keeps its source and TLP and a
+  match says where in our own record it was seen; every new node and edge carries REAL, SIM or REAL · SIM.
+
+**Measured so far.** A live brand run for "irctc" returned 79 real hits, with crt.sh rate-limited that minute and shown
+offline. The CityPower portal (:8080, registered to PWR-01) scores 29, grade F: plain HTTP, open SSH and SMB ports, no
+CSP, an exposed `/openapi.json`, a FastAPI fingerprint. `tests/test_brand_surface.py` has 8 tests (scan scores, stores
+and audits; no duplicates on a second scan; offline sources do not fail a scan; generic words dropped from an
+organisation's terms; the ownership gate refuses what is not ours; a scan finds and audits; the cooldown; the real
+portal when it is up).
+
+**Verification plan (targets until the main thread runs them, one check at a time, never concurrently).**
+
+- Engine tests: about 140 (124 at the graph commit, plus 8 brand and surface, plus the watchlist, indicator and TAXII
+  tests in a file of their own). `tests/test_watch_iocs_taxii.py` did not exist when this section was written.
+- Product flows (`scripts/e2e_check.py`): 25 (19 plus six: a watch added, fired by the scanning drill and paused;
+  an import that matches a C2 sighting and one of our own assets, exported as CSV and STIX; TAXII discovery,
+  collections and a paged objects read; the graph at an earlier instant; a brand scan; a consented scan of the portal
+  and a refused public target).
+- Interface (`scripts/ui_audit.py`): 24 steps (21 plus three: the Indicators tab with an import; a watch set from a
+  graph card and the replay slider moved; the brand and attack-surface sections opened).
+- Production build: `cd frontend && npm run build`.
+- Documents updated in this pass: `README.md`, `docs/TIP_GAP_AUDIT.md` (sections 1, 2, 3, 5, 6 and 7),
+  `docs/PS_COVERAGE.md`, `docs/PITCH.md`, `docs/MODEL_CARD.md`, this file.

@@ -100,6 +100,36 @@ def test_block_mode_drops_and_blocklists(shield):
     assert r2["decision"] == "block"
 
 
+def test_first_request_hydrates_a_forgotten_app_and_is_counted(shield):
+    """After an API restart the shield's registry is empty. The agent's metadata rides on every event, so the app
+    comes back whole (name, URL, organisation) on its first request, and that request is counted on the app
+    itself, not on a stale copy. The agent's mode is not the shield's policy."""
+    r = shield.ingest({"app": "portal", "name": "CityPower Customer Portal", "base_url": "http://127.0.0.1:8080",
+                       "org_id": "PWR-01", "framework": "asgi", "mode": "enforce",
+                       "method": "GET", "path": "/", "source_ip": "10.0.0.1"})
+    app = shield.status()["apps"][0]
+    assert app["name"] == "CityPower Customer Portal" and app["base_url"] == "http://127.0.0.1:8080"
+    assert app["org_id"] == "PWR-01" and app["announced"] is True and r["announced"] is True
+    assert app["mode"] == "monitor" and app["agent_mode"] == "enforce"
+    assert app["requests"] == 1 and app["last_seen"]
+
+
+def test_bare_webhook_without_metadata_stays_a_stub(shield):
+    r = shield.ingest({"app": "t", "method": "GET", "path": "/", "source_ip": "10.0.0.2"})
+    app = shield.status()["apps"][0]
+    assert app["name"] == "t" and app["announced"] is False and r["announced"] is False
+
+
+def test_reannouncing_never_resets_the_analysts_block(shield):
+    """The agent re-announces itself every 10 s; that must never undo a Block set from the dashboard."""
+    shield.register("portal", {"name": "Portal", "mode": "enforce"})
+    assert shield.status()["apps"][0]["mode"] == "monitor"
+    shield.set_mode("portal", "block")
+    shield.register("portal", {"name": "Portal", "mode": "enforce", "base_url": "http://127.0.0.1:8080"})
+    app = shield.status()["apps"][0]
+    assert app["mode"] == "block" and app["agent_mode"] == "enforce" and app["base_url"] == "http://127.0.0.1:8080"
+
+
 def test_brute_force_is_detected_behaviourally(shield):
     for _ in range(9):
         shield.ingest({"app": "portal", "method": "POST", "path": "/login",

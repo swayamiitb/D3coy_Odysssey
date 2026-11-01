@@ -42,6 +42,16 @@ if ($env:ODYSSEY_TARGET -ne '0' -and -not (Test-Port 8080)) {
     try { Wait-Port 8080 'Shield target' 20 } catch { "  warning: shield target did not start ($_)" }
 }
 
+# 2c. Ops Console: the lab's destination app, where Odyssey's alerts land over a webhook (a stand-in for Slack, Teams,
+#     Discord or your own app; the same cards go to a real one once its URL is in config/notify.local.json).
+#     Set ODYSSEY_CONSOLE=0 to skip it.
+if ($env:ODYSSEY_CONSOLE -ne '0' -and -not (Test-Port 8090)) {
+    Start-Process -WindowStyle Hidden -WorkingDirectory $root -FilePath "$root\.venv\Scripts\python.exe" `
+        -ArgumentList '-m', 'uvicorn', 'target.console:app', '--host', '127.0.0.1', '--port', '8090' `
+        -RedirectStandardOutput "$logs\console.log" -RedirectStandardError "$logs\console.err.log"
+    try { Wait-Port 8090 'Ops Console' 20 } catch { "  warning: Ops Console did not start ($_)" }
+}
+
 # 2b. Indic translation service (IndicTrans2, own Python 3.14 env)
 if (-not (Test-Port 8010)) {
     $env:HF_HOME = 'D:\hf-cache'; $env:HF_HUB_OFFLINE = '1'
@@ -62,4 +72,4 @@ Wait-Port 5173 'Dashboard'
 # 4. Warm the GPU model so the first AI call on stage is instant
 try { Invoke-RestMethod -Method Post http://127.0.0.1:11434/api/generate -Body '{"model":"mist:8b","prompt":"ok","stream":false,"options":{"num_predict":1}}' -ContentType 'application/json' -TimeoutSec 120 | Out-Null; '  mist:8b loaded on GPU' } catch { "  warning: could not warm mist:8b ($_)" }
 
-"Open http://127.0.0.1:5173/"
+"Open http://127.0.0.1:5173/   (protected app: http://127.0.0.1:8080/   Ops Console: http://127.0.0.1:8090/)"

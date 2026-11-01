@@ -19,12 +19,15 @@ import json
 import os
 import queue
 import threading
+import time
 import urllib.request
 
 DEFAULT_SHIELD = os.environ.get("ODYSSEY_SHIELD_URL", "http://127.0.0.1:8000")
 FORWARD_HEADERS = ("user-agent", "referer", "referrer", "cookie", "x-forwarded-for", "x-real-ip",
                    "content-type", "x-api-version", "x-odyssey-redteam", "x-odyssey-rt-case")
 BODY_LIMIT = 64 * 1024
+HEARTBEAT_S = 10.0   # re-announce the app this often: the shield's registry is in memory and forgets on a restart
+RETRY_S = 2.0        # ...and this often while the shield is unreachable or still starting up
 
 
 def _iso() -> str:
@@ -44,10 +47,7 @@ class OdysseyShield:
         self.body_limit = body_limit
         self._q: queue.Queue = queue.Queue(maxsize=2000)
         threading.Thread(target=self._drain, daemon=True, name="odyssey-shield-forward").start()
-        try:
-            self._post(self.register_url, self.meta, 1.5)
-        except Exception:  # noqa: BLE001
-            pass
+        threading.Thread(target=self._heartbeat, daemon=True, name="odyssey-shield-heartbeat").start()
 
     def __call__(self, environ, start_response):
         length = int(environ.get("CONTENT_LENGTH") or 0)
@@ -103,6 +103,16 @@ class OdysseyShield:
                 self._post(self.ingest_url, event, 2.0)
             except Exception:  # noqa: BLE001
                 pass
+
+    def _heartbeat(self):
+        """Announce the app now and every HEARTBEAT_S seconds (the shield's registry is in memory and forgets on a
+        restart); retry every RETRY_S while the shield is unreachable. Best-effort, never touches the app."""
+        while True:
+            try:
+                self._post(self.register_url, self.meta, 1.5)
+                time.sleep(HEARTBEAT_S)
+            except Exception:  # noqa: BLE001
+                time.sleep(RETRY_S)
 
     def _ingest_sync(self, event) -> str:
         try:

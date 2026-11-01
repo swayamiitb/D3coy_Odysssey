@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -40,13 +41,52 @@ def step(name: str):
     return wrap
 
 
-def start_copy_api(tmp: Path) -> subprocess.Popen:
+def _scratch() -> None:
+    """The database copies are large: keep them beside the data (the repository's drive), not in the system temp, and
+    drop what an earlier run left behind."""
+    root = ROOT / "data" / ".tmp"
+    root.mkdir(parents=True, exist_ok=True)
+    cutoff = time.time() - 3600
+    for d in root.glob("odyssey-*"):
+        if d.stat().st_mtime < cutoff:
+            shutil.rmtree(d, ignore_errors=True)
+    tempfile.tempdir = str(root)
+
+
+class Receiver:
+    """A webhook destination on loopback for the copy API's channels, so the audit never posts to the demo's console
+    (or to a real Slack): the stand-in for the apps a team routes alerts to."""
+
+    def __init__(self):
+        import json
+        import threading
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        self.bodies: list[dict] = []
+        recv = self
+
+        class H(BaseHTTPRequestHandler):
+            def do_POST(self):
+                recv.bodies.append(json.loads(self.rfile.read(int(self.headers.get("content-length", 0))) or b"{}"))
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+            def log_message(self, *a):
+                pass
+        self.srv = HTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.srv.server_port}/hooks/odyssey"
+
+
+def start_copy_api(tmp: Path, hook_url: str) -> subprocess.Popen:
     for name in ("ews.db", "cache.db"):
         a, b = sqlite3.connect(ROOT / "data" / name), sqlite3.connect(tmp / name)
         a.backup(b)
         a.close()
         b.close()
-    env = {**os.environ, "ODYSSEY_DB": str(tmp / "ews.db"), "ODYSSEY_CACHE": str(tmp / "cache.db"), "ODYSSEY_LIVE": "1"}
+    env = {**os.environ, "ODYSSEY_DB": str(tmp / "ews.db"), "ODYSSEY_CACHE": str(tmp / "cache.db"), "ODYSSEY_LIVE": "1",
+           "ODYSSEY_CONSOLE_WEBHOOK": hook_url, "ODYSSEY_SLACK_WEBHOOK": "", "ODYSSEY_DISCORD_WEBHOOK": "", "ODYSSEY_TEAMS_WEBHOOK": "",
+           "ODYSSEY_SMTP_HOST": ""}
     proc = subprocess.Popen([str(ROOT / ".venv" / "Scripts" / "python.exe"), "-m", "uvicorn", "backend.app.main:app",
                              "--host", "127.0.0.1", "--port", "8001"], cwd=ROOT, env=env,
                             stdout=open(tmp / "api.log", "w"), stderr=subprocess.STDOUT)
@@ -66,8 +106,10 @@ def main() -> int:
     args = ap.parse_args()
     shots = Path(args.shots)
     shots.mkdir(parents=True, exist_ok=True)
+    _scratch()
     tmp = Path(tempfile.mkdtemp(prefix="odyssey-ui-data-"))
-    api = start_copy_api(tmp)
+    recv = Receiver()
+    api = start_copy_api(tmp, recv.url)
     errors: list[str] = []
     try:
         with sync_playwright() as p:
@@ -240,6 +282,68 @@ def main() -> int:
                 shot("intel-risk")
             intel(page)
 
+            @step("Intel graph: the breathing intelligence graph, an entity card, an organisation in focus")
+            def graph(page):
+                go("intel", "graph")
+                page.locator("[data-intelgraph]").wait_for()
+                page.locator("[data-node]").first.wait_for()
+                page.wait_for_timeout(800)
+                shot("intel-graph")
+                page.locator("[data-node^='cve:']").first.click()
+                page.get_by_text("What this is", exact=True).wait_for()  # the card sheet; the side panel is an aside too
+                page.locator("aside h3").filter(has_text="Evidence").first.wait_for()  # the footer has an "Evidence" link too
+                shot("intel-graph-card")
+                page.keyboard.press("Escape")
+                page.get_by_text("What this is", exact=True).wait_for(state="detached")
+                page.get_by_role("button").filter(has_text="Vidyut Grid West Corp").first.click()
+                page.locator("[data-node^='asset:']").first.wait_for()
+                page.wait_for_timeout(800)
+                shot("intel-graph-org")
+            graph(page)
+
+            @step("Intel graph: replay slider, watch an entity from its card, the watchlist below")
+            def graph_watch(page):
+                go("intel", "graph")
+                page.locator("[data-intelgraph]").wait_for()
+                page.locator("[data-node^='product:']").first.click()
+                page.get_by_text("What this is", exact=True).wait_for()
+                page.locator("aside").get_by_role("button", name="Watch", exact=True).first.click()
+                page.locator("aside").get_by_text("Watching", exact=False).first.wait_for()
+                page.keyboard.press("Escape")
+                page.get_by_text("What this is", exact=True).wait_for(state="detached")
+                page.get_by_text("Watchlist", exact=True).first.wait_for()
+                page.locator("input[type='range']").first.wait_for()
+                shot("intel-graph-watch")
+
+            graph_watch(page)
+
+            @step("Intel indicators: paste the example, import and match, exports and TAXII")
+            def indicators(page):
+                go("intel", "indicators")
+                page.get_by_text("Bring in indicators").wait_for()
+                page.get_by_role("button").filter(has_text="Try an example").first.click()
+                page.get_by_role("button", name="Import and match").click()
+                page.get_by_text("matched", exact=False).first.wait_for(timeout=60000)
+                page.get_by_text("50[.]16[.]16[.]211", exact=False).first.wait_for()
+                page.get_by_role("button").filter(has_text="Test it").first.click()
+                page.get_by_text("Odyssey intelligence graph", exact=False).first.wait_for(timeout=30000)
+                shot("intel-indicators")
+
+            indicators(page)
+
+            @step("Intel threats: brand and social watch, consented attack-surface scan of the portal")
+            def osint(page):
+                go("intel", "threats")
+                page.get_by_text("Brand and social watch", exact=False).first.wait_for()
+                page.get_by_text("Attack surface, with consent", exact=False).first.wait_for()
+                page.get_by_label("I own this system and consent to a read-only scan").check()
+                page.get_by_role("button", name="Scan", exact=True).last.click()
+                page.get_by_text("Previous scans", exact=False).first.wait_for()
+                page.get_by_text("CWE-", exact=False).first.wait_for(timeout=90000)
+                shot("intel-osint")
+
+            osint(page)
+
             @step("Intel advisories: inbox, how it was read, paste and analyse")
             def advisories(page):
                 go("intel", "advisories")
@@ -327,6 +431,60 @@ def main() -> int:
                 return "4 drill cards; " + card.get_by_text("finished in", exact=False).first.inner_text()
             drill(page)
 
+            @step("Live: HTTP shield card, a forwarded attack listed, Block toggle")
+            def shield(page):
+                go("live")
+                page.get_by_text("A real app, protected").wait_for()
+                page.get_by_text("Red-team the shield").wait_for()
+                # Drive the webhook an agent calls, against the copy API only. "Run all attacks" is deliberately not
+                # clicked here: it fires at the real portal on :8080, whose agent reports to the demo API, not the copy.
+                import httpx
+                httpx.post(f"{COPY_API}/api/sensor/register", timeout=5, json={
+                    "app": "ui-audit", "name": "UI Audit App", "org_id": "PWR-01", "base_url": "http://127.0.0.1:8080",
+                    "mode": "enforce", "framework": "asgi"}).raise_for_status()
+                httpx.post(f"{COPY_API}/api/sensor/http", timeout=5, json={
+                    "app": "ui-audit", "method": "GET", "path": "/search", "query": "q=' OR 1=1--", "status": 200,
+                    "source_ip": "203.0.113.66", "headers": {"x-odyssey-redteam": "ui-audit"}}).raise_for_status()
+                # the card's title, exactly: the delivery rows below quote the app's name inside longer titles
+                page.get_by_text("UI Audit App", exact=True).first.wait_for(timeout=10000)
+                page.get_by_text("agent connected").wait_for()
+                page.get_by_text("CWE-89", exact=False).first.wait_for(timeout=10000)
+                page.get_by_text("203.0.113.66").first.wait_for()
+                page.get_by_role("button", name="Block inline").click()
+                toast("now blocking attacks inline")
+                shot("live-shield")
+                return "card with a live agent, SQL injection listed with its CWE, toggled to Block"
+            shield(page)
+
+            @step("Live: alerts delivered to your apps - send a test, see it arrive, mute and unmute")
+            def channels(page):
+                page.get_by_text("Alerts delivered to your apps").first.wait_for()
+                before = len(recv.bodies)
+                page.get_by_role("button", name="Send test").first.click()   # the first row is the configured console
+                toast("Delivered to ops-console")
+                for _ in range(40):
+                    if len(recv.bodies) > before:
+                        break
+                    page.wait_for_timeout(250)
+                assert len(recv.bodies) > before and recv.bodies[-1]["title"].startswith("Test alert"), recv.bodies[-1:]
+                page.get_by_text("Test alert from Odyssey", exact=False).first.wait_for(timeout=10000)
+                # events from the copy's own run (the drills, the forwarded attack) went out through the same channel on
+                # their own; which ones is policy (floor, de-duplication, the per-minute cap), so look for any of them
+                def real() -> list[dict]:
+                    return [b for b in recv.bodies if (b.get("event") or {}).get("kind", "").startswith(("shield.", "live.", "auto."))]
+                for _ in range(40):
+                    if real():
+                        break
+                    page.wait_for_timeout(250)
+                assert real(), [b.get("title") for b in recv.bodies]
+                page.get_by_title("Mute this channel").first.click()
+                toast("ops-console muted")
+                page.get_by_title("Turn this channel on").first.click()
+                toast("ops-console on")
+                shot("live-channels")
+                return f"{len(recv.bodies)} cards reached the webhook, e.g. " + " | ".join(b.get("title", "")[:48] for b in recv.bodies[-2:])
+            channels(page)
+
             @step("Footer: links navigate")
             def footer(page):
                 page.locator("footer").get_by_role("button", name="Risk plan").click()
@@ -335,6 +493,11 @@ def main() -> int:
             browser.close()
     finally:
         api.terminate()
+        try:
+            api.wait(timeout=15)
+        except Exception:  # noqa: BLE001 - the copy's files are released once it is gone; a slow exit only leaves them for the next prune
+            pass
+        shutil.rmtree(tmp, ignore_errors=True)
     for e in dict.fromkeys(errors):
         RESULTS.append((False, "browser", e))
     width = max(len(n) for _, n, _ in RESULTS)

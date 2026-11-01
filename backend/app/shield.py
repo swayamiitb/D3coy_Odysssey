@@ -91,15 +91,30 @@ class Shield:
         self.assets = {a["id"]: a for a in world["assets"]}
 
     # ------------------------------------------------------------------ app registry
-    def register(self, app_id: str, meta: dict) -> dict:
+    def register(self, app_id: str, meta: dict, announced: bool = True) -> dict:
+        """An agent announces its app (on start and every 10 s), or the first event from an app the shield does not
+        know hydrates it from the metadata the agent sends with every request (announced=False for a bare webhook
+        that carries only an id). The agent's own mode ("enforce" forwards synchronously and honours the decision;
+        "monitor" cannot drop anything) is kept as agent_mode. The shield's policy ("monitor" / "block") is set only
+        from the dashboard, so an agent re-announcing itself never undoes an analyst's Block."""
+        now = _iso(dt.datetime.now(dt.timezone.utc))
         with self.lock:
-            app = self.apps.setdefault(app_id, {
-                "id": app_id, "name": meta.get("name") or app_id, "base_url": meta.get("base_url"),
-                "mode": meta.get("mode", "monitor"), "org_id": meta.get("org_id"), "framework": meta.get("framework"),
-                "first_seen": _iso(dt.datetime.now(dt.timezone.utc)), "requests": 0, "attacks": 0, "blocked": 0})
-            for k in ("name", "base_url", "mode", "org_id", "framework"):
-                if meta.get(k):
-                    app[k] = meta[k]
+            app = self.apps.get(app_id)
+            if app is None:
+                policy = meta.get("mode") if meta.get("mode") in ("monitor", "block") else "monitor"
+                app = self.apps[app_id] = {
+                    "id": app_id, "name": meta.get("name") or app_id, "base_url": meta.get("base_url"), "mode": policy,
+                    "agent_mode": meta.get("mode"), "org_id": meta.get("org_id"), "framework": meta.get("framework"),
+                    "first_seen": now, "last_seen": now, "announced": announced,
+                    "requests": 0, "attacks": 0, "blocked": 0}
+            else:
+                for k in ("name", "base_url", "org_id", "framework"):
+                    if meta.get(k):
+                        app[k] = meta[k]
+                if meta.get("mode"):
+                    app["agent_mode"] = meta["mode"]
+                app["announced"] = app["announced"] or announced
+                app["last_seen"] = now
             return dict(app)
 
     def set_mode(self, app_id: str, mode: str) -> dict:
@@ -161,13 +176,22 @@ class Shield:
         findings = list(result["findings"])
 
         with self.lock:
-            app = self.apps.get(app_id) or self.register(app_id, {"name": app_id})
+            app = self.apps.get(app_id)
+            if app is None or not app["announced"]:
+                # The agent sends its metadata with every request, so an app the shield has forgotten (the API was
+                # restarted; the registry is in memory) comes back whole on its first request. Work on the stored
+                # dict, not the copy register() returns, or that first request is not counted on the app.
+                meta = {k: event.get(k) for k in ("name", "base_url", "org_id", "framework", "mode")}
+                self.register(app_id, meta, announced=any(meta[k] for k in ("name", "base_url", "org_id")))
+                app = self.apps[app_id]
             mode = app["mode"]
             src = self.sources.get(src_ip) or self.sources.setdefault(src_ip, Source(src_ip))
             src.requests += 1
             src.last_ua = headers.get("user-agent", src.last_ua)
             self.n_events += 1
             app["requests"] += 1
+            app["last_seen"] = _iso(now)  # any request proves the agent is alive, heartbeat or not
+            announced = app["announced"]
 
             findings += self._behavioural(src)
             worst = _worst([f["severity"] for f in findings]) if findings else None
@@ -197,7 +221,7 @@ class Shield:
 
             if not attack:
                 return {"decision": decision, "findings": [], "worst": None, "source_ip": src_ip,
-                        "blocked": decision == "block", "action": None}
+                        "blocked": decision == "block", "action": None, "announced": announced}
 
             src.attacks += 1
             app["attacks"] += 1
@@ -221,7 +245,7 @@ class Shield:
         # Ledger + autopilot outside the lock (they take their own DB transaction).
         self._record(detection, app, src_ip, success, now, redteam)
         return {"decision": decision, "findings": findings, "worst": detection["severity"], "source_ip": src_ip,
-                "blocked": decision == "block", "action": detection["id"]}
+                "blocked": decision == "block", "action": detection["id"], "announced": announced}
 
     # ------------------------------------------------------------------ persistence / autopilot
     def _record(self, det: dict, app: dict, src_ip: str, success: bool, now: dt.datetime, redteam: str | None) -> None:
