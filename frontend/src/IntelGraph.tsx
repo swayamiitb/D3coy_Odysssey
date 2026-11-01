@@ -361,6 +361,21 @@ export function IntelGraph({ focus, onFocus }: { focus?: string; onFocus: (orgId
                              strokeDasharray={DASH[e.provenance]} opacity={on ? 0.9 : off ? 0.04 : e.kind === 'runs' || e.kind === 'owns' ? 0.09 : 0.22} />
               })}
 
+              {/* breathing halos and new-node pings live in their own layer, so a node's own box stays still for pointers */}
+              {g.nodes.map((n) => {
+                if (n.pulse < 0.05 && !fresh.has(n.id)) return null
+                const p = pos[n.id], r = radius(n)
+                return (
+                  <g key={`h-${n.id}`} transform={`translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`} opacity={dim(n)} style={{ pointerEvents: 'none' }}>
+                    {n.pulse >= 0.05 && (
+                      <circle r={r + 3} fill={n.tier ? TIER_FILL[n.tier] : 'var(--color-faint)'} opacity={0.25 * n.pulse} className="breath"
+                              style={{ '--breath': `${(1.6 + 3.4 * (1 - n.pulse)).toFixed(2)}s` } as CSSProperties} />
+                    )}
+                    {fresh.has(n.id) && <circle r={r + 2} fill="none" stroke="var(--color-text)" strokeWidth={1.5} className="ping" />}
+                  </g>
+                )
+              })}
+
               {g.nodes.map((n) => {
                 const p = pos[n.id], r = radius(n)
                 const fill = n.tier ? TIER_FILL[n.tier] : 'var(--color-panel)'
@@ -368,11 +383,6 @@ export function IntelGraph({ focus, onFocus }: { focus?: string; onFocus: (orgId
                 return (
                   <g key={n.id} transform={`translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`} opacity={dim(n)} data-node={n.id} style={{ cursor: 'pointer' }}
                      onMouseEnter={() => setHover(n.id)} onClick={() => setCard(n.id)}>
-                    {n.pulse >= 0.05 && (
-                      <circle r={r + 3} fill={n.tier ? fill : 'var(--color-faint)'} opacity={0.25 * n.pulse} className="breath"
-                              style={{ '--breath': `${(1.6 + 3.4 * (1 - n.pulse)).toFixed(2)}s`, pointerEvents: 'none' } as CSSProperties} />
-                    )}
-                    {fresh.has(n.id) && <circle r={r + 2} fill="none" stroke="var(--color-text)" strokeWidth={1.5} className="ping" style={{ pointerEvents: 'none' }} />}
                     <Shape n={n} r={r} fill={fill} stroke={stroke} strokeWidth={1.5} />
                   </g>
                 )
