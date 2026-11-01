@@ -62,7 +62,7 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
       const { pos, rings } = v.layout
       const isDark = darkRef.current
       const c = cam.current
-      const R = Math.min(W, H) * (v.layout.mode === 'force' ? 0.46 : 0.42) * c.k
+      const R = Math.min(W, H) * (v.layout.mode === 'force' ? 0.49 : 0.42) * c.k
       const cx = W / 2 + c.x, cy = H / 2 + c.y
       const P = (p: { x: number; y: number }) => [cx + p.x * R, cy + p.y * R] as [number, number]
       const ink = isDark ? '244,244,245' : '0,0,0'
@@ -541,46 +541,39 @@ export function forceLayout(nodes: GraphNode[], edges: GraphEdge[]): Layout {
       if (rr > 0.92) { const k2 = 0.92 + (rr - 0.92) * 0.3; x[i] *= k2 / rr; y[i] *= k2 / rr }
     }
   }
-  // even fill: the settled picture gives each cluster a direction; nodes are then laid on a sunflower spiral (the
-  // even way to fill a disc), taken in order of their settled angle and, inside a cluster, from the centre outwards,
-  // so clusters stay together as wedges of the disc while every point sits an even distance from its neighbours and
-  // the outline is a true circle. The sunflower's radius is sqrt(k/N), its angle the golden angle times k; here the
-  // angle is replaced by the node's own (sorted) angle so the wedges hold, and the radius by rank so the fill is even.
+  // the final picture is a sunflower: N points on the golden-angle spiral (the even way to fill a disc, perfectly
+  // round, every point the same distance from its neighbours). Each cluster takes a wedge of the disc, proportional to
+  // its size and in the order of its settled direction; the spiral points are handed out by sorting them by angle and
+  // walking the wedges, so a cluster is a contiguous region. Inside a wedge the best connected sit inward. Nothing
+  // moves afterwards, so the outline stays a circle.
   {
-    const ang = new Float64Array(N)
+    const GOLD = Math.PI * (3 - Math.sqrt(5))
+    const spots = Array.from({ length: N }, (_, k) => {
+      const r = Math.sqrt((k + 0.5) / N) * 0.97, a = k * GOLD
+      return { x: r * Math.cos(a), y: r * Math.sin(a), a: Math.atan2(r * Math.sin(a), r * Math.cos(a)), r }
+    })
     const ccx = new Float64Array(communities), ccy = new Float64Array(communities), ccn = new Float64Array(communities)
     for (let i = 0; i < N; i++) { ccx[label[i]] += x[i]; ccy[label[i]] += y[i]; ccn[label[i]]++ }
     const commAngle = Array.from({ length: communities }, (_, c) => (ccn[c] ? Math.atan2(ccy[c] / ccn[c], ccx[c] / ccn[c]) : 0))
-    // every community takes a wedge proportional to its size, in the order of its settled direction
     const byAngle = Array.from({ length: communities }, (_, c) => c).filter((c) => ccn[c] > 0).sort((p, q) => commAngle[p] - commAngle[q])
-    let a0 = commAngle[byAngle[0]] ?? 0
-    const wedge = new Map<number, [number, number]>()
-    for (const c of byAngle) { const span = (2 * Math.PI * ccn[c]) / N; wedge.set(c, [a0, a0 + span]); a0 += span }
-    // inside a wedge, nodes spread by their settled angle; radii: hubs (high degree) towards the centre, the rest by rank
-    const members = new Map<number, number[]>()
-    for (let i = 0; i < N; i++) members.set(label[i], [...(members.get(label[i]) ?? []), i])
-    for (const [c, ms] of members) {
-      const [wa, wb] = wedge.get(c)!
-      const sorted = [...ms].sort((p, q) => Math.atan2(y[p], x[p]) - Math.atan2(y[q], x[q]))
-      sorted.forEach((i, k) => { ang[i] = wa + ((k + 0.5) / sorted.length) * (wb - wa) })
+    // the spiral points, by angle from the first community's direction, then by radius inside a narrow band
+    const start = commAngle[byAngle[0]] ?? 0
+    const rel = (a: number) => { let d = a - start; while (d < 0) d += 2 * Math.PI; while (d >= 2 * Math.PI) d -= 2 * Math.PI; return d }
+    const spotOrder = spots.map((_, k) => k).sort((p, q) => rel(spots[p].a) - rel(spots[q].a))
+    // the nodes, by community wedge, then hubs first inside the wedge
+    const nodeOrder: number[] = []
+    for (const c of byAngle) {
+      const ms = Array.from({ length: N }, (_, i) => i).filter((i) => label[i] === c).sort((p, q) => deg[q] - deg[p])
+      nodeOrder.push(...ms)
     }
-    // radius by global rank of (degree desc, settled radius): the best connected sit inward, the rest fill outward
-    const order = Array.from({ length: N }, (_, i) => i).sort((p, q) => deg[q] - deg[p] || Math.hypot(x[p], y[p]) - Math.hypot(x[q], y[q]))
-    order.forEach((i, rank) => {
-      const r = Math.sqrt((rank + 0.5) / N) * 0.97
-      // a little angular jitter from the golden angle keeps rings of equal radius from lining up
-      const a = ang[i] + ((rank * 2.399963) % (Math.PI / 24)) - Math.PI / 48
-      x[i] = r * Math.cos(a); y[i] = r * Math.sin(a)
-    })
-    // one short relaxation so no two marks overlap, without leaving the disc
-    for (let step = 0; step < 40; step++) {
-      for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
-        const dx = x[j] - x[i], dy = y[j] - y[i]
-        const d = Math.hypot(dx, dy) || 1e-6
-        const min = 0.075
-        if (d < min) { const push = (min - d) / 2; x[i] -= (dx / d) * push; y[i] -= (dy / d) * push; x[j] += (dx / d) * push; y[j] += (dy / d) * push }
-      }
-      for (let i = 0; i < N; i++) { const rr = Math.hypot(x[i], y[i]); if (rr > 0.97) { x[i] *= 0.97 / rr; y[i] *= 0.97 / rr } }
+    // a wedge is a run of spiral points; within the run, the hubs take the innermost points
+    let at = 0
+    for (const c of byAngle) {
+      const count = ccn[c]
+      const run = spotOrder.slice(at, at + count).sort((p, q) => spots[p].r - spots[q].r)
+      const ms = nodeOrder.slice(at, at + count)
+      ms.forEach((i, k) => { const sp = spots[run[k]]; x[i] = sp.x; y[i] = sp.y })
+      at += count
     }
   }
   // fit into the unit disc with a little margin
@@ -590,7 +583,7 @@ export function forceLayout(nodes: GraphNode[], edges: GraphEdge[]): Layout {
   const pos: Layout['pos'] = {}
   nodes.forEach((n, i) => {
     const fx = Number.isFinite(x[i]) ? x[i] * scale : 0.8 * Math.cos(n.angle), fy = Number.isFinite(y[i]) ? y[i] * scale : 0.8 * Math.sin(n.angle)
-    pos[n.id] = { x: fx, y: fy, r: 3.4 + 8 * Math.sqrt(deg[i] / maxDeg) + (n.tier === 'Compromise' ? 1.5 : 0), ring: n.ring }
+    pos[n.id] = { x: fx, y: fy, r: 4.6 + 9.5 * Math.sqrt(deg[i] / maxDeg) + (n.tier === 'Compromise' ? 1.5 : 0), ring: n.ring }
   })
   const community: Record<string, number> = {}
   nodes.forEach((n, i) => { community[n.id] = label[i] })
