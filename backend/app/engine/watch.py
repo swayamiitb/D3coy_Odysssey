@@ -86,15 +86,16 @@ def add(conn: sqlite3.Connection, target: str, rule: dict | None = None, owner: 
         note: str | None = None, live: dict | None = None, now: dt.datetime | None = None) -> dict:
     ensure(conn)
     now = now or dt.datetime.now(dt.timezone.utc)
+    if not isinstance(target, str) or not target.strip():
+        raise ValueError("target must be a graph node id, such as product:fortios or cve:CVE-2026-1234")
+    for name, value in (("owner", owner), ("label", label), ("note", note)):
+        if value is not None and not isinstance(value, str):
+            raise ValueError(f"{name} must be text")
+    rule = _clean_rule(rule)
     found = _find(conn, target, live, now=None)
     node = found[0] if found else None
     if node is None:
         raise KeyError(target)
-    rule = {**DEFAULT_RULE, **(rule or {})}
-    if rule["kind"] not in RULE_KINDS:
-        raise ValueError(f"unknown rule kind {rule['kind']!r}")
-    if rule.get("tier") not in RANK:
-        raise ValueError("rule.tier must be one of Compromise, Critical, High, Medium, Watch")
     state = _state(node, found[1])
     cur = conn.execute("INSERT INTO watches (created_at, owner, target, label, kind, rule, note, last_state, last_eval) VALUES (?,?,?,?,?,?,?,?,?)",
                        (_iso(now), owner or "analyst", target, label or node["label"], node["kind"], json.dumps(rule), note,
@@ -197,9 +198,10 @@ def evaluate(conn: sqlite3.Connection, live: dict | None = None, now: dt.datetim
     cur = conn.cursor()
     cur.row_factory = sqlite3.Row
     watches = [dict(r) for r in cur.execute("SELECT * FROM watches WHERE status = 'active'")]
+    ledger = Ledger(conn=conn)  # built before any write: its schema script would otherwise commit a transaction in progress
     graphs: dict[str | None, dict] = {}
     for w in watches:
-        focus = _focus_for(w["target"])
+        focus = _focus_for(conn, w["target"])
         if focus not in graphs:
             try:
                 graphs[focus] = intel_graph(conn, focus, live)
@@ -207,25 +209,36 @@ def evaluate(conn: sqlite3.Connection, live: dict | None = None, now: dt.datetim
                 graphs[focus] = {"nodes": [], "edges": []}
         g = graphs[focus]
         node = next((n for n in g["nodes"] if n["id"] == w["target"]), None)
-        before = json.loads(w["last_state"]) if w["last_state"] else {}
         if node is None:
             conn.execute("UPDATE watches SET last_eval = ? WHERE id = ?", (_iso(now), w["id"]))
             continue
         after = _state(node, g)
-        rule = json.loads(w["rule"]) if w["rule"] else DEFAULT_RULE
-        reasons = _reasons(rule, before, after) if before else []
-        if reasons:
-            severity = SEVERITY.get(after["tier"], "Low")
-            payload = {"watch_id": w["id"], "target": w["target"], "label": w["label"], "kind": w["kind"], "reasons": reasons,
-                       "severity": severity, "pulse": after["pulse"], "tier": after["tier"], "risk": after["risk"],
-                       "owner": w["owner"], "rule": rule, "provenance": node["provenance"]}
-            conn.execute("INSERT INTO watch_events (ts, watch_id, target, label, reason, severity, payload) VALUES (?,?,?,?,?,?,?)",
-                         (_iso(now), w["id"], w["target"], w["label"], "; ".join(reasons), severity, json.dumps(payload)))
-            conn.execute("UPDATE watches SET fired = fired + 1, last_fired = ? WHERE id = ?", (_iso(now), w["id"]))
-            conn.commit()
-            Ledger(conn=conn).append(ts=_iso(now), kind="watch.fired", subject=w["target"], source="WATCHLIST", provenance="AUTO", payload=payload)
-            fired.append(payload)
-        conn.execute("UPDATE watches SET last_state = ?, last_eval = ? WHERE id = ?", (json.dumps(after), _iso(now), w["id"]))
+        try:
+            before = json.loads(w["last_state"]) if w["last_state"] else {}
+            rule = json.loads(w["rule"]) if w["rule"] else DEFAULT_RULE
+            reasons = _reasons(rule, before, after) if before else []
+        except (TypeError, ValueError, KeyError, AttributeError) as exc:  # one malformed row must not silence every other watch
+            print(f"watch {w['id']} on {w['target']}: rule or state not evaluable, skipped: {exc!r}", flush=True)
+            conn.execute("UPDATE watches SET last_eval = ? WHERE id = ?", (_iso(now), w["id"]))
+            continue
+        # Claim the change before firing on it. The live engine and an analyst's "evaluate now" run on separate connections
+        # and both read the same recorded state; whichever advances it first owns the firing, the other finds no row to
+        # advance and stays quiet. The event, the counter, the new state and the ledger row then commit together.
+        if not conn.in_transaction:
+            conn.execute("BEGIN IMMEDIATE")
+        claimed = conn.execute("UPDATE watches SET last_state = ?, last_eval = ? WHERE id = ? AND status = 'active' AND last_state IS ?",
+                               (json.dumps(after), _iso(now), w["id"], w["last_state"])).rowcount == 1
+        if not (claimed and reasons):
+            continue
+        severity = SEVERITY.get(after["tier"], "Low")
+        payload = {"watch_id": w["id"], "target": w["target"], "label": w["label"], "kind": w["kind"], "reasons": reasons,
+                   "severity": severity, "pulse": after["pulse"], "tier": after["tier"], "risk": after["risk"],
+                   "owner": w["owner"], "rule": rule, "provenance": node["provenance"]}
+        conn.execute("INSERT INTO watch_events (ts, watch_id, target, label, reason, severity, payload) VALUES (?,?,?,?,?,?,?)",
+                     (_iso(now), w["id"], w["target"], w["label"], "; ".join(reasons), severity, json.dumps(payload)))
+        conn.execute("UPDATE watches SET fired = fired + 1, last_fired = ? WHERE id = ?", (_iso(now), w["id"]))
+        ledger.append(ts=_iso(now), kind="watch.fired", subject=w["target"], source="WATCHLIST", provenance="AUTO", payload=payload)
+        fired.append(payload)
     conn.commit()
     return fired
 
