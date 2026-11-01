@@ -1,7 +1,8 @@
 import { ExternalLink, Eye, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, type FactValue, type GraphCard, type GraphNode, type IntelGraph as ApiGraph, type Soc, type Tier } from './api'
-import { circleLayout, GraphCanvas, type GraphView } from './soc/GraphCanvas'
+import { circleLayout, forceLayout, GraphCanvas, type GraphView } from './soc/GraphCanvas'
+import { Seg } from './soc/kit'
 import { fmtDate, Pill, Prov, Row, Section, Sheet, Stat, TierPill, useToast } from './ui'
 
 /* The intelligence graph: every entity Odyssey knows about and how they connect, drawn from the record and refreshed
@@ -156,7 +157,7 @@ function layout(g: Graph) {
   const always = g.nodes.filter((n) => n.kind in prio).sort((a, b) => prio[a.kind] - prio[b.kind] || byRisk(a, b))
   const auto = g.nodes.filter((n) => !(n.kind in prio) && (n.pulse >= 0.5 || n.tier === 'Compromise' || n.tier === 'Critical')).sort(byRisk).slice(0, 18)
   const labels = placeLabels([...always, ...auto].map((n) => ({ id: n.id, ...pos[n.id], text: drawn(n), rad: radius(n), cos: Math.cos(n.angle), px: n.kind === 'org' ? 11 : 10.5 })), fixed)
-  return { pos, rings, labels, circle: circleLayout(g.nodes, g.rings, KIND_LABEL) }
+  return { pos, rings, labels, circle: circleLayout(g.nodes, g.rings, KIND_LABEL), force: forceLayout(g.nodes, g.edges) }
 }
 
 function provOf(p: string) { return p.startsWith('REAL') ? 'REAL' : 'SIM' }
@@ -327,6 +328,8 @@ export function IntelGraph({ focus, onFocus, initialNode }: { focus?: string; on
   const [orgs, setOrgs] = useState<Soc['orgs']>([])
   const [hover, setHover] = useState<string>()
   const [kindSel, setKindSel] = useState<string>()
+  const [mode, setMode] = useState<'force' | 'rings'>(() => { try { return (localStorage.getItem('odyssey-graph-mode') as 'force' | 'rings') || 'force' } catch { return 'force' } })
+  const pickMode = (m: 'force' | 'rings') => { setMode(m); try { localStorage.setItem('odyssey-graph-mode', m) } catch { /* private mode */ } }
   const [card, setCard] = useState<string>()
   const [fresh, setFresh] = useState<Set<string>>(new Set())
   const viewRef = useRef<GraphView>({ nodes: [], edges: [], layout: { pos: {}, rings: [] }, fresh: new Set(), focusLabel: '', centre: '' })
@@ -425,7 +428,7 @@ export function IntelGraph({ focus, onFocus, initialNode }: { focus?: string; on
   const linked = new Set<string>()
   if (hover) for (const e of g.edges) if (e.from === hover || e.to === hover) { linked.add(e.from); linked.add(e.to) }
   const hov = hover ? byId[hover] : undefined
-  viewRef.current = { nodes: g.nodes, edges: g.edges, layout: L.circle, hover, kindSel, fresh, focusLabel: g.focus.label,
+  viewRef.current = { nodes: g.nodes, edges: g.edges, layout: mode === 'force' ? L.force : L.circle, hover, kindSel, fresh, focusLabel: g.focus.label,
     centre: `${g.summary.nodes} nodes · ${g.summary.edges} connections · ${g.summary.real_edges} from public data` }
   const b = g.breath
   const lastEvidence = g.nodes.reduce<string | null>((m, n) => (n.last_seen && (!m || n.last_seen > m) ? n.last_seen : m), null)
@@ -454,7 +457,11 @@ export function IntelGraph({ focus, onFocus, initialNode }: { focus?: string; on
             Replaying the record as of <b className="font-semibold text-text">{step.label}</b> ({fmtDate(step.at)} UTC) · nodes that did not exist yet are absent; pulses are aged to that instant
           </div>
         )}
-        <div className={`${atNow ? 'mt-6' : 'mt-3'} flex items-start gap-5`}>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <Seg label="Layout" value={mode} onChange={pickMode} items={[['force', 'Clusters'], ['rings', 'Rings']]} />
+          <span className="text-[12.5px] text-mute">{mode === 'force' ? 'Connected entities pull together into clusters; colour is the cluster, size is how connected a node is.' : 'Rings from the centre: organisations, technologies, vulnerabilities, campaigns and techniques, then the outer ring.'}</span>
+        </div>
+        <div className={`${atNow ? 'mt-3' : 'mt-3'} flex items-start gap-5`}>
           <div className="soc-dark relative min-w-0 flex-1 overflow-hidden rounded-2xl" style={{ height: 'clamp(560px, 64vw, 900px)' }} data-intelgraph role="img" aria-label={`Intelligence graph: ${g.focus.label}`}>
             <GraphCanvas view={viewRef} onHover={setHover} onPick={setCard} dark />
             <div className="pointer-events-none absolute bottom-3 left-4 text-[11.5px] text-mute">Hover a node to light what it touches · click for its card · wheel to zoom, then drag to pan · double-click to reset</div>
@@ -488,7 +495,7 @@ export function IntelGraph({ focus, onFocus, initialNode }: { focus?: string; on
           <span className="flex items-center gap-1"><Glyph kind="actor" fill="none" size={9} />threat group</span>
           <span className="flex items-center gap-1"><Glyph kind="signal" fill="none" size={9} />live signal</span>
           <span className="flex items-center gap-1"><Glyph kind="org" fill="none" size={9} />everything else</span>
-          <span className="ml-2">fill = worst open tier:</span>
+          <span className="ml-2">{mode === 'force' ? 'fill = cluster (compromise stays violet) · size = connections · ring mode: fill = worst open tier:' : 'fill = worst open tier:'}</span>
           {(['Compromise', 'Critical', 'High', 'Medium'] as Tier[]).map((t) => (
             <span key={t} className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: TIER_FILL[t] }} />{t}</span>
           ))}
