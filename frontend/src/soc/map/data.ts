@@ -24,6 +24,8 @@ export interface Origin {
   share: number | null
   note: string
   malware: string[]
+  /** the network (ASN name) behind the country's most-reported IP, from DShield's IP lookup */
+  network?: string | null
 }
 
 export interface Target {
@@ -47,12 +49,17 @@ export const GOV_SECTORS = new Set(['Government', 'Strategic & Public Enterprise
 export const isGov = (o: OrgRow) => GOV_SECTORS.has(o.sector)
 
 export function originsFromData(): Origin[] {
-  const total = attackers.countries.reduce((s, c) => s + c.records, 0) || 1
-  const out: Origin[] = attackers.countries.map((c) => ({
-    id: `a-${c.country}`, cc: c.country, kind: 'attack' as const, at: [c.lat, c.lon] as LatLng, ips: c.ips, records: c.records,
-    share: c.records / total, malware: [],
-    note: `${c.ips} of DShield's top ${attackers.ips_located} IPs${c.city ? ` · ${c.city}` : ''}`,
-  }))
+  const countries = attackers.countries.filter((c) => /^[A-Z]{2}$/.test(c.country)) // GeoLite's "?" and region codes are not places
+  const total = countries.reduce((s, c) => s + c.records, 0) || 1
+  const out: Origin[] = countries.map((c) => {
+    const net = (c as { top_network?: string | null }).top_network
+    const network = net && net !== 'not routed' ? net : null
+    return {
+      id: `a-${c.country}`, cc: c.country, kind: 'attack' as const, at: [c.lat, c.lon] as LatLng, ips: c.ips, records: c.records,
+      share: c.records / total, malware: [], network,
+      note: `${c.ips} of DShield's top ${attackers.ips_located.toLocaleString('en-IN')} attacking IPs${c.city ? ` · ${c.city}` : ''}${network ? ` · ${network}` : ''}`,
+    }
+  })
   const c2 = new Map<string, { n: number; malware: Set<string> }>()
   for (const e of feodo.entries) {
     const v = c2.get(e.country) ?? { n: 0, malware: new Set<string>() }

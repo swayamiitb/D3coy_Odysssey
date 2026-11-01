@@ -57,10 +57,10 @@ export function OriginRail({ origins, focus, onFocus }: { origins: Origin[]; foc
         <span className="text-right">IPs</span>
         <span className="text-right">Reports</span>
       </div>
-      <ol className="mt-1 flex-1 space-y-0.5" aria-label="Top attack origins: hover or focus one to draw its attack paths">
+      <ol className="mt-1 max-h-[440px] flex-1 space-y-0.5 overflow-y-auto pr-1 xl:max-h-[520px]" aria-label="Top attack origins: hover or focus one to draw its attack paths">
         {ranked.map((o) => {
           const on = focus === o.id
-          const kind = o.kind === 'attack' ? 'Attack source' : `Botnet C2 · ${o.malware.join(', ')}`
+          const kind = o.kind === 'attack' ? (o.network ? `Attack source · ${o.network}` : 'Attack source') : `Botnet C2 · ${o.malware.join(', ')}`
           return (
             <li key={o.id}>
               <button onMouseEnter={() => onFocus(o.id)} onMouseLeave={() => onFocus(undefined)} onFocus={() => onFocus(o.id)} onBlur={() => onFocus(undefined)}
@@ -88,7 +88,7 @@ export function OriginRail({ origins, focus, onFocus }: { origins: Origin[]; foc
         })}
       </ol>
       <p className="mt-3 px-1 text-[12px] leading-snug text-mute">
-        SANS ISC DShield top attacking IPs, located by RIPEstat, and abuse.ch Feodo Tracker C2 servers, taken {TAKEN_AT.slice(0, 10)}. Which operator each attack path reaches is simulated.
+        {attacks.length} countries behind SANS ISC DShield's top {IPS_LOCATED.toLocaleString('en-IN')} attacking IPs, located by RIPEstat, networks from DShield's IP lookup; abuse.ch Feodo Tracker C2 servers; taken {TAKEN_AT.slice(0, 10)}. Which operator each attack path reaches is simulated.
       </p>
     </div>
   )

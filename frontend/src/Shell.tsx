@@ -130,8 +130,9 @@ export function Footer({ go, health }: { go: Go; health?: Health }) {
           <div>
             <h4 className="mb-3 text-[14px] font-semibold">Data</h4>
             <p className="text-[14px] leading-relaxed text-band-mute">
-              <span className="text-text">Real, public:</span> NVD, CISA KEV, CISA Vulnrichment (SSVC), FIRST EPSS, CISA advisories,
-              SANS ISC DShield, abuse.ch Feodo Tracker, OpenPhish, MITRE ATT&CK.
+              <span className="text-text">Real, public:</span> NVD, CISA KEV, CISA Vulnrichment (SSVC), FIRST EPSS, CISA advisories and ICS advisories,
+              SANS ISC DShield (located by RIPEstat), abuse.ch Feodo Tracker, OpenPhish, MITRE ATT&CK, blocklist.de, Exploit-DB,
+              ransomware.live, Have I Been Pwned, GitHub Advisory Database, Tor Project, Spamhaus DROP, Emerging Threats.
             </p>
             <p className="mt-2 text-[14px] leading-relaxed text-band-mute">
               <span className="text-text">Simulated, labelled SIM wherever shown:</span> national decoy grid, enterprise firewall logs,

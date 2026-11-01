@@ -7,6 +7,7 @@ import { Heatmap, type HeatData } from './Heatmap'
 import { OrgThreatMap } from './OrgThreatMap'
 import { Spark } from './Soc'
 import { BarList, Gauge, nf, SocCard } from './soc/kit'
+import { ExploitChip, useExploitDb } from './soc/telemetry'
 import { Badge, deadlineText, Pill, Prov, Row, Section, Stat, Tabs, TIER_FILL, TierPill } from './ui'
 
 /** The operator's own command-centre row (ui-08): two shares as gauges, the attacks on its services worldwide as
@@ -116,6 +117,7 @@ function OrgInbox({ orgId }: { orgId: string }) {
 
 function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId: string) => void }) {
   const langs = useLanguages()
+  const xdb = useExploitDb()
   const lang = langs[p.language]
   const imp = p.impersonation
   const [tab, setTab] = useState<'overview' | 'risk' | 'osint' | 'inbox'>('overview')
@@ -153,7 +155,7 @@ function Profile({ p, onAlert }: { p: OrgProfile; onAlert: (orgId: string, cveId
               {p.alerts.slice(0, all ? undefined : 6).map((a) => (
                 <Row key={a.id} onClick={() => onAlert(a.org_id, a.cve_id)}
                      lead={<span className="h-3 w-3 rounded-full" style={{ background: TIER_FILL[a.tier] }} />}
-                     title={<span className="font-mono text-sm">{a.cve_id}</span>} sub={a.title}
+                     title={<span className="inline-flex flex-wrap items-center gap-2"><span className="font-mono text-sm">{a.cve_id}</span><ExploitChip cve={a.cve_id} db={xdb} /></span>} sub={a.title}
                      trail={<span className="text-mute">due {deadlineText(a.deadline_hours)}</span>} />
               ))}
             </Section>

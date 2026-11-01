@@ -7,7 +7,7 @@ import { Honeycomb } from './soc/Honeycomb'
 import { AlertCard, Delta, nf, SocCard, TabBoxes, useJson } from './soc/kit'
 import { Insight, ScoreCard, SectorExposure, SecurityKpis, TierDonut } from './soc/overview'
 import { IntelSources, LiveThreats, PostureGauges, TechThreats, ThreatTrend, useLiveThreatRows } from './soc/panels'
-import { deadlinesSummary, DeadlineTimeline, EventTicker, LikelyNext, NoiseFunnel } from './soc/telemetry'
+import { deadlinesSummary, DeadlineTimeline, EventTicker, ExploitChip, LikelyNext, NoiseFunnel, useExploitDb } from './soc/telemetry'
 import { ThreatMap } from './soc/ThreatMap'
 import { Band, Figures, Prov, Row, TIER_FILL, TierPill, useToast, WRAP } from './ui'
 
@@ -101,6 +101,7 @@ function LiveStrip({ s, onOpen }: { s?: Live; onOpen: () => void }) {
 
 /** The warnings in order of deadline, after the one in the header; two columns in the strip's wide panel. */
 function UpNext({ rest, feed, onOpen, onGo }: { rest: Card[]; feed: Feed; onOpen: (c: Card) => void; onGo: (view: 'soc' | 'intel' | 'live', tab: string) => void }) {
+  const xdb = useExploitDb()
   return (
     <SocCard title="Up next" sub="Warnings in order of deadline"
              right={<button onClick={() => onGo('soc', 'warnings')} className="text-[13px] font-medium text-accent hover:underline">All warnings</button>}>
@@ -108,7 +109,7 @@ function UpNext({ rest, feed, onOpen, onGo }: { rest: Card[]; feed: Feed; onOpen
         {rest.slice(0, 8).map((c) => (
           <Row key={c.id} onClick={() => onOpen(c)}
                lead={<span className="h-2.5 w-2.5 rounded-full" style={{ background: TIER_FILL[c.tier] }} />}
-               title={title(c)} sub={`${c.org_name} · ${c.cve_id}`}
+               title={title(c)} sub={<>{c.org_name} · {c.cve_id} <ExploitChip cve={c.cve_id} db={xdb} /></>}
                trail={<Countdown issuedAt={(c as Card & { issued_at?: string }).issued_at ?? feed.issued_at} hours={c.deadline_hours} />} />
         ))}
       </div>
@@ -195,6 +196,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <TierPill tier={hero.tier} />
                 {hero.kev && <span className="rounded-full bg-crit/15 px-2.5 py-0.5 text-xs font-medium text-crit-ink">exploited in the wild</span>}
+                <ExploitChip cve={hero.cve_id} />
                 <span className="ml-auto font-mono text-xs text-mute">{hero.cve_id}</span>
               </div>
               <h3 className="text-[19px] font-semibold leading-snug">{title(hero)}</h3>

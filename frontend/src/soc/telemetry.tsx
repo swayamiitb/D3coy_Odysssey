@@ -4,6 +4,7 @@ import type { Approval, Campaign, Feed, ForecastView, LedgerEvent, OrgProfile, S
 import { fetchJson } from '../api'
 import { KIND, istTime } from '../proactive'
 import { TIER_FILL, TierPill } from '../ui'
+import services from './data/services.json'
 import { ago, BarList, nf, Pending, SocCard, useJson } from './kit'
 
 /* Telemetry widgets (ui-09), each on data the API already serves and each saying where its numbers come from:
@@ -157,6 +158,7 @@ export function NoiseFunnel() {
 /** The day-0 forecast: new CVEs most likely to be exploited, before anyone confirms it. */
 export function LikelyNext({ onOpen }: { onOpen: () => void }) {
   const { data, error } = useJson<ForecastView>('/api/forecast')
+  const xdb = useExploitDb()
   if (!data) return <Pending error={error} what="the forecast" h={240} />
   const items = [...data.items].sort((a, b) => b.p - a.p).slice(0, 6)
   return (
@@ -165,7 +167,7 @@ export function LikelyNext({ onOpen }: { onOpen: () => void }) {
         {items.map((it) => (
           <li key={it.cve} className="flex items-center gap-3 py-2.5">
             <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-2"><span className="font-mono text-[13px] font-semibold">{it.cve}</span><span className="truncate text-[13px] text-mute">{it.product ?? 'product named in text'}</span></div>
+              <div className="flex flex-wrap items-baseline gap-2"><span className="font-mono text-[13px] font-semibold">{it.cve}</span><span className="truncate text-[13px] text-mute">{it.product ?? 'product named in text'}</span><ExploitChip cve={it.cve} db={xdb} /></div>
               <div className="truncate text-[12px] text-faint">{it.orgs} operators · {it.assets} assets{it.median_days_to_exploit != null ? ` · typically exploited within ${it.median_days_to_exploit} d` : ''}{it.kev_added ? ' · now in KEV' : ''}</div>
             </div>
             <div className="w-24 shrink-0">
@@ -412,6 +414,54 @@ export function ExposedHosts({ orgs, onOrg }: { orgs?: Soc['orgs']; onOrg: (id: 
       </table>
       <p className="mt-3 text-[11.5px] text-faint">{nf(hosts.length)} internet- and DMZ-facing hosts across {orgs?.length} operators (SIM inventory; the CVEs behind the warnings are real).</p>
     </div>
+  )
+}
+
+/** blocklist.de: attacking IPs reported in the last 48 hours, by the service they attacked (real, open). */
+export function AttackedServices() {
+  const rows = services.services.filter((s) => s.ips > 0).sort((a, b) => b.ips - a.ips)
+  const total = rows.reduce((n, s) => n + s.ips, 0)
+  return (
+    <>
+      <div className="flex items-baseline gap-2">
+        <span className="text-[30px] font-semibold leading-none tracking-tight tabular-nums">{nf(total)}</span>
+        <span className="text-[13px] text-mute">attacking IPs reported in the last 48 hours, across {rows.length} services</span>
+      </div>
+      <div className="mt-4">
+        <BarList color={TIER_FILL.Critical} rows={rows.map((s, i) => ({ key: s.key, label: s.label, sub: s.what, value: s.ips, hot: i === 0 }))} />
+      </div>
+      <p className="mt-3 text-[11.5px] text-faint">blocklist.de, fail2ban reports from servers worldwide, taken {services.taken_at.slice(0, 10)}. One IP can appear under several services.</p>
+    </>
+  )
+}
+
+/* Exploit-DB: whether a public exploit exists for a CVE. The index (25,000 CVEs) is served from /data and fetched once,
+   the first time a chip asks for it, so it costs the page nothing until then. */
+interface ExploitInfo { exploits: number; first: string; verified: number; edb: number | null }
+interface ExploitDb { taken_at: string; exploits: number; cves_with_exploit: number; by_cve: Record<string, ExploitInfo> }
+let EXPLOITDB: Promise<ExploitDb | null> | undefined
+function loadExploitDb(): Promise<ExploitDb | null> {
+  EXPLOITDB ??= fetch('/data/exploitdb.json').then((r) => (r.ok ? r.json() : null)).catch(() => null)
+  return EXPLOITDB
+}
+export function useExploitDb(): ExploitDb | null | undefined {
+  const [db, setDb] = useState<ExploitDb | null | undefined>()
+  useEffect(() => { let alive = true; loadExploitDb().then((d) => { if (alive) setDb(d) }); return () => { alive = false } }, [])
+  return db
+}
+/** A small mark beside a CVE: a public exploit exists (Exploit-DB), with how many and since when. */
+export function ExploitChip({ cve, db }: { cve: string; db?: ExploitDb | null }) {
+  const own = useExploitDb()
+  const d = db === undefined ? own : db
+  const info = d?.by_cve[cve]
+  if (!info) return null
+  return (
+    <a href={info.edb ? `https://www.exploit-db.com/exploits/${info.edb}` : 'https://www.exploit-db.com/'} target="_blank" rel="noreferrer"
+       onClick={(e) => e.stopPropagation()}
+       title={`${info.exploits} public exploit${info.exploits > 1 ? 's' : ''} on Exploit-DB${info.first ? `, the first from ${info.first}` : ''}${info.verified ? ` · ${info.verified} verified` : ''} · REAL`}
+       className="inline-flex items-center gap-1 rounded-full bg-crit/12 px-2 py-0.5 text-[11px] font-semibold text-crit-ink ring-1 ring-inset ring-crit/25 hover:bg-crit/20">
+      <Crosshair size={10} />exploit public{info.exploits > 1 ? ` ×${info.exploits}` : ''}
+    </a>
   )
 }
 

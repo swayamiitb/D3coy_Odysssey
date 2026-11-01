@@ -75,4 +75,9 @@ technologies. The left rail on wide screens expands to the sections of each dest
 a real 2D map (world-atlas + d3-geo; India drawn from @svg-maps/india so no contested border is drawn): hover an origin
 in the list to see its attack arcs; click an Indian state to open a 3D site view of its government agencies, with
 labelled buildings and the attacks coming in. The operators, buildings and arc landing points are simulated (SIM); the
-attack origins (SANS ISC DShield, abuse.ch Feodo Tracker), CVEs, KEV and EPSS are real.
+attack origins (SANS ISC DShield, abuse.ch Feodo Tracker), CVEs, KEV and EPSS are real. More real, open feeds are bundled by
+`frontend/scripts/landing-attackers.mjs`, `real-feeds.mjs` and `real-feeds-2.mjs` (run them with the network up to refresh):
+DShield's top 2,000 attacking IPs located by RIPEstat, blocklist.de attacks by service, the Exploit-DB index, ransomware.live
+victims in India, Have I Been Pwned breaches, CISA ICS advisories, GitHub critical advisories, Tor exits, Spamhaus DROP and
+Emerging Threats compromised hosts. They appear on Intel (Real-world threat intelligence, Attacks by service) and as the
+"exploit public" mark on warnings.

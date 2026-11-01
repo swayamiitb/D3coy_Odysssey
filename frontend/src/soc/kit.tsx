@@ -29,6 +29,7 @@ export const nf = (v: number | null | undefined) => (v == null ? '—' : v.toLoc
 /** 2,607,470 → 2.6M; small numbers stay whole. */
 export function compact(v: number | null | undefined): string {
   if (v == null) return '—'
+  if (v >= 1e9) return `${(v / 1e9).toFixed(v >= 1e10 ? 0 : 1)}B`
   if (v >= 1e6) return `${(v / 1e6).toFixed(v >= 1e7 ? 0 : 1)}M`
   if (v >= 1e4) return `${Math.round(v / 1e3)}k`
   return v.toLocaleString('en-IN')
@@ -42,7 +43,12 @@ export function ago(iso: string | null | undefined, now = Date.now()): string {
   return `${Math.floor(s / 86400)} d ago`
 }
 const REGION = (() => { try { return new Intl.DisplayNames(['en'], { type: 'region' }) } catch { return undefined } })()
-export const countryName = (cc: string) => REGION?.of(cc) ?? cc
+// GeoLite also uses codes that are not countries (EU, AP, A1); Intl throws on those, so they stay as codes.
+const NOT_COUNTRY: Record<string, string> = { EU: 'Europe (unspecified)', AP: 'Asia/Pacific (unspecified)', A1: 'Anonymous proxy', A2: 'Satellite provider' }
+export const countryName = (cc: string): string => {
+  if (NOT_COUNTRY[cc]) return NOT_COUNTRY[cc]
+  try { return REGION?.of(cc) ?? cc } catch { return cc }
+}
 
 /** The console's card: a title, one quiet line, actions and provenance on the right, then the content. */
 export function SocCard({ title, sub, right, prov, children, className = '', bodyClass = 'px-5 pb-5' }: {
@@ -201,7 +207,7 @@ export function TabBoxes<K extends string>({ label, items, defaultOpen = null }:
     const t = window.setTimeout(() => setShown(null), 360)
     return () => window.clearTimeout(t)
   }, [open])
-  const cols = items.length >= 4 ? 'sm:grid-cols-2 xl:grid-cols-4' : items.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+  const cols = items.length >= 5 ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5' : items.length === 4 ? 'sm:grid-cols-2 xl:grid-cols-4' : items.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
   const current = items.find((it) => it.key === shown)
   return (
     <div role="group" aria-label={label}>

@@ -337,23 +337,33 @@ export function WorldMap(props: WorldMapProps) {
                             t.gov.length ? `Click for the 3D site view of ${t.gov.length} government agenc${t.gov.length > 1 ? 'ies' : 'y'}` : 'Click for the site view (no government agency here)'] })
       }
 
-      // origins: attack sources pulse; botnet C2s are rings
+      // origins: attack sources are dots sized by their share of reports and pulse; botnet C2s are rings. With sixty
+      // countries, only the biggest dozen carry a flag and code at the home view; the rest get theirs when zoomed in,
+      // hovered or focused (the rail names every one).
+      const maxShare = Math.max(0.0001, ...p.origins.map((o) => o.share ?? 0))
+      let rank = 0
       p.origins.forEach((o, i) => {
         const [x, y] = toScreen(f, o.at[0], o.at[1])
+        const myRank = o.kind === 'attack' ? rank++ : -1
         if (x < -40 || y < -40 || x > W + 40 || y > H + 40) return
         const on = focus === o.id
         const col = o.kind === 'attack' ? ATTACK : C2
+        const rel = o.kind === 'attack' ? Math.sqrt((o.share ?? 0) / maxShare) : 1
+        const dot = o.kind === 'attack' ? 2.2 + 4.8 * rel : 4
+        const labelled = o.kind === 'c2' || on || myRank < 12 || v.k >= 2.2
         ctx.globalAlpha = focus && !on ? 0.35 : 1
         const ph = reduced ? 0.35 : (((now + i * 530) / (o.kind === 'attack' ? 2200 : 3000)) % 1)
-        ctx.strokeStyle = rgba(col, 0.6 * (1 - ph))
-        ctx.lineWidth = 1.2
-        ctx.beginPath()
-        ctx.arc(x, y, 4 + (on ? 14 : 10) * ph, 0, Math.PI * 2)
-        ctx.stroke()
+        if (o.kind === 'c2' || rel > 0.25 || on) {
+          ctx.strokeStyle = rgba(col, 0.6 * (1 - ph))
+          ctx.lineWidth = 1.2
+          ctx.beginPath()
+          ctx.arc(x, y, dot + (on ? 14 : 6 + 6 * rel) * ph, 0, Math.PI * 2)
+          ctx.stroke()
+        }
         if (o.kind === 'attack') {
           ctx.fillStyle = col
           ctx.beginPath()
-          ctx.arc(x, y, on ? 5 : 4, 0, Math.PI * 2)
+          ctx.arc(x, y, on ? dot + 1 : dot, 0, Math.PI * 2)
           ctx.fill()
         } else {
           ctx.strokeStyle = col
@@ -370,8 +380,8 @@ export function WorldMap(props: WorldMapProps) {
         const left = o.kind === 'c2'
         const twin = left && p.origins.some((a) => a.kind === 'attack' && a.cc === o.cc)
         const img = flagImage(o.cc)
-        const lx = left ? x - 11 : x + 11
-        if (twin) { /* the attack source beside it carries the country's label */ } else if (img) {
+        const lx = left ? x - (dot + 7) : x + dot + 7
+        if (twin || !labelled) { /* the attack source beside it carries the country's label, or the rail does */ } else if (img) {
           const fw = 15, fh = 10
           const fx = left ? lx - fw : lx
           ctx.fillStyle = 'rgba(5,5,6,0.9)'
@@ -382,7 +392,7 @@ export function WorldMap(props: WorldMapProps) {
           label(o.cc, lx, y, left ? 'right' : 'left', 'rgba(244,244,245,0.95)')
         }
         ctx.globalAlpha = 1
-        hits.push({ x, y, r: 13, kind: 'origin', id: o.id, title: `${countryName(o.cc)} · ${o.kind === 'attack' ? 'attack source' : 'botnet C2'}`,
+        hits.push({ x, y, r: Math.max(10, dot + 6), kind: 'origin', id: o.id, title: `${countryName(o.cc)} · ${o.kind === 'attack' ? `attack source${o.share != null ? ` · ${(o.share * 100).toFixed(o.share >= 0.1 ? 0 : 1)}% of reports` : ''}` : 'botnet C2'}`,
                     lines: [o.note, o.kind === 'attack' ? `${o.records.toLocaleString('en-IN')} reports to DShield · REAL` : 'abuse.ch Feodo Tracker · REAL'] })
       })
       ctx.textAlign = 'left'

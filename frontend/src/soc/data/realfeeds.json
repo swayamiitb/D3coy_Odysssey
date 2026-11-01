@@ -1,0 +1,1622 @@
+{
+ "taken_at": "2026-11-01T02:49:05.579Z",
+ "ransomware": {
+  "source": "ransomware.live",
+  "url": "https://www.ransomware.live/",
+  "what": "victims in India named on ransomware leak sites",
+  "total": 565,
+  "groups": [
+   {
+    "key": "killsec",
+    "n": 50
+   },
+   {
+    "key": "lockbit3",
+    "n": 41
+   },
+   {
+    "key": "thegentlemen",
+    "n": 37
+   },
+   {
+    "key": "funksec",
+    "n": 23
+   },
+   {
+    "key": "clop",
+    "n": 19
+   },
+   {
+    "key": "ransomhub",
+    "n": 19
+   },
+   {
+    "key": "qilin",
+    "n": 16
+   },
+   {
+    "key": "nightspire",
+    "n": 13
+   }
+  ],
+  "sectors": [
+   {
+    "key": "Technology",
+    "n": 112
+   },
+   {
+    "key": "Manufacturing",
+    "n": 111
+   },
+   {
+    "key": "Healthcare",
+    "n": 64
+   },
+   {
+    "key": "Professional Services",
+    "n": 64
+   },
+   {
+    "key": "Financial Services",
+    "n": 42
+   },
+   {
+    "key": "Retail & E-Commerce",
+    "n": 29
+   },
+   {
+    "key": "Education",
+    "n": 29
+   },
+   {
+    "key": "Transportation",
+    "n": 20
+   }
+  ],
+  "by_month": [
+   {
+    "key": "2025-11",
+    "n": 13
+   },
+   {
+    "key": "2025-12",
+    "n": 20
+   },
+   {
+    "key": "2026-01",
+    "n": 16
+   },
+   {
+    "key": "2026-02",
+    "n": 16
+   },
+   {
+    "key": "2026-03",
+    "n": 14
+   },
+   {
+    "key": "2026-04",
+    "n": 10
+   },
+   {
+    "key": "2026-05",
+    "n": 11
+   },
+   {
+    "key": "2026-06",
+    "n": 20
+   },
+   {
+    "key": "2026-07",
+    "n": 24
+   },
+   {
+    "key": "2026-08",
+    "n": 26
+   },
+   {
+    "key": "2026-09",
+    "n": 24
+   },
+   {
+    "key": "2026-10",
+    "n": 21
+   }
+  ],
+  "by_year": [
+   {
+    "key": "2021",
+    "n": 9
+   },
+   {
+    "key": "2022",
+    "n": 12
+   },
+   {
+    "key": "2023",
+    "n": 61
+   },
+   {
+    "key": "2024",
+    "n": 159
+   },
+   {
+    "key": "2025",
+    "n": 140
+   },
+   {
+    "key": "2026",
+    "n": 182
+   }
+  ],
+  "recent": [
+   {
+    "victim": "wabag.in",
+    "group": "thegentlemen",
+    "sector": "Energy & Utilities",
+    "discovered": "2026-10-31",
+    "size": null
+   },
+   {
+    "victim": "au.bank.in",
+    "group": "Scarlettgroup",
+    "sector": "Financial Services",
+    "discovered": "2026-10-29",
+    "size": null
+   },
+   {
+    "victim": "police.rajasthan.gov.in",
+    "group": "Scarlettgroup",
+    "sector": "Government & Defense",
+    "discovered": "2026-10-21",
+    "size": null
+   },
+   {
+    "victim": "www.walkingtree.tech",
+    "group": "qilin",
+    "sector": "Technology",
+    "discovered": "2026-10-19",
+    "size": null
+   },
+   {
+    "victim": "netcoreunbxd.com",
+    "group": "thegentlemen",
+    "sector": "Technology",
+    "discovered": "2026-10-16",
+    "size": null
+   },
+   {
+    "victim": "enchantedfinejewellery.in",
+    "group": "Vexy Ransomware",
+    "sector": "Retail & E-Commerce",
+    "discovered": "2026-10-15",
+    "size": null
+   },
+   {
+    "victim": "Great Lakes",
+    "group": "incransom",
+    "sector": "Not Found",
+    "discovered": "2026-10-13",
+    "size": null
+   },
+   {
+    "victim": "www.durgabrgs.com",
+    "group": "Orova",
+    "sector": "Manufacturing",
+    "discovered": "2026-10-13",
+    "size": null
+   },
+   {
+    "victim": "oceanbeverages.in",
+    "group": "HYFLOCK",
+    "sector": "Retail & E-Commerce",
+    "discovered": "2026-10-13",
+    "size": null
+   },
+   {
+    "victim": "NCT Kandla (container terminal operations)",
+    "group": "N0n",
+    "sector": "Transportation",
+    "discovered": "2026-10-12",
+    "size": null
+   },
+   {
+    "victim": "www.librewireless.com",
+    "group": "Orova",
+    "sector": "Technology",
+    "discovered": "2026-10-12",
+    "size": null
+   },
+   {
+    "victim": "www.amantyatech.com",
+    "group": "Orova",
+    "sector": "Technology",
+    "discovered": "2026-10-12",
+    "size": null
+   },
+   {
+    "victim": "wondrdiamonds.com",
+    "group": "Majinahanashi",
+    "sector": "Retail & E-Commerce",
+    "discovered": "2026-10-10",
+    "size": null
+   },
+   {
+    "victim": "bonjourgroup.net",
+    "group": "Majinahanashi",
+    "sector": "Other",
+    "discovered": "2026-10-10",
+    "size": null
+   },
+   {
+    "victim": "ajesticindiaholidays.com",
+    "group": "thegentlemen",
+    "sector": "Hospitality",
+    "discovered": "2026-10-09",
+    "size": null
+   },
+   {
+    "victim": "manipaldubai.com",
+    "group": "UmBra",
+    "sector": "Education",
+    "discovered": "2026-10-08",
+    "size": null
+   },
+   {
+    "victim": "iitr.ac.in",
+    "group": "UmBra",
+    "sector": "Education",
+    "discovered": "2026-10-08",
+    "size": null
+   },
+   {
+    "victim": "simplexengg.in",
+    "group": "Eclipse",
+    "sector": "Manufacturing",
+    "discovered": "2026-10-08",
+    "size": null
+   },
+   {
+    "victim": "part02.simplexengg.in",
+    "group": "Eclipse",
+    "sector": "Technology",
+    "discovered": "2026-10-05",
+    "size": null
+   },
+   {
+    "victim": "www.raajratna.com",
+    "group": "krybit",
+    "sector": "Retail & E-Commerce",
+    "discovered": "2026-10-02",
+    "size": null
+   },
+   {
+    "victim": "sai.org.in",
+    "group": "krybit",
+    "sector": "Education",
+    "discovered": "2026-10-02",
+    "size": null
+   },
+   {
+    "victim": "Chem Process Systems Pvt. Ltd.",
+    "group": "Doommageddon",
+    "sector": "Manufacturing",
+    "discovered": "2026-09-28",
+    "size": null
+   },
+   {
+    "victim": "vit.ac.in",
+    "group": "AuditTeam",
+    "sector": "Education",
+    "discovered": "2026-09-22",
+    "size": null
+   },
+   {
+    "victim": "siddhigreen.com",
+    "group": "Orova",
+    "sector": "Energy & Utilities",
+    "discovered": "2026-09-20",
+    "size": null
+   },
+   {
+    "victim": "bgrcorp.com",
+    "group": "thegentlemen",
+    "sector": "Energy & Utilities",
+    "discovered": "2026-09-15",
+    "size": null
+   },
+   {
+    "victim": "indicelectronics.com",
+    "group": "thegentlemen",
+    "sector": "Technology",
+    "discovered": "2026-09-15",
+    "size": null
+   },
+   {
+    "victim": "incor.in",
+    "group": "Doommageddon",
+    "sector": "Other",
+    "discovered": "2026-09-13",
+    "size": null
+   },
+   {
+    "victim": "vi***in",
+    "group": "AuditTeam",
+    "sector": "Transportation",
+    "discovered": "2026-09-13",
+    "size": null
+   },
+   {
+    "victim": "swadeshicipl.com",
+    "group": "krybit",
+    "sector": "Manufacturing",
+    "discovered": "2026-09-12",
+    "size": null
+   },
+   {
+    "victim": "Praveg Caves Jawai",
+    "group": "medusalocker",
+    "sector": "Hospitality",
+    "discovered": "2026-09-12",
+    "size": null
+   },
+   {
+    "victim": "nexbex.in",
+    "group": "emperador",
+    "sector": "Not Found",
+    "discovered": "2026-09-12",
+    "size": null
+   },
+   {
+    "victim": "indialei.in/detailed-information/353561/335800GR1DJMM8YD7J14/the-gudivada-co-op-urban-bank-limited",
+    "group": "Global Secret Group",
+    "sector": "Financial Services",
+    "discovered": "2026-09-10",
+    "size": null
+   },
+   {
+    "victim": "i2k2.com",
+    "group": "Vexy Ransomware",
+    "sector": "Technology",
+    "discovered": "2026-09-10",
+    "size": null
+   },
+   {
+    "victim": "Universal Starch-Chem Allied Ltd",
+    "group": "emperador",
+    "sector": "Manufacturing",
+    "discovered": "2026-09-09",
+    "size": null
+   },
+   {
+    "victim": "dwarkadasjewellers.com",
+    "group": "thegentlemen",
+    "sector": "Other",
+    "discovered": "2026-09-07",
+    "size": null
+   },
+   {
+    "victim": "united-group.in",
+    "group": "Vexy Ransomware",
+    "sector": "Other",
+    "discovered": "2026-09-07",
+    "size": null
+   },
+   {
+    "victim": "sancity.in",
+    "group": "Vexy Ransomware",
+    "sector": "Other",
+    "discovered": "2026-09-06",
+    "size": null
+   },
+   {
+    "victim": "annapurnafashion.com",
+    "group": "Vexy Ransomware",
+    "sector": "Retail & E-Commerce",
+    "discovered": "2026-09-04",
+    "size": null
+   },
+   {
+    "victim": "palsanaenviro.com",
+    "group": "Vexy Ransomware",
+    "sector": "Manufacturing",
+    "discovered": "2026-09-04",
+    "size": null
+   },
+   {
+    "victim": "licindia.com",
+    "group": "medusalocker",
+    "sector": "Other",
+    "discovered": "2026-09-02",
+    "size": null
+   }
+  ]
+ },
+ "breaches": {
+  "source": "Have I Been Pwned",
+  "url": "https://haveibeenpwned.com/",
+  "what": "data breaches, with the accounts exposed in each",
+  "total": 1048,
+  "accounts": 17846896404,
+  "verified": 1006,
+  "india": [
+   {
+    "name": "AngelOne",
+    "title": "Angel One",
+    "domain": "angelone.in",
+    "date": "2023-04-01",
+    "accounts": 6765054,
+    "verified": true,
+    "classes": [
+     "Bank account numbers",
+     "Dates of birth",
+     "Email addresses",
+     "Financial investments",
+     "Government issued IDs",
+     "Names"
+    ]
+   },
+   {
+    "name": "RailYatri",
+    "title": "RailYatri",
+    "domain": "railyatri.in",
+    "date": "2022-12-26",
+    "accounts": 23209732,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Genders",
+     "Names",
+     "Phone numbers",
+     "Purchases"
+    ]
+   },
+   {
+    "name": "IndiaMART",
+    "title": "IndiaMART",
+    "domain": "indiamart.com",
+    "date": "2021-05-23",
+    "accounts": 20154583,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Names",
+     "Phone numbers",
+     "Physical addresses"
+    ]
+   },
+   {
+    "name": "DominosIndia",
+    "title": "Domino's India",
+    "domain": "dominos.co.in",
+    "date": "2021-03-24",
+    "accounts": 22527655,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Names",
+     "Phone numbers",
+     "Physical addresses",
+     "Purchases"
+    ]
+   },
+   {
+    "name": "Cit0day",
+    "title": "Cit0day",
+    "domain": "cit0day.in",
+    "date": "2020-11-04",
+    "accounts": 226883414,
+    "verified": false,
+    "classes": [
+     "Email addresses",
+     "Passwords"
+    ]
+   },
+   {
+    "name": "FilmaiIn",
+    "title": "Filmai.in",
+    "domain": "filmai.in",
+    "date": "2020-01-01",
+    "accounts": 645786,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Passwords",
+     "Usernames"
+    ]
+   },
+   {
+    "name": "IndianRailways",
+    "title": "Indian Railways",
+    "domain": "indianrails.in",
+    "date": "2019-10-28",
+    "accounts": 583377,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Passwords",
+     "Usernames"
+    ]
+   },
+   {
+    "name": "LBB",
+    "title": "LBB",
+    "domain": "lbb.in",
+    "date": "2019-02-14",
+    "accounts": 39288,
+    "verified": true,
+    "classes": [
+     "Browser user agent details",
+     "Email addresses",
+     "IP addresses",
+     "Names",
+     "Physical addresses"
+    ]
+   },
+   {
+    "name": "Elanic",
+    "title": "Elanic",
+    "domain": "elanic.in",
+    "date": "2018-01-01",
+    "accounts": 2325283,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Geographic locations",
+     "Usernames"
+    ]
+   },
+   {
+    "name": "Digimon",
+    "title": "Digimon",
+    "domain": "digimon.co.in",
+    "date": "2016-09-05",
+    "accounts": 7687679,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Email messages",
+     "IP addresses",
+     "Names"
+    ]
+   },
+   {
+    "name": "TRAI",
+    "title": "Telecom Regulatory Authority of India",
+    "domain": "trai.gov.in",
+    "date": "2015-04-27",
+    "accounts": 107776,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Email messages"
+    ]
+   }
+  ],
+  "largest": [
+   {
+    "name": "SynthientCredentialStuffingThreatData",
+    "title": "Synthient Credential Stuffing Threat Data",
+    "domain": "",
+    "date": "2025-04-11",
+    "accounts": 1957476021,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Passwords"
+    ]
+   },
+   {
+    "name": "Collection1",
+    "title": "Collection #1",
+    "domain": "",
+    "date": "2019-01-07",
+    "accounts": 772904991,
+    "verified": false,
+    "classes": [
+     "Email addresses",
+     "Passwords"
+    ]
+   },
+   {
+    "name": "VerificationsIO",
+    "title": "Verifications.io",
+    "domain": "verifications.io",
+    "date": "2019-02-25",
+    "accounts": 763117241,
+    "verified": true,
+    "classes": [
+     "Dates of birth",
+     "Email addresses",
+     "Employers",
+     "Genders",
+     "Geographic locations",
+     "IP addresses"
+    ]
+   },
+   {
+    "name": "OnlinerSpambot",
+    "title": "Onliner Spambot",
+    "domain": "",
+    "date": "2017-08-28",
+    "accounts": 711477622,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Passwords"
+    ]
+   },
+   {
+    "name": "PDL",
+    "title": "Data Enrichment Exposure From PDL Customer",
+    "domain": "",
+    "date": "2019-10-16",
+    "accounts": 622161052,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Employers",
+     "Geographic locations",
+     "Job titles",
+     "Names",
+     "Phone numbers"
+    ]
+   },
+   {
+    "name": "ExploitIn",
+    "title": "Exploit.In",
+    "domain": "",
+    "date": "2016-10-13",
+    "accounts": 593427119,
+    "verified": false,
+    "classes": [
+     "Email addresses",
+     "Passwords"
+    ]
+   },
+   {
+    "name": "Facebook",
+    "title": "Facebook",
+    "domain": "facebook.com",
+    "date": "2019-08-01",
+    "accounts": 509458528,
+    "verified": true,
+    "classes": [
+     "Dates of birth",
+     "Email addresses",
+     "Employers",
+     "Genders",
+     "Geographic locations",
+     "Names"
+    ]
+   },
+   {
+    "name": "AntiPublic",
+    "title": "Anti Public Combo List",
+    "domain": "",
+    "date": "2016-12-16",
+    "accounts": 457962538,
+    "verified": false,
+    "classes": [
+     "Email addresses",
+     "Passwords"
+    ]
+   }
+  ],
+  "by_year": [
+   {
+    "key": "2017",
+    "n": 54
+   },
+   {
+    "key": "2018",
+    "n": 78
+   },
+   {
+    "key": "2019",
+    "n": 83
+   },
+   {
+    "key": "2020",
+    "n": 98
+   },
+   {
+    "key": "2021",
+    "n": 78
+   },
+   {
+    "key": "2022",
+    "n": 61
+   },
+   {
+    "key": "2023",
+    "n": 47
+   },
+   {
+    "key": "2024",
+    "n": 87
+   },
+   {
+    "key": "2025",
+    "n": 62
+   },
+   {
+    "key": "2026",
+    "n": 91
+   }
+  ],
+  "recent": [
+   {
+    "name": "DoubleCounter",
+    "title": "Double Counter",
+    "domain": "doublecounter.gg",
+    "date": "2026-10-04",
+    "accounts": 274922,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Geographic locations",
+     "Names",
+     "Usernames"
+    ]
+   },
+   {
+    "name": "AfD",
+    "title": "AfD",
+    "domain": "afd.de",
+    "date": "2026-09-09",
+    "accounts": 345439,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Email messages"
+    ]
+   },
+   {
+    "name": "Medela",
+    "title": "Medela",
+    "domain": "medela.com",
+    "date": "2026-09-07",
+    "accounts": 423947,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Employers",
+     "Job titles",
+     "Names",
+     "Phone numbers",
+     "Physical addresses"
+    ]
+   },
+   {
+    "name": "Neogen",
+    "title": "Neogen",
+    "domain": "neogen.com",
+    "date": "2026-08-29",
+    "accounts": 435963,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Employers",
+     "Job titles",
+     "Names",
+     "Phone numbers",
+     "Physical addresses"
+    ]
+   },
+   {
+    "name": "ManchesterAirportsGroup",
+    "title": "Manchester Airports Group",
+    "domain": "magairports.com",
+    "date": "2026-08-27",
+    "accounts": 8849657,
+    "verified": true,
+    "classes": [
+     "Browser user agent details",
+     "Email addresses",
+     "Geographic locations",
+     "IP addresses",
+     "Names",
+     "Phone numbers"
+    ]
+   },
+   {
+    "name": "McKesson",
+    "title": "McKesson",
+    "domain": "mckesson.com",
+    "date": "2026-08-21",
+    "accounts": 6404340,
+    "verified": true,
+    "classes": [
+     "Dates of birth",
+     "Email addresses",
+     "Employers",
+     "Genders",
+     "Names",
+     "Personal health data"
+    ]
+   },
+   {
+    "name": "OzHairAndBeauty",
+    "title": "Oz Hair and Beauty",
+    "domain": "ozhairandbeauty.com",
+    "date": "2026-08-15",
+    "accounts": 1988331,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Geographic locations",
+     "Names",
+     "Phone numbers",
+     "Purchases"
+    ]
+   },
+   {
+    "name": "Carhartt",
+    "title": "Carhartt",
+    "domain": "carhartt.com",
+    "date": "2026-08-13",
+    "accounts": 12933413,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Names",
+     "Phone numbers",
+     "Physical addresses"
+    ]
+   },
+   {
+    "name": "Sharecare",
+    "title": "Sharecare",
+    "domain": "sharecare.com",
+    "date": "2026-08-12",
+    "accounts": 318185,
+    "verified": true,
+    "classes": [
+     "Dates of birth",
+     "Email addresses",
+     "Employers",
+     "Genders",
+     "Government issued IDs",
+     "Job titles"
+    ]
+   },
+   {
+    "name": "Fanlore",
+    "title": "Fanlore",
+    "domain": "fanlore.org",
+    "date": "2026-08-06",
+    "accounts": 144520,
+    "verified": true,
+    "classes": [
+     "Email addresses",
+     "Names",
+     "Passwords",
+     "Usernames"
+    ]
+   }
+  ]
+ },
+ "ics": {
+  "source": "CISA ICS advisories",
+  "url": "https://www.cisa.gov/news-events/cybersecurity-advisories",
+  "what": "advisories for industrial control systems: power, water, transport, manufacturing",
+  "total": 30,
+  "vendors": [
+   {
+    "key": "Siemens SIMATIC",
+    "n": 5
+   },
+   {
+    "key": "Hitachi Energy",
+    "n": 4
+   },
+   {
+    "key": "Siemens Industrial",
+    "n": 3
+   },
+   {
+    "key": "Siemens RUGGEDCOM",
+    "n": 3
+   },
+   {
+    "key": "Siemens Mendix",
+    "n": 1
+   },
+   {
+    "key": "Mitsubishi Electric",
+    "n": 1
+   },
+   {
+    "key": "EPICS Base",
+    "n": 1
+   },
+   {
+    "key": "Kiloview E3",
+    "n": 1
+   },
+   {
+    "key": "Siemens Software",
+    "n": 1
+   },
+   {
+    "key": "Siemens Capital",
+    "n": 1
+   }
+  ],
+  "by_month": [
+   {
+    "key": "2026-10",
+    "n": 30
+   }
+  ],
+  "recent": [
+   {
+    "id": "",
+    "title": "Hitachi Energy CoreTec Product",
+    "vendor": "Hitachi Energy",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-302-03",
+    "date": "2026-10-29"
+   },
+   {
+    "id": "",
+    "title": "Hitachi Energy TRO600 series products",
+    "vendor": "Hitachi Energy",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-302-02",
+    "date": "2026-10-29"
+   },
+   {
+    "id": "",
+    "title": "Siemens Mendix SAML Module",
+    "vendor": "Siemens Mendix",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-302-01",
+    "date": "2026-10-29"
+   },
+   {
+    "id": "",
+    "title": "Mitsubishi Electric and Mitsubishi Electric Iconics Digital Solutions GENESIS, GENESIS64, ICONICS Suite, Hyper Historian",
+    "vendor": "Mitsubishi Electric",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-300-02",
+    "date": "2026-10-27"
+   },
+   {
+    "id": "",
+    "title": "EPICS Base",
+    "vendor": "EPICS Base",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-300-01",
+    "date": "2026-10-27"
+   },
+   {
+    "id": "",
+    "title": "Siemens SIMATIC IPCs",
+    "vendor": "Siemens SIMATIC",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-07",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Kiloview E3 NDI Encoder",
+    "vendor": "Kiloview E3",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-01",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens Industrial Edge App Publisher",
+    "vendor": "Siemens Industrial",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-02",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens Software Center",
+    "vendor": "Siemens Software",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-03",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens Capital Embedded AR Classic",
+    "vendor": "Siemens Capital",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-04",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens SENTRON 3NA COM Fuse",
+    "vendor": "Siemens SENTRON",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-05",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens PSS(R)SINCAL",
+    "vendor": "Siemens PSS(R)SINCAL",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-06",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens APOGEE, TALON and Desigo PXC/PXM Products",
+    "vendor": "Siemens APOGEE,",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-08",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens Industrial Edge Device Kit",
+    "vendor": "Siemens Industrial",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-09",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens RUGGEDCOM CROSSBOW",
+    "vendor": "Siemens RUGGEDCOM",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-12",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens WinCC",
+    "vendor": "Siemens WinCC",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-13",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens SIMATIC S7 PLCs Web Server",
+    "vendor": "Siemens SIMATIC",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-14",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens RUGGEDCOM CROSSBOW Station Access Controller",
+    "vendor": "Siemens RUGGEDCOM",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-15",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens Industrial Edge Devices",
+    "vendor": "Siemens Industrial",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-17",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens RUGGEDCOM APE1808 Devices",
+    "vendor": "Siemens RUGGEDCOM",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-18",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens SIMATIC S7-1500 TM MFP",
+    "vendor": "Siemens SIMATIC",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-16",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens SIMATIC S7-1500 CPU 1518(F)-4 PN/DP MFP",
+    "vendor": "Siemens SIMATIC",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-11",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Siemens SIMATIC S7 Webserver API",
+    "vendor": "Siemens SIMATIC",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-295-10",
+    "date": "2026-10-22"
+   },
+   {
+    "id": "",
+    "title": "Hitachi Energy RTU500 Product",
+    "vendor": "Hitachi Energy",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-293-05",
+    "date": "2026-10-20"
+   },
+   {
+    "id": "",
+    "title": "HMS Networks PEAK-System PCAN Windows drivers",
+    "vendor": "HMS Networks",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-293-01",
+    "date": "2026-10-20"
+   },
+   {
+    "id": "",
+    "title": "Moxa AIG-302 ThingsPro Edge",
+    "vendor": "Moxa AIG-302",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-293-03",
+    "date": "2026-10-20"
+   },
+   {
+    "id": "",
+    "title": "Hitachi Energy MicroSCADA X SYS600 Product",
+    "vendor": "Hitachi Energy",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-293-04",
+    "date": "2026-10-20"
+   },
+   {
+    "id": "",
+    "title": "Guangzhou Juan IoT Technology EseeCloud",
+    "vendor": "Guangzhou Juan",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-288-02",
+    "date": "2026-10-15"
+   },
+   {
+    "id": "",
+    "title": "Eclipse Foundation Eclipse Milo",
+    "vendor": "Eclipse Foundation",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-288-01",
+    "date": "2026-10-15"
+   },
+   {
+    "id": "",
+    "title": "CISA Malcolm",
+    "vendor": "CISA Malcolm",
+    "link": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-280-01",
+    "date": "2026-10-15"
+   }
+  ]
+ },
+ "supply": {
+  "source": "GitHub Advisory Database",
+  "url": "https://github.com/advisories",
+  "what": "critical advisories for open-source packages, the software supply chain",
+  "total": 100,
+  "since": "2026-10-29",
+  "ecosystems": [
+   {
+    "key": "npm",
+    "n": 1
+   },
+   {
+    "key": "go",
+    "n": 1
+   },
+   {
+    "key": "actions",
+    "n": 1
+   }
+  ],
+  "recent": [
+   {
+    "id": "GHSA-gcvh-r85p-53mh",
+    "cve": "CVE-2026-118636",
+    "summary": "JavaNativeMessageDecoder in the MINA 3.0 codec module calls...",
+    "published": "2026-10-31",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-p83w-vf54-73v4",
+    "cve": "CVE-2026-120209",
+    "summary": "AJ-Report through 1.7.1 signs share tokens with a hard-coded JWT secret, allowing attackers to...",
+    "published": "2026-10-31",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-mr28-xw2h-9rw4",
+    "cve": "CVE-2026-120201",
+    "summary": "Jpom 2.10.0 through 2.11.12 contains an authentication bypass vulnerability that allows...",
+    "published": "2026-10-31",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-wjww-5gvr-r96j",
+    "cve": "CVE-2026-118235",
+    "summary": "The SimpleForm – Form Maker to Chat Apps with Quiz, Poll and Multi Lead Notifications plugin for...",
+    "published": "2026-10-31",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-rqhh-g82f-mjjr",
+    "cve": "CVE-2026-103882",
+    "summary": "The Acadlix LMS – AI Quiz Maker, Online Exam & Course Plugin for WordPress plugin for WordPress...",
+    "published": "2026-10-31",
+    "cvss": 9.1,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-c7cc-xqvj-xcq2",
+    "cve": "CVE-2026-119096",
+    "summary": "The Uncanny Toolkit for LearnDash plugin for WordPress is vulnerable to Authentication Bypass in...",
+    "published": "2026-10-31",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-3j45-2638-6g5h",
+    "cve": "CVE-2026-116512",
+    "summary": "The Project Manager – AI Powered Project Management, Task Management, Kanban Board & Time Tracker...",
+    "published": "2026-10-31",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-94hg-gmrm-ppjj",
+    "cve": "CVE-2026-89270",
+    "summary": "The Popup Builder – Create highly converting, mobile friendly marketing popups. plugin for...",
+    "published": "2026-10-31",
+    "cvss": 9.1,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-wwrg-9g45-mxcv",
+    "cve": "CVE-2026-116557",
+    "summary": "The WP Booking System - Booking Calendar plugin for WordPress is vulnerable to unauthorized...",
+    "published": "2026-10-31",
+    "cvss": 9.1,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-5f8r-hw67-6cx4",
+    "cve": "CVE-2026-109220",
+    "summary": "The PDF Invoice for WooCommerce + Drag and Drop Template Builder plugin for WordPress is...",
+    "published": "2026-10-31",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-4xm8-rg9h-jhq2",
+    "cve": null,
+    "summary": "Signal K resources API path traversal can disclose the JWT signing secret and enable remote code execution",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [
+     "npm"
+    ],
+    "packages": [
+     "signalk-server",
+     "@signalk/resources-provider"
+    ]
+   },
+   {
+    "id": "GHSA-hff9-5pqw-6w9f",
+    "cve": null,
+    "summary": "imgproxy has integer overflow in imgproxy ICO loader that causes denial of service and may permit remote code ",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [
+     "go"
+    ],
+    "packages": [
+     "github.com/imgproxy/imgproxy/v3",
+     "github.com/imgproxy/imgproxy/v2",
+     "github.com/imgproxy/imgproxy"
+    ]
+   },
+   {
+    "id": "GHSA-fxcq-q77c-fh3w",
+    "cve": "CVE-2026-78403",
+    "summary": "Stack-based buffer overflow and missing authorization vulnerability in Thales Sentinel Keys...",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-3jx6-4898-6q3m",
+    "cve": "CVE-2026-116241",
+    "summary": "pgAdmin 4's Import/Export Data tool wraps a user's query export in a psql \\copy (...) TO command...",
+    "published": "2026-10-30",
+    "cvss": 9.9,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-jq9v-4fgp-83ww",
+    "cve": "CVE-2026-116238",
+    "summary": "In server mode pgAdmin 4 locks an internal account after MAX_LOGIN_ATTEMPTS failed logins (3 by...",
+    "published": "2026-10-30",
+    "cvss": 8.1,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-27wj-mp2h-85jg",
+    "cve": "CVE-2026-90888",
+    "summary": "Unauthenticated PHP Object Injection in LeadSnap <= 1.25 versions.",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-cf3x-m635-98vh",
+    "cve": "CVE-2026-39732",
+    "summary": "Unauthenticated SQL Injection in Transliterator <= 2.5.13 versions.",
+    "published": "2026-10-30",
+    "cvss": 9.3,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-9cg4-h688-392x",
+    "cve": "CVE-2026-39738",
+    "summary": "Unauthenticated PHP Object Injection in FunnelKit Automations <= 3.8.6.1 versions.",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-jhpc-jcvx-rg2p",
+    "cve": "CVE-2026-119526",
+    "summary": "Deserialization of Untrusted Data vulnerability in ThemeREX Royal Event allows Object Injection. ...",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-pqqr-8pmv-5qrf",
+    "cve": "CVE-2026-116852",
+    "summary": "Author Remote Code Execution (RCE) in Widget Options <= 4.2.5 versions.",
+    "published": "2026-10-30",
+    "cvss": 9.1,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-33r3-mmgj-jpmc",
+    "cve": "CVE-2026-116386",
+    "summary": "Unauthenticated Privilege Escalation in SMS Alert Order Notifications <= 4.0.2 versions.",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-5xjx-3w67-w9x9",
+    "cve": null,
+    "summary": "pypi-publish action revocation of CA in the chain that Sigstore uses in Trusted Publishing and Digital Attesta",
+    "published": "2026-10-30",
+    "cvss": null,
+    "ecosystems": [
+     "actions"
+    ],
+    "packages": [
+     "pypa/gh-action-pypi-publish"
+    ]
+   },
+   {
+    "id": "GHSA-c9gr-394r-65gg",
+    "cve": "CVE-2026-118697",
+    "summary": "In JetBrains Toolbox App before 3.9.1 and 3.8.2; IntelliJ IDEA before 2026.3 and 2026.2.4, the...",
+    "published": "2026-10-30",
+    "cvss": 9,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-7pc2-8w3w-pqfg",
+    "cve": "CVE-2026-119978",
+    "summary": "Flowise through 3.1.4 contains a sandbox escape vulnerability that allows authenticated users to...",
+    "published": "2026-10-30",
+    "cvss": 8.5,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-pq55-m3w3-jh54",
+    "cve": "CVE-2026-112816",
+    "summary": "Improper certificate validation in the HTTPS listener in Canonical LXD 4.0.14, 5.0.10, 5.21.8, 6...",
+    "published": "2026-10-30",
+    "cvss": null,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-x54v-7mw2-5rrx",
+    "cve": "CVE-2026-119717",
+    "summary": "pybars4 through 0.9.13 contains a code injection vulnerability in pybars/_compiler.py that allows...",
+    "published": "2026-10-30",
+    "cvss": 8.1,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-xvx4-89q3-mchg",
+    "cve": "CVE-2026-119716",
+    "summary": "pybars3 through 0.9.7 contains a code injection vulnerability in pybars/_compiler.py that allows...",
+    "published": "2026-10-30",
+    "cvss": 8.1,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-fq46-3gxq-v4vc",
+    "cve": "CVE-2026-119706",
+    "summary": "InternLM LMDeploy 0.9.0 through 0.18.0 contains an unauthenticated remote code execution...",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-22c9-7ph7-qxcx",
+    "cve": "CVE-2026-93327",
+    "summary": "A Deserialization of Untrusted Data vulnerability in the SubWorkflow task in Google Cloud...",
+    "published": "2026-10-30",
+    "cvss": null,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-77p8-2qmx-794p",
+    "cve": "CVE-2026-119660",
+    "summary": "MuseBot before 2.0.0 contains an authentication bypass vulnerability that allows unauthenticated...",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-fc52-73gp-r537",
+    "cve": "CVE-2026-119597",
+    "summary": "OpenDeepWiki through 2.0.6 contains a hard-coded JWT signing key vulnerability that allows...",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-93qj-4wg6-29x9",
+    "cve": "CVE-2026-119568",
+    "summary": "vsftpd through 3.0.5 contains an authentication bypass vulnerability in ssl_data_accept() that...",
+    "published": "2026-10-30",
+    "cvss": 7.4,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-h3r5-88vp-3qm7",
+    "cve": "CVE-2026-119418",
+    "summary": "CakePHP through 5.4.3 contains an sql injection vulnerability that allows attackers to inject SQL...",
+    "published": "2026-10-30",
+    "cvss": 8.1,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-6q38-2qcr-3x34",
+    "cve": "CVE-2026-119419",
+    "summary": "CakePHP through 5.4.3 contains an sql injection vulnerability that allows attackers to inject SQL...",
+    "published": "2026-10-30",
+    "cvss": 8.1,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-qhgw-ghp3-xh36",
+    "cve": "CVE-2026-116366",
+    "summary": "An issue has been discovered in ClickHouse Server that, under certain conditions, could allow an...",
+    "published": "2026-10-30",
+    "cvss": null,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-9248-6x5c-955r",
+    "cve": "CVE-2025-31704",
+    "summary": "A vulnerability has been found in the Dahua Intelligent Connection Center. A remote attacker...",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-4v5h-x9v6-mww6",
+    "cve": "CVE-2026-82104",
+    "summary": "In Teltonika Networks RUTOS devices running versions from 7.22 through 7.24.2 and TSWOS devices...",
+    "published": "2026-10-30",
+    "cvss": null,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-635p-78xg-j6w3",
+    "cve": "CVE-2026-103039",
+    "summary": "The Gravity Forms plugin for WordPress is vulnerable to PHP Object Injection in all versions up...",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-6pcx-w9cj-f597",
+    "cve": "CVE-2026-107249",
+    "summary": "Improperly Controlled Modification of Dynamically-Determined Object Attributes vulnerability in...",
+    "published": "2026-10-30",
+    "cvss": 9.8,
+    "ecosystems": [],
+    "packages": []
+   },
+   {
+    "id": "GHSA-gr92-r7pw-c3qg",
+    "cve": "CVE-2026-119263",
+    "summary": "Memory corruption in GarbageCollection in Google Chrome prior to 156.0.8078.79 allowed a remote...",
+    "published": "2026-10-30",
+    "cvss": 9.6,
+    "ecosystems": [],
+    "packages": []
+   }
+  ]
+ },
+ "networks": {
+  "sources": [
+   {
+    "name": "Tor Project exit list",
+    "url": "https://check.torproject.org/torbulkexitlist",
+    "what": "Tor exit nodes: traffic that cannot be attributed to a sender",
+    "count": 1228,
+    "unit": "exit nodes"
+   },
+   {
+    "name": "Spamhaus DROP",
+    "url": "https://www.spamhaus.org/drop/",
+    "what": "netblocks hijacked or run by criminals, to be dropped at the edge",
+    "count": 1756,
+    "unit": "netblocks",
+    "addresses": 15036928,
+    "largest": [
+     {
+      "cidr": "42.128.0.0/12",
+      "sbl": "SBL262062",
+      "addresses": 1048576
+     },
+     {
+      "cidr": "42.160.0.0/12",
+      "sbl": "SBL262364",
+      "addresses": 1048576
+     },
+     {
+      "cidr": "42.208.0.0/12",
+      "sbl": "SBL283229",
+      "addresses": 1048576
+     },
+     {
+      "cidr": "147.16.0.0/14",
+      "sbl": "SBL302620",
+      "addresses": 262144
+     },
+     {
+      "cidr": "196.16.0.0/14",
+      "sbl": "SBL364590",
+      "addresses": 262144
+     },
+     {
+      "cidr": "57.14.0.0/15",
+      "sbl": "SBL688338",
+      "addresses": 131072
+     }
+    ]
+   },
+   {
+    "name": "Emerging Threats compromised hosts",
+    "url": "https://rules.emergingthreats.net/blockrules/compromised-ips.txt",
+    "what": "hosts known to be compromised and used in attacks",
+    "count": 542,
+    "unit": "hosts"
+   }
+  ]
+ }
+}

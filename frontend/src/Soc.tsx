@@ -1,7 +1,8 @@
 import { ExternalLink, Loader2 } from 'lucide-react'
 import { TechThreats } from './soc/panels'
 import { nf, SocCard, StackBar, TabBoxes } from './soc/kit'
-import { AttackStrip, CampaignTimeline } from './soc/telemetry'
+import services from './soc/data/services.json'
+import { AttackedServices, AttackStrip, CampaignTimeline } from './soc/telemetry'
 import { useEffect, useState } from 'react'
 import { api, type Campaign, type IntelAdvisory, type IntelSource, type Soc as SocData, type Technology, type RiskPlan } from './api'
 import { Heatmap, type HeatData } from './Heatmap'
@@ -251,6 +252,9 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
               panel: <CampaignsCard camps={camps} onSee={() => setSheet('campaigns')} /> },
             { key: 'attack', title: 'ATT&CK techniques seen', preview: "From the HTTP shield's findings and the decoy grid's detections; each links to MITRE",
               panel: <SocCard title="ATT&CK techniques seen" prov={['REAL', 'SIM']} sub="From the HTTP shield's findings and the decoy grid's detections; each links to MITRE"><AttackStrip /></SocCard> },
+            { key: 'services', title: 'Attacks by service', chip: <Prov p="REAL" />, count: nf(services.services.reduce((n, s) => n + s.ips, 0)),
+              preview: `Attacking IPs reported in the last 48 hours: ${[...services.services].filter((s) => s.ips > 0).sort((a, b) => b.ips - a.ips).slice(0, 3).map((s) => `${s.label} ${nf(s.ips)}`).join(' · ')}`,
+              panel: <SocCard title="Attacks by service" prov={['REAL']} sub="Attacking IPs reported to blocklist.de in the last 48 hours, by the service they attacked"><AttackedServices /></SocCard> },
             { key: 'timeline', title: 'Campaign timeline', count: camps[0] ? `${Math.max(...camps.map((c) => c.early_warning_days))} d` : '—',
               preview: 'From our first signal to the confirmed exploit, with the lead time; the best lead shown',
               panel: <SocCard title="Campaign timeline" prov={['REAL', 'SIM']} sub="From our first signal to the confirmed exploit, with the lead time"><CampaignTimeline camps={camps} /></SocCard> },

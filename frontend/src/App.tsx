@@ -14,6 +14,7 @@ import { AttackTelemetry, LiveStrip, SocStrip, Throughput } from './soc/extras'
 import { AlertChip } from './soc/overview'
 import { IntelSources } from './soc/panels'
 import { Rail, RAIL_NARROW, RAIL_WIDE, useRail } from './soc/Rail'
+import { RealFeedsStrip } from './soc/realfeeds'
 import { CommandPalette } from './soc/Search'
 import { Hero, Tabs, ToastProvider, WRAP } from './ui'
 
@@ -169,7 +170,8 @@ export default function App() {
           </Hero>
           <main className={`${WRAP} flex flex-1 gap-6 py-12`}>
             {intelTab === 'advisories' ? <Advisories /> : intelTab === 'overview' ? (
-              <div className="w-full min-w-0 space-y-10">
+              <div className="w-full min-w-0 space-y-12">
+                <RealFeedsStrip />
                 <div className="grid gap-6 xl:grid-cols-2"><IntelSources /><AttackTelemetry /></div>
                 <Soc section={intelTab} tick={tick} />
               </div>
