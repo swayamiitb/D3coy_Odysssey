@@ -129,7 +129,7 @@ export function GraphCanvas({ view, onHover, onPick, dark }: {
         const mx = (ax + bx) / 2, my = (ay + by) / 2
         const qx = mx + (cx - mx) * 0.22, qy = my + (cy - my) * 0.22
         const base = e.kind === 'runs' || e.kind === 'owns' ? 0.08 : 0.15
-        ctx.strokeStyle = on ? `rgba(${ink},0.75)` : `rgba(${line},${off ? 0.025 : force ? 0.11 : base})`
+        ctx.strokeStyle = on ? `rgba(${ink},0.8)` : `rgba(${line},${off ? 0.03 : force ? 0.2 : base})`
         ctx.lineWidth = (on ? 1.1 : 0.7) * Math.min(1.3, R / 330)
         ctx.setLineDash(e.provenance === 'SIM' ? [3, 3] : e.provenance === 'REAL · SIM' ? [6, 3] : [])
         ctx.globalAlpha = 1
@@ -583,7 +583,7 @@ export function forceLayout(nodes: GraphNode[], edges: GraphEdge[]): Layout {
   const pos: Layout['pos'] = {}
   nodes.forEach((n, i) => {
     const fx = Number.isFinite(x[i]) ? x[i] * scale : 0.8 * Math.cos(n.angle), fy = Number.isFinite(y[i]) ? y[i] * scale : 0.8 * Math.sin(n.angle)
-    pos[n.id] = { x: fx, y: fy, r: 4.6 + 9.5 * Math.sqrt(deg[i] / maxDeg) + (n.tier === 'Compromise' ? 1.5 : 0), ring: n.ring }
+    pos[n.id] = { x: fx, y: fy, r: 3.8 + 7.5 * Math.sqrt(deg[i] / maxDeg) + (n.tier === 'Compromise' ? 1.2 : 0), ring: n.ring }
   })
   const community: Record<string, number> = {}
   nodes.forEach((n, i) => { community[n.id] = label[i] })
