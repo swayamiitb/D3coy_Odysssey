@@ -1,1 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#EDEDED"/><circle cx="16" cy="16" r="7" fill="none" stroke="#0F0F10" stroke-width="3"/><circle cx="16" cy="16" r="2" fill="#0F0F10"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Odyssey: a heraldic shield in the register of Indian defence insignia, at the sizes the headers use (28 to 32px).
+       Black field, white bordure and chevron, the chakra reduced to a clean ring with a red hub so it stays crisp;
+       mark-large.svg carries the 24-spoke chakra and the radar sweep for 48px and up. -->
+  <path d="M32 3 L57 11 V30 C57 45 46 56 32 61 C18 56 7 45 7 30 V11 Z" fill="#0b0b0d" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round"/>
+  <path d="M11 36 L32 24 L53 36" fill="none" stroke="#ffffff" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"/>
+  <g transform="translate(32 41)">
+    <circle r="10" fill="none" stroke="#ffffff" stroke-width="2.4"/>
+    <g stroke="#ffffff" stroke-width="1.6" stroke-linecap="round">
+      <line y1="-9" y2="-5"/><line y1="-9" y2="-5" transform="rotate(45)"/><line y1="-9" y2="-5" transform="rotate(90)"/><line y1="-9" y2="-5" transform="rotate(135)"/>
+      <line y1="-9" y2="-5" transform="rotate(180)"/><line y1="-9" y2="-5" transform="rotate(225)"/><line y1="-9" y2="-5" transform="rotate(270)"/><line y1="-9" y2="-5" transform="rotate(315)"/>
+    </g>
+    <circle r="3.4" fill="#e5383b"/>
+  </g>
+</svg>
