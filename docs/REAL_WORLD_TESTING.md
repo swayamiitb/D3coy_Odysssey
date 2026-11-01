@@ -41,6 +41,32 @@ A submitted CAP alert is forwarded to Odyssey's ingest guard, so CAP-level attac
 It carries a banner on every page: **"SIMULATED LAB TARGET - a fictional agency for security testing. Not a real
 government service; holds no real data."**
 
+It also runs a **self-contained mock OAuth 2.0** authorization-code flow (`/login`, `/oauth/authorize`, `/oauth/token`,
+a protected `/dashboard`), so the shield has a realistic authentication surface to watch (open-redirect on
+`redirect_uri`, missing `state`/CSRF, SQLi in the token/login, a forged bearer token, a login brute force). The OAuth
+server is entirely local and fictional: the only account is a demo one printed on the login page (`officer` /
+`demo123`), no real identity provider is contacted, and no real credential is ever collected.
+
+## The red-team agent
+
+`scripts/redteam_agent.py` is a standalone attacker - a separate process from Odyssey, the "red-team entity" - that
+exercises the lab target over the wire so the shield can prove it detects. It runs the standard web-attack families
+(through Odyssey's own loopback-guarded red-team runner) plus the OAuth/auth-specific cases, in a number of waves you
+choose, then prints what the shield caught. Odyssey detects its traffic independently and opens the case.
+
+**Its hard safety rule, enforced in code:** it resolves the target host and refuses anything that is not loopback or an
+RFC-1918 private address before sending a single byte, so it can never be pointed at a real or third-party service.
+Every request is labelled an exercise (`x-odyssey-redteam` header) in the audit trail. It is person-run and the number
+of waves is an argument you pass; it is not an unattended endless loop.
+
+```
+.venv\Scripts\python scripts\redteam_agent.py                      # one wave at http://127.0.0.1:8081
+.venv\Scripts\python scripts\redteam_agent.py --waves 5 --delay 20 # five waves, 20 s apart
+```
+
+It refuses a public target outright, e.g. `--target http://example.com` ->
+"refusing: example.com resolves to a public address. This agent only attacks a local lab target you own."
+
 ## The full loop, end to end
 
 1. Start the stack (`scripts\start_all.ps1`), then the target (`scripts\start_gov_target.ps1`). The portal registers
