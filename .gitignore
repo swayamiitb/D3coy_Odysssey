@@ -61,3 +61,6 @@ data/.tmp/
 data/.pytest-tmp/
 data/testbench_last.json
 data/build.log
+
+# reference clips used for the motion effects (stock footage, drawn in code instead; not committed)
+*.mp4
