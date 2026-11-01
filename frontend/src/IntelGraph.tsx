@@ -283,20 +283,20 @@ function Card({ id, focus, onClose, onOpen }: { id: string; focus?: string; onCl
         <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
           <div className="flex min-w-0 flex-col gap-8">
             <div>
-              <h3 className="text-xl font-bold">What this is</h3>
+              <h3 className="text-[16px] font-semibold">What this is</h3>
               <p className="mt-2 text-mute">{c.record.how}</p>
               <p className="mt-2 text-xs text-mute">{n.source}{n.last_seen ? ` · last evidence ${fmtDate(n.last_seen)} (${PHASE[n.phase] ?? n.phase})` : ''}</p>
               {url && <a href={url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm text-accent hover:underline">{url.replace(/^https?:\/\//, '')} <ExternalLink size={13} /></a>}
             </div>
             <div>
-              <h3 className="text-xl font-bold">Facts</h3>
+              <h3 className="text-[16px] font-semibold">Facts</h3>
               <div className="mt-3"><Facts n={n} /></div>
               {n.kind === 'actor' && typeof n.facts.note === 'string' && <div className="mt-4 rounded-2xl bg-panel-2 p-4 text-sm text-mute">{n.facts.note}</div>}
             </div>
           </div>
           <div className="flex min-w-0 flex-col gap-8">
             <div>
-              <h3 className="text-xl font-bold">Connected</h3>
+              <h3 className="text-[16px] font-semibold">Connected</h3>
               <p className="mt-1 text-sm text-mute">{c.neighbours.length} connection{c.neighbours.length === 1 ? '' : 's'} in the record. Open one to follow the thread.</p>
               <div className="mt-2">
                 {c.neighbours.map((m) => (
@@ -308,7 +308,7 @@ function Card({ id, focus, onClose, onOpen }: { id: string; focus?: string; onCl
               </div>
             </div>
             <div>
-              <h3 className="text-xl font-bold">Evidence</h3>
+              <h3 className="text-[16px] font-semibold">Evidence</h3>
               <p className="mt-1 text-sm text-mute">{c.events.length ? `The latest ${c.events.length} entries of the audit trail that name it.` : 'No audit-trail entries name this node; it is drawn from the reference record alone.'}</p>
               <ul className="mt-2">
                 {c.events.map((e, i) => (
@@ -470,7 +470,7 @@ export function IntelGraph({ focus, onFocus, initialNode }: { focus?: string; on
           </div>
         )}
         <div className={`${atNow ? 'mt-6' : 'mt-3'} flex items-start gap-5`}>
-          <div className="min-w-0 flex-1 overflow-x-auto rounded-3xl bg-soft p-2">
+          <div className="min-w-0 flex-1 overflow-x-auto rounded-2xl bg-soft p-2">
             <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full min-w-[900px]" data-intelgraph role="img" aria-label={`Intelligence graph: ${g.focus.label}`}
                  onMouseLeave={() => setHover(undefined)}>
               {rings.map((r) => (

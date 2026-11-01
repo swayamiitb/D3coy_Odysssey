@@ -267,12 +267,16 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
           ]} />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Tile value={surgeCount(heat?.decoy.marks)} title="Scanning surges on our decoy grid" sub="24 sensors, simulated and labelled SIM" cta="See the grid" onClick={() => setSheet('decoy')} />
-            <Tile value={active} title="Active campaigns" sub="exploited CVEs, chained assets and decoy surges, correlated" cta="See campaigns" onClick={() => setSheet('campaigns')} />
             <Tile value={relevantAdv} title="Real advisories that name our products" sub={`of the latest ${adv.length} CISA advisories`} cta="See advisories" onClick={() => setSheet('advisories')} />
             <Tile value={sources.length} title="Intelligence sources" sub={`${sources.filter((x) => x.provenance === 'REAL').length} real public feeds, the rest simulated and labelled`} cta="See sources" onClick={() => setSheet('sources')} />
           </div>
-          <BrandWatch />
-          <SurfaceScan orgId="PWR-01" defaultUrl="http://127.0.0.1:8080" />
+          {/* The outside view, as a strip: two heavy, interactive panels that an analyst opens when needed. */}
+          <TabBoxes label="Outside view" items={[
+            { key: 'brand', title: 'Brand and social watch', chip: <Prov p="REAL" />, preview: 'Impersonation and risk mentions in public sources: certificate transparency, URLhaus, OpenPhish, news, Hacker News, Reddit',
+              panel: <div className="soc-card px-6 py-5"><BrandWatch /></div> },
+            { key: 'surface', title: 'Attack surface, with consent', chip: <Prov p="REAL" />, preview: 'A read-only scan of a system you own: GET and HEAD only, graded A to F, every finding with its CWE and fix',
+              panel: <div className="soc-card px-6 py-5"><SurfaceScan orgId="PWR-01" defaultUrl="http://127.0.0.1:8080" /></div> },
+          ]} />
         </>
       )}
 

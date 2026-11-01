@@ -3,6 +3,7 @@ import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis
 import type { Attacks, Soc } from '../api'
 import { TIER_FILL } from '../ui'
 import { AnimatedNumber, BarList, Gauge, nf, Pending, SocCard, TabBoxes, useJson } from './kit'
+import { ChannelsSection } from '../Channels'
 import { AttackFamilies, DecisionsToday, ExposedHosts, FeedHealth, SensorGrid } from './telemetry'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,6 +45,8 @@ export function LiveStrip({ s, onShield }: { s?: Live; onShield: () => void }) {
         panel: <SocCard title="Feed health" prov={['REAL']} sub="The real feeds read live, checked every 15 minutes"><FeedHealth s={s} /></SocCard> },
       { key: 'shield', title: 'Attack families on the shield', preview: 'What the HTTP shield caught, by family; blocked vs allowed',
         panel: <SocCard title="Attack families on the shield" prov={['SIM']} sub="What the HTTP shield caught, by family"><AttackFamilies onGo={onShield} /></SocCard> },
+      { key: 'channels', title: 'Where the alerts go', preview: 'The apps a team already uses: each channel with a send-test and a mute, and what was delivered, to whom, how fast',
+        panel: <div className="soc-card px-6 py-5"><ChannelsSection /></div> },
     ]} />
   )
 }

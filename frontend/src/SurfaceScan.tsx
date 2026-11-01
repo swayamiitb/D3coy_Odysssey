@@ -248,7 +248,7 @@ export function SurfaceScan({ orgId, defaultUrl }: { orgId?: string; defaultUrl?
 
         {/* previous scans */}
         <div>
-          <h3 className="text-xl font-bold">Previous scans</h3>
+          <h3 className="text-[16px] font-semibold">Previous scans</h3>
           <p className="mt-1 text-sm text-mute">{orgId ? `Scans recorded for ${orgId}, newest first.` : 'Every scan recorded, newest first.'} Open one to bring its findings back.</p>
           <div className="mt-2">
             {!history && <div className="py-3 text-sm text-mute"><Loader2 size={14} className="mr-1 inline animate-spin" />Reading the scan log…</div>}
@@ -274,23 +274,23 @@ export function SurfaceScan({ orgId, defaultUrl }: { orgId?: string; defaultUrl?
                sub={`${open.check} check · ${open.detail}`}>
           <div className="flex flex-col gap-8">
             <div>
-              <h3 className="text-xl font-bold">Evidence</h3>
+              <h3 className="text-[16px] font-semibold">Evidence</h3>
               <p className="mt-1 text-sm text-mute">What the target itself answered. Nothing was sent beyond GET and HEAD.</p>
               <pre className="mt-3 whitespace-pre-wrap break-all rounded-2xl bg-panel-2 p-4 font-mono text-sm leading-relaxed">{open.evidence}</pre>
             </div>
             <div>
-              <h3 className="text-xl font-bold">Fix</h3>
+              <h3 className="text-[16px] font-semibold">Fix</h3>
               <p className="mt-2">{open.fix}</p>
             </div>
             <div>
-              <h3 className="text-xl font-bold">Weakness</h3>
+              <h3 className="text-[16px] font-semibold">Weakness</h3>
               <a href={cweUrl(open.cwe)} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm text-accent hover:underline">
                 {open.cwe} on cwe.mitre.org <ExternalLink size={13} />
               </a>
             </div>
             {open.path && (
               <div>
-                <h3 className="text-xl font-bold">Where</h3>
+                <h3 className="text-[16px] font-semibold">Where</h3>
                 <p className="mt-2 font-mono text-sm">{/^\d+$/.test(open.path) ? `TCP port ${open.path}` : open.path}</p>
               </div>
             )}
