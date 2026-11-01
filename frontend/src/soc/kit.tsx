@@ -170,7 +170,7 @@ export function BarList({ rows, color, onPick }: {
               <span className="font-mono text-[13px]">{r.value.toLocaleString('en-IN')}</span>
             </div>
             <div className="mt-1.5 h-2 rounded-full bg-panel-2">
-              <div className="h-full rounded-full" style={{ width: `${Math.max(2, (100 * r.value) / max)}%`, background: r.hot ? color : 'var(--color-panel-3)' }} />
+              <div className="h-full rounded-full" style={{ width: `${Math.max(2, (100 * r.value) / max)}%`, background: r.hot ? color : 'var(--color-line-2)' }} />
             </div>
           </>
         )

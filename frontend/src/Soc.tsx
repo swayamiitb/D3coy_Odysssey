@@ -1,10 +1,12 @@
 import { ExternalLink, Loader2 } from 'lucide-react'
+import { TechThreats } from './soc/panels'
+import { SocCard, StackBar } from './soc/kit'
 import { useEffect, useState } from 'react'
 import { api, type Campaign, type IntelAdvisory, type IntelSource, type Soc as SocData, type Technology, type RiskPlan } from './api'
 import { Heatmap, type HeatData } from './Heatmap'
 import { RiskPlanView } from './Orgs'
 import { ForecastPanel } from './proactive'
-import { Badge, Pill, Prov, Row, Section, Sheet, Tile, useToast } from './ui'
+import { Badge, Pill, Prov, Row, Section, Sheet, Tile, useToast, TIER_FILL } from './ui'
 
 const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString('en-IN'))
 
@@ -213,6 +215,29 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
               <Heatmap data={heat.attacks} hue="accent" unit="attack records" labelW={200} />
             </Section>
           )}
+          {/* ui-08: the SOC row for this tab, on data it already holds: the products carrying the most Critical warnings, and the campaign picture. */}
+          <div className="grid gap-6 xl:grid-cols-2">
+            <TechThreats onOpen={() => setSheet('tech')} />
+            <SocCard title="Campaigns" prov={['REAL', 'SIM']} sub="Exploited CVEs, chained assets and decoy surges, correlated into campaigns"
+                     right={<button onClick={() => setSheet('campaigns')} className="text-[13px] font-medium text-accent hover:underline">See campaigns</button>}>
+              <StackBar unit="campaigns" parts={[
+                { label: 'Active', value: camps.filter((c) => c.status === 'ACTIVE').length, color: TIER_FILL.Critical },
+                { label: 'Emerging', value: camps.filter((c) => c.status === 'EMERGING').length, color: TIER_FILL.High },
+                { label: 'Dormant', value: camps.filter((c) => c.status === 'DORMANT').length, color: 'var(--color-line-2)' },
+              ].filter((x) => x.value > 0)} />
+              {camps.length > 0 && (
+                <ul className="mt-4 divide-y divide-line border-t border-line">
+                  {[...camps].sort((a, b) => b.early_warning_days - a.early_warning_days).slice(0, 4).map((c) => (
+                    <li key={c.id} className="flex items-center gap-3 py-2 text-[13px]">
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${c.status === 'ACTIVE' ? 'bg-crit' : c.status === 'EMERGING' ? 'bg-high' : 'bg-watch'}`} />
+                      <span className="min-w-0 flex-1 truncate">{c.title}</span>
+                      <span className="shrink-0 font-mono text-[12.5px] text-mute">{c.cves.length} CVE{c.cves.length === 1 ? '' : 's'} · {c.early_warning_days} d early</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SocCard>
+          </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Tile value={surgeCount(heat?.decoy.marks)} title="Scanning surges on our decoy grid" sub="24 sensors, simulated and labelled SIM" cta="See the grid" onClick={() => setSheet('decoy')} />
             <Tile value={active} title="Active campaigns" sub="exploited CVEs, chained assets and decoy surges, correlated" cta="See campaigns" onClick={() => setSheet('campaigns')} />

@@ -1,4 +1,4 @@
-import { Bug, FileWarning, Radar, ShieldAlert } from 'lucide-react'
+import { Activity, Bug, FileWarning, Radar, ShieldAlert, Siren } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { IntelSource, LedgerEvent, ShieldStatus, Soc, Technology } from '../api'
@@ -11,7 +11,7 @@ import { ago, BarList, Delta, Gauge, nf, Pending, Seg, SocCard, StackBar, useJso
 interface LiveDetection { id: string; ts: string; kind: string; title: string; sensors: number; z: number; orgs_exposed: number }
 interface LiveState { detections: LiveDetection[]; feeds: { name: string; status: string }[]; sensors: number; flows: { per_tick: number[]; hosts: number }; tick_s: number }
 
-type FeedRow = { id: string; ts: string; icon: 'web' | 'decoy' | 'intel'; title: string; line: string; tier?: 'Compromise' | 'Critical' | 'High' | 'Medium' | 'Watch'; tag?: string }
+type FeedRow = { id: string; ts: string; icon: 'web' | 'decoy' | 'beacon' | 'flow' | 'intel'; title: string; line: string; tier?: 'Compromise' | 'Critical' | 'High' | 'Medium' | 'Watch'; tag?: string }
 
 /** Live threats: what the HTTP Shield and the decoy grid saw, newest first. */
 export function LiveThreats({ onAll }: { onAll: () => void }) {
@@ -24,8 +24,14 @@ export function LiveThreats({ onAll }: { onAll: () => void }) {
       out.push({ id: f.id, ts: f.ts, icon: 'web', title: `${f.category}${f.attack ? ` · ${f.attack}` : ''}`,
                  line: `${f.source_ip} → ${f.app} ${f.method} ${f.path}`, tier: f.severity, tag: f.redteam ? 'drill' : f.decision })
     }
+    // The live engine emits several kinds of detection (a scanning surge, a C2 beacon, a flow anomaly); each keeps
+    // its own icon, tier and wording.
     for (const d of live.data?.detections ?? []) {
-      out.push({ id: d.id, ts: d.ts, icon: 'decoy', title: d.title, line: `${d.sensors} decoy sensors · z ${d.z} · ${d.orgs_exposed} operators exposed`, tier: 'High', tag: 'surge' })
+      const k = d.kind ?? ''
+      const beacon = /beacon|c2/i.test(k), flow = /flow|anomal/i.test(k)
+      const grid = d.sensors != null ? `${d.sensors} decoy sensors${d.z != null ? ` · z ${d.z}` : ''} · ` : ''
+      out.push({ id: d.id, ts: d.ts, icon: beacon ? 'beacon' : flow ? 'flow' : 'decoy', title: d.title,
+                 line: `${grid}${d.orgs_exposed ?? 0} operators exposed`, tier: beacon ? 'Compromise' : flow ? 'Medium' : 'High', tag: k.replace(/_/g, ' ') })
     }
     // Quiet grid: fill with the newest exploitation confirmed by CISA (real), so the feed is never a blank box.
     for (const e of ledger.data ?? []) {
@@ -34,7 +40,8 @@ export function LiveThreats({ onAll }: { onAll: () => void }) {
     }
     return out.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 7)
   }, [shield.data, live.data, ledger.data])
-  const Icon = { web: Bug, decoy: Radar, intel: FileWarning }
+  const Icon = { web: Bug, decoy: Radar, beacon: Siren, flow: Activity, intel: FileWarning }
+  const tile = { web: 'bg-crit/12 text-crit-ink', decoy: 'bg-high/12 text-high-ink', beacon: 'bg-comp/15 text-comp-ink', flow: 'bg-med/15 text-med-ink', intel: 'bg-panel-2 text-mute' }
   return (
     <SocCard title={<><span className="soc-live h-2 w-2 rounded-full bg-ok" />Live threats</>} prov={['REAL', 'SIM']}
              sub="HTTP Shield detections, decoy-grid surges and new CISA KEV entries, newest first"
@@ -51,7 +58,7 @@ export function LiveThreats({ onAll }: { onAll: () => void }) {
             const I = Icon[r.icon]
             return (
               <li key={r.id} className="flex items-center gap-3 border-b border-line px-1 py-2.5 last:border-0">
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${r.icon === 'web' ? 'bg-crit/12 text-crit-ink' : r.icon === 'decoy' ? 'bg-high/12 text-high-ink' : 'bg-panel-2 text-mute'}`}><I size={16} /></span>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tile[r.icon]}`}><I size={16} /></span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13.5px] font-medium">{r.title}</div>
                   <div className="truncate font-mono text-[12px] text-faint">{r.line}</div>

@@ -20,8 +20,8 @@ export function CaseLoad({ tick }: { tick: number }) {
       <SocCard title="Case load" sub="Every open case, from the case board">
         <div className="grid grid-cols-2 gap-4 pt-1">
           <Gauge value={assigned} color="var(--color-text)" label="Have an owner" sub={`${nf(m.open - m.unassigned)} of ${nf(m.open)} open cases`} />
-          <Gauge value={inSla} color={m.overdue ? TIER_FILL.Critical : 'var(--color-ok)'} label="Inside their deadline"
-                 sub={m.overdue ? `${nf(m.overdue)} past the CERT-In timeline` : 'none past the CERT-In timeline'} />
+          <Gauge value={inSla} color={m.overdue ? TIER_FILL.Critical : 'var(--color-ok)'} label="Cases inside their deadline"
+                 sub={m.overdue ? `${nf(m.overdue)} cases past the CERT-In timeline` : 'no case past its CERT-In timeline; overdue warnings are escalated below, in the decisions queue'} />
         </div>
       </SocCard>
       <SocCard title="Who carries the queue" sub="Open cases per analyst on shift">

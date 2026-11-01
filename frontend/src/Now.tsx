@@ -217,8 +217,8 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
           <ScoreCard />
           <div className="soc-seams grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             {[
-              { label: 'Suspected compromise', value: nf(soc?.tiers.Compromise ?? 0), dot: 'bg-comp',
-                sub: today && yesterday ? <Delta now={today.Compromise} before={yesterday.Compromise} good="down" window="vs yesterday" /> : ((soc?.tiers.Compromise ?? 0) > 0 ? 'incident response under way' : 'none right now') },
+              { label: 'Suspected compromise', value: soc ? nf(soc.tiers.Compromise ?? 0) : '—', dot: 'bg-comp',
+                sub: !soc ? undefined : today && yesterday ? <Delta now={today.Compromise} before={yesterday.Compromise} good="down" window="vs yesterday" /> : ((soc.tiers.Compromise ?? 0) > 0 ? 'incident response under way' : 'none right now') },
               { label: 'Critical warnings', value: nf(soc?.tiers.Critical), dot: 'bg-crit',
                 sub: today && yesterday ? <><Delta now={today.Critical} before={yesterday.Critical} good="down" window="open, vs yesterday" /><span className="block">{nf(soc?.tiers.High)} High · {nf(soc?.tiers.Medium)} Medium</span></> : undefined },
               { label: 'Open cases', value: nf(metrics?.open), sub: metrics ? `${metrics.incidents} incident response · ${metrics.unassigned} unassigned` : undefined },
