@@ -275,3 +275,6 @@ html.soc .font-mono { font-variant-numeric: tabular-nums slashed-zero; letter-sp
 .hex-comp { animation: hex-breathe 2.4s ease-in-out infinite, hex-sweep 7s linear infinite; }
 .hex-quiet { filter: none; }
 @media (prefers-reduced-motion: reduce) { .hex-live, .hex-comp { animation: none; } }
+/* A figure strip over the plexus: the cells go translucent, so the network shows through behind the numbers. */
+.soc-seams.is-glass { background: transparent; border-color: color-mix(in oklab, var(--color-line) 80%, transparent); }
+.soc-seams.is-glass > * { background: color-mix(in oklab, var(--color-panel) 62%, transparent); box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-line) 80%, transparent); }

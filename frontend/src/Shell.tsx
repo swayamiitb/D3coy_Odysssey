@@ -1,6 +1,7 @@
 import { Moon, Search, ShieldCheck, Sun } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { api, type Health, type Soc, type Technology } from './api'
+import { Honeycomb } from './soc/Honeycomb'
 import { Figures, FiguresSkeleton, WRAP } from './ui'
 
 /** The night-shift switch: the whole console goes SOC black. Remembered per browser; main.tsx applies it before paint. */
@@ -110,8 +111,9 @@ const FOOT: [string, [string, View, string?][]][] = [
 
 export function Footer({ go, health }: { go: Go; health?: Health }) {
   return (
-    <footer className="soc-dark border-t border-line">
-      <div className={`${WRAP} pt-12 pb-10`}>
+    <footer className="soc-dark relative overflow-hidden border-t border-line">
+      <Honeycomb />
+      <div className={`${WRAP} relative pt-12 pb-10`}>
         <div className="flex items-center gap-2.5"><img src="/mark.svg" alt="" className="h-7 w-7" /><span className="text-[20px] font-semibold tracking-tight">Odyssey</span></div>
         <p className="mt-3 max-w-md text-band-mute">National cyber threat early warning for India's critical infrastructure, running entirely on this laptop.</p>
         <div className="mt-10 grid gap-10 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.6fr]">

@@ -2,6 +2,7 @@ import { ChevronRight, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Tier } from './api'
 import { Honeycomb } from './soc/Honeycomb'
+import { Plexus } from './soc/Plexus'
 
 /* Uber black-and-white building blocks with SOC accents (ui-07/08), "Oreo" layering: black bands (nav, page header,
    feature bands, footer) around a white body. A band carries .soc-dark, which re-points every token to the SOC-black
@@ -39,7 +40,9 @@ export function Hero({ title, sub, tabs, children }: { title: ReactNode; sub?: R
  *  only where the number means risk or health; a delta only when it was measured. */
 export function Figures({ items }: { items: { value: ReactNode; label: string; sub?: ReactNode; dot?: string; delta?: ReactNode }[] }) {
   return (
-    <div className="soc-seams grid-cols-2 xl:grid-cols-4">
+    <div className="relative overflow-hidden rounded-2xl bg-black">
+      <Plexus />
+      <div className="soc-seams is-glass relative grid-cols-2 xl:grid-cols-4">
       {items.map((k) => (
         <div key={k.label} className="px-5 py-4">
           <div className="flex items-center gap-2 text-[13px] font-medium text-mute">{k.dot && <span className={`h-2 w-2 shrink-0 rounded-full ${k.dot}`} />}{k.label}</div>
@@ -50,6 +53,7 @@ export function Figures({ items }: { items: { value: ReactNode; label: string; s
           {k.sub && <div className="mt-2 text-[13px] leading-snug text-faint">{k.sub}</div>}
         </div>
       ))}
+      </div>
     </div>
   )
 }
@@ -69,9 +73,18 @@ export function FiguresSkeleton() {
   )
 }
 
-/** A full-width section of a page: white, soft grey, or a black band (the Oreo layers inside a page). */
+/** A full-width section of a page: white, soft grey, or a black band (the Oreo layers inside a page). The black band
+ *  carries the same honeycomb as the page header, so the page ends the way it began. */
 export function Band({ tone = 'white', children, className = '' }: { tone?: 'white' | 'soft' | 'black'; children: ReactNode; className?: string }) {
-  const bg = tone === 'black' ? 'soc-dark' : tone === 'soft' ? 'bg-soft' : 'bg-ink'
+  if (tone === 'black') {
+    return (
+      <section className="soc-dark relative overflow-hidden border-t border-line text-text">
+        <Honeycomb />
+        <div className={`${WRAP} relative py-10 ${className}`}>{children}</div>
+      </section>
+    )
+  }
+  const bg = tone === 'soft' ? 'bg-soft' : 'bg-ink'
   return <section className={`${bg} border-t border-line text-text`}><div className={`${WRAP} py-10 ${className}`}>{children}</div></section>
 }
 
