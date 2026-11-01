@@ -1,0 +1,44 @@
+<section id="proof" data-transition="fade" style="background:#000000;color:#FFFFFF;font-family:'Inter', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:32px">
+<h2 style="font-family:'Inter Tight', Arial, sans-serif;font-size:88px;font-weight:700;line-height:1.05;letter-spacing:-3px;color:#FFFFFF;width:1600px">Tested on 110 real exploited flaws.</h2>
+<p style="font-size:28px;line-height:1.4;color:#A6A6A6;width:1500px">We replayed the flaws CISA confirmed were attacked from August to October 2026. Each bar shows the share a triage rule would have flagged.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:row;gap:32px;align-items:center">
+<p style="font-size:28px;font-weight:700;line-height:1.4;color:#FFFFFF;width:380px">EPSS ≥ 0.1 alone</p>
+<div style="flex:1;display:flex;flex-direction:row;height:64px;background:#1F1F1F;border-radius:12px">
+<div style="width:51%;height:64px;background:#4A4A4A;border-radius:12px"></div>
+</div>
+<p style="font-size:28px;font-weight:700;line-height:1.4;color:#FFFFFF;width:300px;text-align:right">Missed 49%</p>
+</div>
+<div style="display:flex;flex-direction:row;gap:32px;align-items:center">
+<p style="font-size:28px;font-weight:700;line-height:1.4;color:#FFFFFF;width:380px">CVSS 9 or higher</p>
+<div style="flex:1;display:flex;flex-direction:row;height:64px;background:#1F1F1F;border-radius:12px">
+<div style="width:47%;height:64px;background:#4A4A4A;border-radius:12px"></div>
+</div>
+<p style="font-size:28px;font-weight:700;line-height:1.4;color:#FFFFFF;width:300px;text-align:right">Missed 53%</p>
+</div>
+<div style="display:flex;flex-direction:row;gap:32px;align-items:center">
+<p style="font-size:28px;font-weight:700;line-height:1.4;color:#FFFFFF;width:380px">Odyssey evidence rules</p>
+<div style="flex:1;display:flex;flex-direction:row;height:64px;background:#1F1F1F;border-radius:12px">
+<div style="width:100%;height:64px;background:#E11900;border-radius:12px"></div>
+</div>
+<p style="font-size:28px;font-weight:700;line-height:1.4;color:#FFFFFF;width:300px;text-align:right">110/110 by design</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:row;gap:48px;align-items:center">
+<div style="display:flex;flex-direction:row;gap:12px;align-items:center">
+<div style="width:28px;height:28px;border-radius:6px;background:#E11900"></div>
+<p style="font-size:24px;line-height:1.35;color:#FFFFFF">Odyssey evidence rules</p>
+</div>
+<div style="display:flex;flex-direction:row;gap:12px;align-items:center">
+<div style="width:28px;height:28px;border-radius:6px;background:#4A4A4A;border:2px solid #A6A6A6"></div>
+<p style="font-size:24px;line-height:1.35;color:#FFFFFF">One score on its own</p>
+</div>
+<p style="font-size:24px;line-height:1.35;color:#A6A6A6">Bar length = share of the 110 flaws flagged</p>
+</div>
+<p style="font-size:28px;line-height:1.4;color:#FFFFFF;width:1600px">Being on CISA’s list is one of our rules, so 110 of 110 is by design. The live Proof page also shows how many were caught by a second channel: CISA’s SSVC data or the vendor’s own “exploited in the wild” note.</p>
+<p style="position:absolute;left:128px;bottom:48px;width:1480px;font-size:24px;line-height:1.35;color:#A6A6A6"><b>EPSS</b> Exploit Prediction Scoring System, the daily estimate that a flaw will be attacked in the next 30 days · <b>CVSS</b> Common Vulnerability Scoring System, the standard 0–10 severity score · <b>CISA KEV</b> the US Cybersecurity and Infrastructure Security Agency’s Known Exploited Vulnerabilities list<br>Source: our replay of CISA KEV entries added August–October 2026</p>
+<p style="position:absolute;right:128px;bottom:48px;width:120px;text-align:right;font-size:24px;line-height:1.35;color:#A6A6A6">11</p>
+<aside>The honest test: we took the 110 flaws CISA confirmed were attacked between August and October 2026 and asked what each triage rule would have flagged. EPSS of 0.1 or more would have missed 49 percent, even using today’s scores, which already include hindsight. CVSS 9 or higher would have missed 53 percent, because severity is not exploitation. Being on CISA’s list is one of our own rules, so our 110 out of 110 is by design, and we say so. The meaningful number is how many were also caught by a second channel: CISA’s SSVC data or the vendor’s own “exploited in the wild” wording. One number is never enough, so we combine the evidence.</aside>
+</section>

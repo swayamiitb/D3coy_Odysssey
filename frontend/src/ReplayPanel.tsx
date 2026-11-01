@@ -71,12 +71,12 @@ export function ReplayPanel({ orgId, cveId }: { orgId: string; cveId: string }) 
             <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" />
             <XAxis dataKey="label" tick={{ fill: 'var(--color-mute)', fontSize: 11 }} />
             <YAxis domain={[0, 100]} tick={{ fill: 'var(--color-mute)', fontSize: 11 }} />
-            <Tooltip contentStyle={{ background: 'var(--color-panel)', border: '1px solid #243041' }} />
+            <Tooltip contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line-2)', borderRadius: 10 }} />
             <Line type="stepAfter" dataKey="risk" stroke="var(--color-accent)" strokeWidth={2} isAnimationActive={false}
                   dot={(p) => {
                     const { cx, cy, payload, index } = p as { cx: number; cy: number; payload: { tier: keyof typeof TIER_FILL; risk: number | null }; index: number }
                     if (payload.risk == null) return <g key={index} />
-                    return <circle key={index} cx={cx} cy={cy} r={5} fill={TIER_FILL[payload.tier]} stroke="#0b0f14" strokeWidth={2} />
+                    return <circle key={index} cx={cx} cy={cy} r={5} fill={TIER_FILL[payload.tier]} stroke="var(--color-panel)" strokeWidth={2} />
                   }} />
           </LineChart>
         </ResponsiveContainer>

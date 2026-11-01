@@ -72,3 +72,24 @@ More detail:
 - `docs/MODEL_CARD.md`: models, evaluations and the live detectors.
 - `docs/PITCH.md`: the demo script and the judges' questions with honest answers.
 - `docs/TIP_GAP_AUDIT.md`: Odyssey against the leading threat-intelligence platforms (CloudSEK, Recorded Future and the rest of the field): what matches, what was built to close the gap and after the audit, what stays out of scope and where it would plug in.
+
+## Landing page and team notes
+
+The site opens on our scroll-story landing (`frontend/src/landing/`): real botnet command servers on a 3D globe, a dive
+into India's operators, the evidence arc, then the globe unrolls into a flat world where real attack origins fly in.
+"Open the console" goes to the Odyssey console above (`/?view=now`). Team rulebook: [CLAUDE.md](CLAUDE.md); decisions:
+[docs/DECISIONS.md](docs/DECISIONS.md); plan: [docs/PLAN.md](docs/PLAN.md).
+
+The console wears an Uber black-and-white theme with SOC accents (`frontend/src/index.css`, `html.soc`): a white body
+with black bands, red only for threat. The moon button in the top bar switches the whole console to the night-shift
+(all black) look, remembered per browser. `Ctrl`/`⌘ K` opens a search over pages, operators, open warnings and
+technologies. The left rail on wide screens expands to the sections of each destination. On Now, "Threat activity" is
+a real 2D map (world-atlas + d3-geo; India drawn from @svg-maps/india so no contested border is drawn): hover an origin
+in the list to see its attack arcs; click an Indian state to open a 3D site view of its government agencies, with
+labelled buildings and the attacks coming in. The operators, buildings and arc landing points are simulated (SIM); the
+attack origins (SANS ISC DShield, abuse.ch Feodo Tracker), CVEs, KEV and EPSS are real. More real, open feeds are bundled by
+`frontend/scripts/landing-attackers.mjs`, `real-feeds.mjs` and `real-feeds-2.mjs` (run them with the network up to refresh):
+DShield's top 2,000 attacking IPs located by RIPEstat, blocklist.de attacks by service, the Exploit-DB index, ransomware.live
+victims in India, Have I Been Pwned breaches, CISA ICS advisories, GitHub critical advisories, Tor exits, Spamhaus DROP and
+Emerging Threats compromised hosts. They appear on Intel (Real-world threat intelligence, Attacks by service) and as the
+"exploit public" mark on warnings.

@@ -495,10 +495,27 @@ export interface GraphCard {
   focus: IntelGraph['focus']; record: { kind: string; how: string }
 }
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(path)
-  if (!res.ok) throw new Error(`${res.status} ${path}`)
-  return res.json() as Promise<T>
+/* Several components ask for the same URL within the same second (the figures strips, the duty desk and the top bar
+   all read /api/soc). One in-flight or just-finished fetch serves them all, so the engine on :8000 (one process, with
+   a live engine ticking beside it) is not asked twice. One second: short enough that a refresh after an action still
+   sees the action. */
+const RECENT = new Map<string, { t: number; p: Promise<unknown> }>()
+const SHARE_MS = 1000
+export function fetchJson(path: string): Promise<unknown> {
+  const now = Date.now()
+  const hit = RECENT.get(path)
+  if (hit && now - hit.t < SHARE_MS) return hit.p
+  const p = fetch(path).then((res) => {
+    if (!res.ok) throw new Error(`${res.status} ${path}`)
+    return res.json()
+  })
+  RECENT.set(path, { t: now, p })
+  p.catch(() => RECENT.delete(path))
+  return p
+}
+
+function get<T>(path: string): Promise<T> {
+  return fetchJson(path) as Promise<T>
 }
 
 export const api = {

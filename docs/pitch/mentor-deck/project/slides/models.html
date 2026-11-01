@@ -1,0 +1,18 @@
+<section id="models" data-transition="fade" style="background:#FFFFFF;color:#000000;font-family:'Inter', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<h2 style="font-family:'Inter Tight', Arial, sans-serif;font-size:88px;font-weight:700;line-height:1.05;letter-spacing:-3px;color:#000000;width:1600px">AI chosen by measurement, not hype.</h2>
+<table style="font-family:'Inter', Arial, sans-serif;font-size:24px;color:#000000">
+<tr style="background:#000000"><th style="width:30%;color:#FFFFFF;text-align:left">Job</th><th style="width:30%;color:#FFFFFF;text-align:left">Model</th><th style="width:40%;color:#FFFFFF;text-align:left">Measured on 2026 CVEs</th></tr>
+<tr><td>Read products from advisories</td><td>MiST-8B (security LLM)</td><td>79.9% vendor accuracy, tied with Foundation-Sec</td></tr>
+<tr style="background:#F3F3F3"><td>Root cause (CWE)</td><td>TF-IDF + LinearSVC</td><td>77.5% top-1, 87.5% top-3 (best LLM: 62.5%)</td></tr>
+<tr><td>Severity (CVSS)</td><td>TF-IDF + logistic regression</td><td>Average error 0.85 points (best LLM: 1.27)</td></tr>
+<tr style="background:#F3F3F3"><td>Plain-language briefs</td><td>MiST-8B + fact validator</td><td>Every number and deadline checked first</td></tr>
+<tr><td>Deep analysis of Critical alerts</td><td>Foundation-Sec-8B-Reasoning</td><td>Batched, about 112 s per alert</td></tr>
+<tr style="background:#F3F3F3"><td>Entities and related threats</td><td>SecureBERT 2.0 (Cisco)</td><td>2,238 CVEs indexed in 61 s on the CPU</td></tr>
+<tr><td>Briefs in 22 Indian languages</td><td>IndicTrans2 (AI4Bharat)</td><td>63 of 66 test briefs passed the script check</td></tr>
+<tr style="background:#F3F3F3"><td>Log anomalies and campaigns</td><td>IsolationForest, HDBSCAN</td><td>Classic machine learning on the CPU</td></tr>
+</table>
+<p style="font-size:24px;line-height:1.35;color:#5E5E5E;width:1664px">Tested on 2026 CVEs, newer than every model’s training data. Samples of 40 carry about ±15 points of uncertainty.</p>
+<p style="position:absolute;left:128px;bottom:48px;width:1480px;font-size:24px;line-height:1.35;color:#5E5E5E"><b>LLM</b> Large Language Model · <b>CWE</b> Common Weakness Enumeration, the root-cause category · <b>CVSS</b> Common Vulnerability Scoring System · <b>TF-IDF</b> Term Frequency–Inverse Document Frequency, a classic text-feature method · <b>HDBSCAN</b> a density-based clustering method · <b>CPU</b> Central Processing Unit</p>
+<p style="position:absolute;right:128px;bottom:48px;width:120px;text-align:right;font-size:24px;line-height:1.35;color:#5E5E5E">7</p>
+<aside>Every job goes to whichever model measured best on 2026 CVEs, which are newer than any model’s training data. MiST-8B reads vendors and products from advisories, statistically tied with Cisco’s Foundation-Sec. For root cause and severity, classic TF-IDF classifiers beat every language model, so they do that job and the LLM only explains. Foundation-Sec-8B-Reasoning writes deep analysis for Critical alerts in batches. SecureBERT 2.0 finds entities and related threats, IndicTrans2 translates briefs into all 22 scheduled Indian languages, and classic ML handles logs and campaigns. Small samples carry about plus or minus 15 points of uncertainty, and we say so.</aside>
+</section>

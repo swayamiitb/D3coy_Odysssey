@@ -1,4 +1,8 @@
 import { ExternalLink, Loader2 } from 'lucide-react'
+import { TechThreats } from './soc/panels'
+import { nf, SocCard, StackBar, TabBoxes } from './soc/kit'
+import services from './soc/data/services.json'
+import { AttackedServices, AttackStrip, CampaignTimeline } from './soc/telemetry'
 import { useEffect, useState } from 'react'
 import { api, type Campaign, type IntelAdvisory, type IntelSource, type Soc as SocData, type Technology, type RiskPlan } from './api'
 import { BrandWatch } from './BrandWatch'
@@ -7,7 +11,7 @@ import { SachetPanel } from './Sachet'
 import { SurfaceScan } from './SurfaceScan'
 import { RiskPlanView } from './Orgs'
 import { ForecastPanel } from './proactive'
-import { Badge, Pill, Prov, Row, Section, Sheet, Tile, useToast } from './ui'
+import { Badge, Pill, Prov, Row, Section, Sheet, Tile, useToast, TIER_FILL } from './ui'
 
 const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString('en-IN'))
 
@@ -143,6 +147,31 @@ function surgeCount(marks: [number, number][] = []): number {
 }
 
 /** Intel, Uber-simple: one question per tab, one visual, the rest as tiles that open sheets. */
+/** Campaigns by status, and the four with the longest lead. */
+function CampaignsCard({ camps, onSee }: { camps: Campaign[]; onSee: () => void }) {
+  return (
+    <SocCard title="Campaigns" prov={['REAL', 'SIM']} sub="Exploited CVEs, chained assets and decoy surges, correlated into campaigns"
+             right={<button onClick={onSee} className="text-[13px] font-medium text-accent hover:underline">See campaigns</button>}>
+      <StackBar unit="campaigns" parts={[
+        { label: 'Active', value: camps.filter((c) => c.status === 'ACTIVE').length, color: TIER_FILL.Critical },
+        { label: 'Emerging', value: camps.filter((c) => c.status === 'EMERGING').length, color: TIER_FILL.High },
+        { label: 'Dormant', value: camps.filter((c) => c.status === 'DORMANT').length, color: 'var(--color-line-2)' },
+      ].filter((x) => x.value > 0)} />
+      {camps.length > 0 && (
+        <ul className="mt-4 divide-y divide-line border-t border-line">
+          {[...camps].sort((a, b) => b.early_warning_days - a.early_warning_days).slice(0, 4).map((c) => (
+            <li key={c.id} className="flex items-center gap-3 py-2 text-[13px]">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${c.status === 'ACTIVE' ? 'bg-crit' : c.status === 'EMERGING' ? 'bg-high' : 'bg-watch'}`} />
+              <span className="min-w-0 flex-1 truncate">{c.title}</span>
+              <span className="shrink-0 font-mono text-[12.5px] text-mute">{c.cves.length} CVE{c.cves.length === 1 ? '' : 's'} · {c.early_warning_days} d early</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SocCard>
+  )
+}
+
 export function Soc({ section, tick }: { section: SocSection; tick: number }) {
   const [d, setD] = useState<SocData>()
   const [sources, setSources] = useState<IntelSource[]>([])
@@ -173,6 +202,7 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
   if (!d) return <div className="py-10 text-mute"><Loader2 className="mr-2 inline animate-spin" size={16} />Assembling the threat picture…</div>
 
   const atRisk = tech.filter((t) => t.critical > 0).sort((a, b) => b.compromised_assets - a.compromised_assets || b.critical - a.critical)
+  const techTop = [...tech].sort((a, b) => b.critical - a.critical)[0]
   const close = () => setSheet(undefined)
   const active = camps.filter((c) => c.status === 'ACTIVE').length
   const relevantAdv = adv.filter((a) => a.relevant).length
@@ -220,15 +250,36 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
               <Heatmap data={heat.attacks} hue="accent" unit="attack records" labelW={200} />
             </Section>
           )}
+          {/* ui-08/10: the SOC strip for this tab, one panel open at a time, on data it already holds. */}
+          <TabBoxes label="Threats" defaultOpen="tech" items={[
+            { key: 'tech', title: 'Threats by technology', chip: <Prov p="REAL" />, count: techTop ? nf(techTop.critical) : '—',
+              preview: techTop ? `${techTop.label} carries the most Critical warnings` : 'Critical warnings per product in the inventory',
+              panel: <TechThreats onOpen={() => setSheet('tech')} /> },
+            { key: 'camps', title: 'Campaigns', count: nf(camps.length), preview: `${active} active · ${camps.filter((c) => c.status === 'EMERGING').length} emerging · ${camps.filter((c) => c.status === 'DORMANT').length} dormant`,
+              panel: <CampaignsCard camps={camps} onSee={() => setSheet('campaigns')} /> },
+            { key: 'attack', title: 'ATT&CK techniques seen', preview: "From the HTTP shield's findings and the decoy grid's detections; each links to MITRE",
+              panel: <SocCard title="ATT&CK techniques seen" prov={['REAL', 'SIM']} sub="From the HTTP shield's findings and the decoy grid's detections; each links to MITRE"><AttackStrip /></SocCard> },
+            { key: 'services', title: 'Attacks by service', chip: <Prov p="REAL" />, count: nf(services.services.reduce((n, s) => n + s.ips, 0)),
+              preview: `Attacking IPs reported in the last 48 hours: ${[...services.services].filter((s) => s.ips > 0).sort((a, b) => b.ips - a.ips).slice(0, 3).map((s) => `${s.label} ${nf(s.ips)}`).join(' · ')}`,
+              panel: <SocCard title="Attacks by service" prov={['REAL']} sub="Attacking IPs reported to blocklist.de in the last 48 hours, by the service they attacked"><AttackedServices /></SocCard> },
+            { key: 'timeline', title: 'Campaign timeline', count: camps[0] ? `${Math.max(...camps.map((c) => c.early_warning_days))} d` : '—',
+              preview: 'From our first signal to the confirmed exploit, with the lead time; the best lead shown',
+              panel: <SocCard title="Campaign timeline" prov={['REAL', 'SIM']} sub="From our first signal to the confirmed exploit, with the lead time"><CampaignTimeline camps={camps} /></SocCard> },
+          ]} />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Tile value={surgeCount(heat?.decoy.marks)} title="Scanning surges on our decoy grid" sub="24 sensors, simulated and labelled SIM" cta="See the grid" onClick={() => setSheet('decoy')} />
-            <Tile value={active} title="Active campaigns" sub="exploited CVEs, chained assets and decoy surges, correlated" cta="See campaigns" onClick={() => setSheet('campaigns')} />
             <Tile value={relevantAdv} title="Real advisories that name our products" sub={`of the latest ${adv.length} CISA advisories`} cta="See advisories" onClick={() => setSheet('advisories')} />
             <Tile value={sources.length} title="Intelligence sources" sub={`${sources.filter((x) => x.provenance === 'REAL').length} real public feeds, the rest simulated and labelled`} cta="See sources" onClick={() => setSheet('sources')} />
           </div>
-          <BrandWatch />
-          <SurfaceScan orgId="PWR-01" defaultUrl="http://127.0.0.1:8080" />
-          <SachetPanel />
+          {/* The outside view, as a strip: two heavy, interactive panels that an analyst opens when needed. */}
+          <TabBoxes label="Outside view" items={[
+            { key: 'brand', title: 'Brand and social watch', chip: <Prov p="REAL" />, preview: 'Impersonation and risk mentions in public sources: certificate transparency, URLhaus, OpenPhish, news, Hacker News, Reddit',
+              panel: <div className="soc-card px-6 py-5"><BrandWatch /></div> },
+            { key: 'surface', title: 'Attack surface, with consent', chip: <Prov p="REAL" />, preview: 'A read-only scan of a system you own: GET and HEAD only, graded A to F, every finding with its CWE and fix',
+              panel: <div className="soc-card px-6 py-5"><SurfaceScan orgId="PWR-01" defaultUrl="http://127.0.0.1:8080" /></div> },
+            { key: 'sachet', title: 'Disaster alerts (SACHET)', chip: <Prov p="REAL" />, preview: "India's national CAP feed matched to our operators' states; every inbound CAP validated before it is trusted",
+              panel: <div className="soc-card px-6 py-5"><SachetPanel compact /></div> },
+          ]} />
         </>
       )}
 

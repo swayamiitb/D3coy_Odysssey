@@ -256,7 +256,7 @@ export function IocImport() {
                 {held.indicators.length >= 200 && <p className="mt-2 text-xs text-mute">Showing the first 200; export the full set below.</p>}
               </div>
               <div className="min-w-0">
-                <h3 className="text-xl font-bold">Previous imports</h3>
+                <h3 className="text-[16px] font-semibold">Previous imports</h3>
                 {held.imports.length === 0 && <div className="mt-2 rounded-2xl bg-panel-2 p-5 text-mute">No imports yet.</div>}
                 <div className="mt-1">
                   {held.imports.map((i) => (

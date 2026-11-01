@@ -1,10 +1,10 @@
 import { Activity, ArrowRight, Check, Loader2, Radar, ScanSearch, ShieldAlert, Waypoints } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { ChannelsSection } from './Channels'
 import { istTime } from './proactive'
 import { ShieldSection } from './Shield'
 import { Spark } from './Soc'
-import { Figures, Pill, Row, Section, useToast } from './ui'
+import { Figures, Pill, Prov, Row, Section, useToast } from './ui'
+import { TabBoxes } from './soc/kit'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type LiveState = any
@@ -123,25 +123,59 @@ export function Live({ s, onGo }: { s?: LiveState; onGo: (view: 'soc' | 'now', t
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-16">
-      <ShieldSection onGo={onGo} />
-      <ChannelsSection />
-      <Section title="The pipeline, right now" sub="What each stage did in the last hour. Every number refreshes on its own; nothing here is a static report.">
-        <div className="flex flex-col gap-2 xl:flex-row xl:items-stretch">
-          {[
-            { title: 'Sources', value: `${fresh}/${s.feeds.length}`, sub: 'real feeds fresh · 13 sources in all', status: fresh === s.feeds.length ? 'ok' : 'warn' },
-            { title: 'Sensors', value: sessionsNow.toLocaleString('en-IN'), sub: `decoy sessions this tick · ${flowsNow} firewall flows`, status: 'ok' },
-            { title: 'Detectors', value: p.detections_hour, sub: `detections in the last hour · ${s.detectors.length} running`, status: running ? 'busy' : 'ok' },
-            { title: 'Autopilot', value: p.auto_hour, sub: 'actions on its own in the last hour', status: 'ok' },
-            { title: 'Decisions', value: p.pending, sub: `waiting for a person · ${p.human_hour} decided this hour`, status: p.pending ? 'warn' : 'ok' },
-            { title: 'SOC', value: p.open_cases, sub: `open cases · ${p.live_cases} opened by live detection`, status: 'ok' },
-          ].map((st, i, arr) => (
-            <div key={st.title} className="flex min-w-0 flex-1 items-stretch gap-2">
-              <Stage {...(st as any)} />
-              {i < arr.length - 1 && <ArrowRight className="hidden shrink-0 self-center text-faint xl:block" size={18} />}
-            </div>
-          ))}
-        </div>
-      </Section>
+      {/* The shield, the pipeline, the detections and the feeds, as a strip: open the one you want. */}
+      <TabBoxes label="Live system" defaultOpen="shield" items={[
+        { key: 'shield', title: 'A real app, protected', chip: <Prov p="SIM" />, preview: 'Every request to the protected app, inspected; red-team scenarios to run against it; attacks and attackers',
+          panel: <div className="soc-card px-6 py-5"><ShieldSection onGo={onGo} /></div> },
+        { key: 'pipeline', title: 'The pipeline, right now', count: `${p.detections_hour}`,
+          preview: `${fresh}/${s.feeds.length} feeds fresh · ${sessionsNow.toLocaleString('en-IN')} decoy sessions · ${p.detections_hour} detections and ${p.auto_hour} actions this hour · ${p.pending} waiting for a person`,
+          panel: <div className="soc-card px-6 py-5">
+            <Section title="The pipeline, right now" sub="What each stage did in the last hour. Every number refreshes on its own; nothing here is a static report.">
+              <div className="flex flex-col gap-2 xl:flex-row xl:items-stretch">
+                {[
+                  { title: 'Sources', value: `${fresh}/${s.feeds.length}`, sub: 'real feeds fresh · 13 sources in all', status: fresh === s.feeds.length ? 'ok' : 'warn' },
+                  { title: 'Sensors', value: sessionsNow.toLocaleString('en-IN'), sub: `decoy sessions this tick · ${flowsNow} firewall flows`, status: 'ok' },
+                  { title: 'Detectors', value: p.detections_hour, sub: `detections in the last hour · ${s.detectors.length} running`, status: running ? 'busy' : 'ok' },
+                  { title: 'Autopilot', value: p.auto_hour, sub: 'actions on its own in the last hour', status: 'ok' },
+                  { title: 'Decisions', value: p.pending, sub: `waiting for a person · ${p.human_hour} decided this hour`, status: p.pending ? 'warn' : 'ok' },
+                  { title: 'SOC', value: p.open_cases, sub: `open cases · ${p.live_cases} opened by live detection`, status: 'ok' },
+                ].map((st, i, arr) => (
+                  <div key={st.title} className="flex min-w-0 flex-1 items-stretch gap-2">
+                    <Stage {...(st as any)} />
+                    {i < arr.length - 1 && <ArrowRight className="hidden shrink-0 self-center text-faint xl:block" size={18} />}
+                  </div>
+                ))}
+              </div>
+            </Section>
+          </div> },
+        { key: 'detections', title: 'Detections', count: `${s.detections.length}`,
+          preview: s.detections[0] ? `Newest: ${s.detections[0].title}` : 'Quiet: nothing unusual since the engine started; start a drill to see one',
+          panel: <div className="soc-card px-6 py-5">
+            <Section title="Detections" sub="Newest first. Each one is in the audit trail with its evidence.">
+                {s.detections.length === 0 && <div className="rounded-2xl bg-panel-2 p-5 text-mute">Quiet: nothing unusual since the engine started. Start a drill to see a detection.</div>}
+                {s.detections.slice(0, 8).map((d: any) => {
+                  const K = KIND[d.kind] ?? { icon: ScanSearch, label: d.kind }
+                  return (
+                    <Row key={d.id} lead={<K.icon size={18} />} title={d.title}
+                         sub={`${K.label} · ${istTime(d.ts)}${d.drill ? ` · ${d.drill}` : ''}`}
+                         trail={d.seconds_to_detect != null ? <span className="text-sm font-semibold">{d.seconds_to_detect} s</span> : undefined} />
+                  )
+                })}
+              </Section>
+          </div> },
+        { key: 'feeds', title: 'Real feeds', chip: <Prov p="REAL" />, count: `${fresh}/${s.feeds.length}`,
+          preview: `${s.feeds.map((f: any) => `${f.name} ${f.items != null ? f.items.toLocaleString('en-IN') : '—'}`).join(' · ')}`,
+          panel: <div className="soc-card px-6 py-5">
+            <Section title="Real feeds" sub="Checked every 15 minutes when the network is up; new entries are matched to the inventory at once.">
+                {s.feeds.map((f: any) => (
+                  <Row key={f.name} lead={<span className={`h-3 w-3 rounded-full ${f.status === 'fresh' ? 'bg-ok' : f.status === 'offline' ? 'bg-crit' : 'bg-watch'}`} />}
+                       title={f.name} sub={f.detail}
+                       trail={<span><b>{f.items != null ? f.items.toLocaleString('en-IN') : '—'}</b><span className="block text-xs text-mute">{f.status === 'fresh' ? `${ago(f.last_ok)} · ${f.ms} ms` : f.status}</span></span>} />
+                ))}
+                <div className="mt-3 text-sm text-mute">EPSS, CISA advisories, SSVC, DShield and ATT&CK come from the build snapshot and refresh with each rebuild; NVD, KEV, Feodo and OpenPhish are also read live.</div>
+              </Section>
+          </div> },
+      ]} />
 
       <Section title="Run an attack drill" sub="Inject simulated attack traffic and watch Odyssey detect and respond, end to end. Drills are labelled DRILL in the audit trail.">
         <div className="grid gap-6 xl:grid-cols-[1fr_1.1fr]">
@@ -213,27 +247,6 @@ export function Live({ s, onGo }: { s?: LiveState; onGo: (view: 'soc' | 'now', t
         </div>
       </Section>
 
-      <div className="grid gap-12 xl:grid-cols-2">
-        <Section title="Detections" sub="Newest first. Each one is in the audit trail with its evidence.">
-          {s.detections.length === 0 && <div className="rounded-2xl bg-panel-2 p-5 text-mute">Quiet: nothing unusual since the engine started. Start a drill to see a detection.</div>}
-          {s.detections.slice(0, 8).map((d: any) => {
-            const K = KIND[d.kind] ?? { icon: ScanSearch, label: d.kind }
-            return (
-              <Row key={d.id} lead={<K.icon size={18} />} title={d.title}
-                   sub={`${K.label} · ${istTime(d.ts)}${d.drill ? ` · ${d.drill}` : ''}`}
-                   trail={d.seconds_to_detect != null ? <span className="text-sm font-semibold">{d.seconds_to_detect} s</span> : undefined} />
-            )
-          })}
-        </Section>
-        <Section title="Real feeds" sub="Checked every 15 minutes when the network is up; new entries are matched to the inventory at once.">
-          {s.feeds.map((f: any) => (
-            <Row key={f.name} lead={<span className={`h-3 w-3 rounded-full ${f.status === 'fresh' ? 'bg-ok' : f.status === 'offline' ? 'bg-crit' : 'bg-watch'}`} />}
-                 title={f.name} sub={f.detail}
-                 trail={<span><b>{f.items != null ? f.items.toLocaleString('en-IN') : '—'}</b><span className="block text-xs text-mute">{f.status === 'fresh' ? `${ago(f.last_ok)} · ${f.ms} ms` : f.status}</span></span>} />
-          ))}
-          <div className="mt-3 text-sm text-mute">EPSS, CISA advisories, SSVC, DShield and ATT&CK come from the build snapshot and refresh with each rebuild; NVD, KEV, Feodo and OpenPhish are also read live.</div>
-        </Section>
-      </div>
     </div>
   )
 }

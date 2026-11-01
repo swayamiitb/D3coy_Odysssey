@@ -7,7 +7,48 @@ import { Heatmap, type HeatData } from './Heatmap'
 import { BrandWatch } from './BrandWatch'
 import { OrgThreatMap } from './OrgThreatMap'
 import { Spark } from './Soc'
+import { BarList, Gauge, nf, SocCard } from './soc/kit'
+import { ExploitChip, useExploitDb } from './soc/telemetry'
 import { Badge, deadlineText, Pill, Prov, Row, Section, Stat, Tabs, TIER_FILL, TierPill } from './ui'
+
+/** The operator's own command-centre row (ui-08): two shares as gauges, the attacks on its services worldwide as
+ *  ranked bars, and a template insight from its profile. Every figure comes from /api/orgs/{id}/profile. */
+function OrgPosture({ p }: { p: OrgProfile }) {
+  // Actionable warnings only: Watch-tier items are observations, not warnings a person must act on.
+  const all = (p.tiers.Compromise ?? 0) + (p.tiers.Critical ?? 0) + (p.tiers.High ?? 0) + (p.tiers.Medium ?? 0)
+  const crit = (p.tiers.Compromise ?? 0) + (p.tiers.Critical ?? 0)
+  const exposed = p.surface.internet + p.surface.dmz
+  const ports = [...p.attack_activity].sort((a, b) => b.last7_mean - a.last7_mean).slice(0, 5)
+  const worst = p.surface.exposed[0]
+  const c2 = p.indicators.c2_sightings
+  return (
+    <div className="grid gap-6 xl:grid-cols-3">
+      <SocCard title="Posture" sub="Two shares, from its inventory and its warnings">
+        <div className="grid grid-cols-2 gap-4 pt-1">
+          <Gauge value={p.surface.assets ? exposed / p.surface.assets : null} color="var(--color-text)" label="Reachable from the internet"
+                 sub={`${exposed} of ${p.surface.assets} assets face the internet or a DMZ`} />
+          <Gauge value={all ? crit / all : null} color={p.tiers.Compromise ? TIER_FILL.Compromise : TIER_FILL.Critical} label="Critical or worse"
+                 sub={`${crit} of ${all} actionable warnings${p.tiers.Compromise ? ` · ${p.tiers.Compromise} suspected compromise` : ''}`} />
+        </div>
+      </SocCard>
+      <SocCard title="Attacks on its services worldwide" prov={['REAL']} sub="SANS ISC DShield, 7-day mean of reports per port it exposes">
+        {ports.length ? (
+          <BarList color={TIER_FILL.Critical}
+                   rows={ports.map((t) => ({ key: String(t.port), label: <>{t.service} <span className="font-mono text-mute">:{t.port}</span></>, value: Math.round(t.last7_mean),
+                                             sub: `${t.ratio >= 1 ? '+' : ''}${Math.round((t.ratio - 1) * 100)}% vs median`, hot: t.elevated }))} />
+        ) : <p className="text-[13px] text-faint">No attack telemetry for the ports it exposes.</p>}
+      </SocCard>
+      <SocCard title="Security insight" sub="Its profile, in three sentences">
+        <p className="text-[14px] leading-relaxed">
+          {p.org.name} exposes {exposed} of {nf(p.surface.assets)} assets to the internet{worst ? `, the most exposed being ${worst.hostname} (${worst.product} ${worst.version}, ${worst.open_high} open High or worse)` : ''}.{' '}
+          {crit ? `${crit} of its ${all} actionable warnings are Critical or worse` : 'None of its actionable warnings is Critical'}{p.risk.for_80_pct != null ? `; ${p.risk.for_80_pct} of ${p.risk.tickets} change tickets would remove 80% of its risk` : ''}.{' '}
+          {c2.length ? `${c2.length} host${c2.length > 1 ? 's are' : ' is'} beaconing to a known botnet server (${[...new Set(c2.map((x) => x.malware))].join(', ')}), which is why it is treated as a suspected compromise.` : 'No host is beaconing to a known botnet server.'}
+        </p>
+        <p className="mt-2 text-[12px] text-faint">Written from this profile by a fixed template; no model involved. Operators are simulated (SIM); CVEs, KEV, EPSS and DShield are real.</p>
+      </SocCard>
+    </div>
+  )
+}
 
 const WORST = ['—', 'Medium', 'High', 'Critical', 'Compromise'] as const
 interface SupplierRow { id: string; name: string; service: string; labels: string[]; critical_cves: number }
@@ -77,6 +118,7 @@ function OrgInbox({ orgId }: { orgId: string }) {
 
 function Profile({ p, onAlert, onGraph }: { p: OrgProfile; onAlert: (orgId: string, cveId: string) => void; onGraph?: (orgId: string) => void }) {
   const langs = useLanguages()
+  const xdb = useExploitDb()
   const lang = langs[p.language]
   const imp = p.impersonation
   const [tab, setTab] = useState<'overview' | 'risk' | 'osint' | 'inbox'>('overview')
@@ -86,7 +128,7 @@ function Profile({ p, onAlert, onGraph }: { p: OrgProfile; onAlert: (orgId: stri
     <div className="flex min-w-0 flex-1 flex-col gap-12">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-4xl font-bold tracking-tight">{p.org.name}</h2>
+          <h2 className="min-w-0 break-words text-[30px] font-semibold tracking-tight">{p.org.name}</h2>
           {!!p.org.cii && <Badge>Critical Information Infrastructure</Badge>}
         </div>
         <p className="mt-2 text-lg text-mute">
@@ -105,6 +147,7 @@ function Profile({ p, onAlert, onGraph }: { p: OrgProfile; onAlert: (orgId: stri
               { v: `${p.inbox.length}`, l: 'notices from Odyssey', s: lang ? `in ${lang.native}` : undefined },
             ].map((k) => <Stat key={k.l} value={k.v} label={k.l} sub={k.s} />)}
           </div>
+          <OrgPosture p={p} />
           <Section title="Threat map" sub="What is recorded against this organisation, from the outside world through its internet-facing services to its crown jewels. A subset of the national picture; every line carries its source."
                    action={onGraph ? <Pill onClick={() => onGraph(p.org.id)}>Open in the intelligence graph</Pill> : undefined}>
             <OrgThreatMap orgId={p.org.id} onAlert={onAlert} />
@@ -114,7 +157,7 @@ function Profile({ p, onAlert, onGraph }: { p: OrgProfile; onAlert: (orgId: stri
               {p.alerts.slice(0, all ? undefined : 6).map((a) => (
                 <Row key={a.id} onClick={() => onAlert(a.org_id, a.cve_id)}
                      lead={<span className="h-3 w-3 rounded-full" style={{ background: TIER_FILL[a.tier] }} />}
-                     title={<span className="font-mono text-sm">{a.cve_id}</span>} sub={a.title}
+                     title={<span className="inline-flex flex-wrap items-center gap-2"><span className="font-mono text-sm">{a.cve_id}</span><ExploitChip cve={a.cve_id} db={xdb} /></span>} sub={a.title}
                      trail={<span className="text-mute">due {deadlineText(a.deadline_hours)}</span>} />
               ))}
             </Section>

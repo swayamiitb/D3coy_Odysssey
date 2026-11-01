@@ -100,7 +100,7 @@ export function ChannelsSection() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {stats.map((x) => (
               <div key={x.k} className="rounded-2xl bg-panel-2 p-4">
-                <div className="text-2xl font-bold tabular-nums">{x.v.toLocaleString('en-IN')}</div>
+                <div className="text-[22px] font-semibold tabular-nums">{x.v.toLocaleString('en-IN')}</div>
                 <div className="text-sm font-medium">{x.k}</div>
                 <div className="truncate text-xs text-mute">{x.sub}</div>
               </div>

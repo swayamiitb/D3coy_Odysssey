@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Advisories } from './Advisories'
 import { AlertDetail } from './AlertDetail'
 import { HowItWorks } from './HowItWorks'
@@ -6,13 +6,19 @@ import { IntelGraph } from './IntelGraph'
 import { IocImport } from './IocImport'
 import { Watchlist } from './Watchlist'
 import { Live, LiveFigures, useLive } from './Live'
-import { api, type AlertDetail as Detail, type Health } from './api'
+import { api, type AlertDetail as Detail, type Health, type Soc as SocData } from './api'
 import { Now } from './Now'
 import { Orgs } from './Orgs'
 import { Proof } from './Proof'
 import { Footer, IntelFigures, OrgsFigures, ProofFigures, SocFigures, TopNav, type Go, type View } from './Shell'
 import { Soc } from './Soc'
 import { CaseBoard, OpsLog, OpsOverview, SystemView, WarningList } from './SocOps'
+import { AttackTelemetry, LiveStrip, SocStrip, Throughput } from './soc/extras'
+import { AlertChip } from './soc/overview'
+import { IntelSources } from './soc/panels'
+import { Rail, RAIL_NARROW, RAIL_WIDE, useRail } from './soc/Rail'
+import { RealFeedsStrip } from './soc/realfeeds'
+import { CommandPalette } from './soc/Search'
 import { Hero, Tabs, ToastProvider, WRAP } from './ui'
 
 /* Five destinations, one question each (Uber-like): what needs me now, how operations run, what is happening, who
@@ -41,7 +47,11 @@ function LivePage({ go }: { go: Go }) {
       <Hero title="Live" sub="Odyssey running right now: sensors, real feeds, detectors and the autopilot, refreshed every few seconds.">
         <LiveFigures s={s} />
       </Hero>
-      <main className={`${WRAP} flex flex-1 py-12`}><Live s={s} onGo={(v, t) => go(v, t)} /></main>
+      <main className={`${WRAP} flex flex-1 flex-col gap-12 py-12`}>
+        <LiveStrip s={s} onShield={() => window.scrollTo({ top: 900, behavior: 'smooth' })} />
+        <Throughput s={s} />
+        <Live s={s} onGo={(v, t) => go(v, t)} />
+      </main>
     </>
   )
 }
@@ -62,12 +72,24 @@ export default function App() {
   const [tick, setTick] = useState(0)
   const [connected, setConnected] = useState(false)
   const [pending, setPending] = useState<number>()
+  const [socOrgs, setSocOrgs] = useState<SocData['orgs']>()
+  const [search, setSearch] = useState(false)
+  const [railWide, toggleRail] = useRail()
   const esRef = useRef<EventSource | null>(null)
   const staticMode = new URLSearchParams(window.location.search).has('nolive')
 
+  // Ctrl/⌘K opens the search from anywhere in the console.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearch((s) => !s) }
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [])
+
   useEffect(() => {
     api.health().then((h) => { setHealth(h); setError(undefined) }).catch((e) => setError(String(e)))
-    api.soc().then((d) => setPending(d.pending)).catch(() => undefined)
+    api.soc().then((d) => { setPending(d.pending); setSocOrgs(d.orgs) }).catch(() => undefined)
     const deep = new URLSearchParams(window.location.search).get('alert')
     if (deep?.includes(':')) {
       const [org_id, cve_id] = deep.split(':')
@@ -106,10 +128,15 @@ export default function App() {
     window.scrollTo({ top: 0 })
   }
 
+  const tab = view === 'soc' ? socTab : view === 'intel' ? intelTab : view === 'proof' ? proofTab : undefined
+
   return (
     <ToastProvider>
-    <div className="flex min-h-screen flex-col bg-ink">
-      <TopNav view={view} go={go} pending={pending} connected={connected} status={status} health={health} />
+    <Rail view={view} tab={tab} go={go} wide={railWide} onToggle={toggleRail} connected={connected} health={health} />
+    <div className="flex min-h-screen flex-col bg-ink xl:pl-[var(--rail)]" style={{ '--rail': `${railWide ? RAIL_WIDE : RAIL_NARROW}px` } as CSSProperties}>
+      <TopNav view={view} go={go} pending={pending} connected={connected} status={status} health={health} onSearch={() => setSearch(true)}
+              alert={<AlertChip tick={tick} onOpen={(c) => setSelected({ id: c.id, org_id: c.org_id, cve_id: c.cve_id })} />} />
+      <CommandPalette open={search} onClose={() => setSearch(false)} go={go} onOrg={(id) => { setOrg(id); go('orgs') }} onAlert={openAlert} />
 
       {error && <div className="bg-crit px-6 py-2 text-sm font-medium text-white">Cannot reach the engine ({error}). Start the API on :8000.</div>}
 
@@ -127,7 +154,12 @@ export default function App() {
             <SocFigures tick={tick} />
           </Hero>
           <main className={`${WRAP} flex flex-1 py-12`}>
-            {socTab === 'overview' ? <OpsOverview tick={tick} onCases={() => setSocTab('cases')} onWarnings={() => setSocTab('warnings')} />
+            {socTab === 'overview' ? (
+              <div className="w-full min-w-0 space-y-12">
+                <SocStrip tick={tick} orgs={socOrgs} onOrg={(id) => { setOrg(id); go('orgs') }} />
+                <OpsOverview tick={tick} onCases={() => setSocTab('cases')} onWarnings={() => setSocTab('warnings')} />
+              </div>
+            )
               : socTab === 'cases' ? <CaseBoard tick={tick} onAlert={openAlert} />
               : socTab === 'log' ? <OpsLog tick={tick} />
               : socTab === 'system' ? <SystemView />
@@ -148,6 +180,13 @@ export default function App() {
               <div className="flex min-w-0 flex-1 flex-col gap-14">
                 <IntelGraph focus={graphFocus} onFocus={setGraphFocus} initialNode={graphNode} />
                 <Watchlist onOpen={(id) => { setGraphNode(id); window.scrollTo({ top: 0 }) }} />
+
+              </div>
+            ) : intelTab === 'overview' ? (
+              <div className="w-full min-w-0 space-y-12">
+                <RealFeedsStrip />
+                <div className="grid gap-6 xl:grid-cols-2"><IntelSources /><AttackTelemetry /></div>
+                <Soc section={intelTab} tick={tick} />
               </div>
             ) : <Soc section={intelTab} tick={tick} />}
           </main>

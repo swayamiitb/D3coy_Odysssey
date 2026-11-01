@@ -38,6 +38,7 @@ export const KIND: Record<string, { label: string; icon: LucideIcon; tone: strin
   'live.rescore': { label: 'Warnings re-scored live', icon: ShieldAlert, tone: 'text-comp' },
   'live.drill.start': { label: 'Drill started', icon: FlaskConical, tone: 'text-mute' },
   'live.drill.end': { label: 'Drill finished', icon: FlaskConical, tone: 'text-mute' },
+  'live.adapt': { label: 'Detectors re-tuned', icon: FlaskConical, tone: 'text-mute' },
   'analyst.approve': { label: 'Approved', icon: UserCheck, tone: 'text-ok' },
   'analyst.reject': { label: 'Rejected', icon: UserX, tone: 'text-mute' },
 }

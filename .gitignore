@@ -1,18 +1,58 @@
-.venv/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
 node_modules/
-frontend/dist/
-data/raw/
-data/models/*.bin
-*.log
+dist/
+.vite/
+npm-debug.log*
+
+# Secrets (commit .env.example only)
 .env
+.env.*
+!.env.example
+
+# Local model weights (never commit; each laptop pulls its own)
+models/
+*.gguf
+*.safetensors
+*.bin
+
+# Generated data: raw feed downloads + local databases.
+# The curated demo cache in data/demo/ IS committed (rule 14).
+data/raw/
+data/cache/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Claude Code per-user settings
+.claude/settings.local.json
+
+# Odyssey (lead's repo, merged): backend data, model files and frontend build
+*.pyc
+frontend/dist/
+data/models/*.bin
 data/ews.db*
 data/*.log
 data/models/
 frontend/node_modules/
 *.tsbuildinfo
-.vite/
 .venv-mt/
 data/cache.db*
 .claude/settings.local.json
@@ -21,3 +61,6 @@ data/.tmp/
 data/.pytest-tmp/
 data/testbench_last.json
 data/build.log
+
+# reference clips used for the motion effects (stock footage, drawn in code instead; not committed)
+*.mp4
