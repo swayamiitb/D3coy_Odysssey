@@ -2,49 +2,49 @@
   "source": "blocklist.de",
   "url": "https://www.blocklist.de/",
   "window": "last 48 hours",
-  "taken_at": "2026-11-01T02:33:27.824Z",
+  "taken_at": "2026-11-01T05:31:35.855Z",
   "services": [
     {
       "key": "ssh",
       "label": "SSH",
       "what": "brute force and scans against SSH",
-      "ips": 4889
+      "ips": 4894
     },
     {
       "key": "apache",
       "label": "Web servers",
       "what": "attacks on Apache, nginx and other web servers",
-      "ips": 9397
+      "ips": 9401
     },
     {
       "key": "mail",
       "label": "Mail",
       "what": "attacks on mail servers (SMTP, IMAP, POP3)",
-      "ips": 13686
+      "ips": 13693
     },
     {
       "key": "imap",
       "label": "IMAP",
       "what": "IMAP logins",
-      "ips": 4732
+      "ips": 4736
     },
     {
       "key": "ftp",
       "label": "FTP",
       "what": "FTP logins",
-      "ips": 42
+      "ips": 44
     },
     {
       "key": "sip",
       "label": "VoIP (SIP)",
       "what": "SIP scans and registrations",
-      "ips": 2058
+      "ips": 2051
     },
     {
       "key": "bots",
       "label": "Bots",
       "what": "bots: spam, scraping, comment and form abuse",
-      "ips": 3228
+      "ips": 3192
     },
     {
       "key": "ircbot",
@@ -56,7 +56,7 @@
       "key": "strongips",
       "label": "Persistent attackers",
       "what": "the IPs reported most, across every service",
-      "ips": 0
+      "ips": 293
     }
   ]
 }

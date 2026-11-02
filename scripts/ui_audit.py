@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -343,6 +344,19 @@ def main() -> int:
                 shot("intel-osint")
 
             osint(page)
+
+            @step("Intel threats: disaster alerts (SACHET) on our operators' states, the CAP guard panel reads")
+            def sachet(page):
+                go("intel", "threats")
+                page.get_by_text("Disaster alerts (SACHET)", exact=False).first.wait_for()
+                # the first row's state cannot be known in advance (the feed is live): wait for the section's own framing text
+                page.get_by_text(re.compile(r"touch an operator|Alerts on our operators' states")).first.wait_for(timeout=30000)
+                # the guard is exercised by a separate red-team session against POST /api/sensor/cap; here we check the panel reads
+                page.get_by_text("Validate, don't trust", exact=False).first.wait_for()
+                page.get_by_text("untrusted sender", exact=False).first.wait_for()
+                shot("intel-sachet")
+                return page.get_by_text(re.compile(r"touch an operator")).first.inner_text()[:90]
+            sachet(page)
 
             @step("Intel advisories: inbox, how it was read, paste and analyse")
             def advisories(page):

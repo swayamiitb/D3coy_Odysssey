@@ -87,6 +87,7 @@ def summary() -> dict:
     conn = db()
     meta = dict(conn.execute("SELECT key, value FROM meta").fetchall())
     months = json.loads(meta.get("nvd_month_counts", "{}"))
+    month = (meta.get("snapshot_date") or dt.date.today().isoformat())[:7]  # the snapshot's month, not a literal one
     alerts = _alerts(" AND a.tier IN ('Compromise','Critical','High','Medium')", limit=100000)
     by_tier: dict[str, int] = {}
     heat: dict[str, dict[str, int]] = {}
@@ -98,7 +99,8 @@ def summary() -> dict:
     return {
         "snapshot_date": meta.get("snapshot_date"),
         "funnel": {
-            "cves_published_this_month": months.get("2026-10"),
+            "cves_published_this_month": months.get(month),
+            "month": month,
             "candidate_cves": int(meta.get("candidates", 0)),
             "exposed_asset_cve_pairs": exposed_pairs,
             "actionable_alerts": len(alerts),
@@ -1222,6 +1224,18 @@ def live_status() -> dict:
     conn, hour = db(), max(_time.time() - 3600, eng.started.timestamp())
     soc.ensure(conn)
     count = lambda q, *a: conn.execute(q, a).fetchone()[0]  # noqa: E731
+    try:  # India's SACHET CAP feed is read by its own connector on the same 15-minute cadence: shown beside the other live feeds
+        from . import sachet as _sachet
+        sf = _cap_guard().status()["feed"]
+        st["feeds"] = list(st["feeds"]) + [{
+            "name": "NDMA SACHET (CAP)", "url": _sachet.RSS_URL, "mode": "live",
+            "status": "fresh" if sf.get("fetched_at") else ("offline" if sf.get("status") == "offline" else "waiting"),
+            "last_try": sf.get("last_try"), "last_ok": sf.get("fetched_at"), "items": sf.get("count"),
+            "new": None, "matched": [f"{sf.get('matched', 0)} alerts on operators' states"] if sf.get("matched") else [],
+            "ms": sf.get("ms"), "every_s": _sachet.FEED_INTERVAL_S,
+            "detail": sf.get("detail") or "NDMA's public-domain CAP 1.2 feed, read-only; matched to the operators' states"}]
+    except Exception as exc:  # noqa: BLE001 - the SACHET panel reports its own trouble; the live view must not fail on it
+        print(f"live: sachet status unavailable: {exc!r}", flush=True)
     st["pipeline"] = {
         "detections_hour": count("SELECT COUNT(*) FROM ledger WHERE kind LIKE 'live.detect.%' AND ingested > ?", hour),
         "auto_hour": count("SELECT COUNT(*) FROM ledger WHERE kind LIKE 'auto.%' AND kind NOT IN ('auto.proposed', "
@@ -1234,6 +1248,68 @@ def live_status() -> dict:
         "events_hour": count("SELECT COUNT(*) FROM ledger WHERE ingested > ?", hour),
     }
     return st
+
+
+def _profile(org: str | None, sector: str | None, product: str | None = None) -> dict:
+    split = lambda s: [x.strip() for x in (s or "").split(",") if x.strip()]  # noqa: E731
+    return {"orgs": split(org), "sectors": split(sector), "products": split(product)}
+
+
+@app.get("/api/live/incoming")
+def live_incoming(org: str | None = None, sector: str | None = None, product: str | None = None, only: str = "all",
+                  limit: int = Query(60, le=400)) -> dict:
+    """Every CVE NVD published or changed, as the live engine sees it (every two minutes), ranked for this analyst:
+    severity, whether it names our technologies and affects installed versions, KEV, exploited-in-the-wild text,
+    the day-0 forecast, freshness, and the analyst's own profile (organisations, sectors, technologies)."""
+    return _engine().incoming.query(_profile(org, sector, product), only, limit)
+
+
+_RECO: dict = {}
+
+
+@app.get("/api/recommendations")
+def recommendations_view(org: str | None = None, sector: str | None = None) -> dict:
+    """What deserves attention first, for this analyst: organisations, technologies, threat groups and malware (ATT&CK
+    overlap, never attribution), campaigns, and the next steps, each with its reasons. Kept for 20 s per profile."""
+    import time as _time
+
+    from . import live
+    from .engine.recommend import recommendations
+    key = f"{org}|{sector}"
+    hit = _RECO.get(key)
+    if hit and _time.time() - hit[0] < 20:
+        return hit[1]
+    out = recommendations(db(), live.ENGINE.status() if live.ENGINE else None, _profile(org, sector), scoring_config()[0])
+    _RECO[key] = (_time.time(), out)
+    return out
+
+
+@app.get("/api/decide/{org_id}/{cve_id}")
+def decide_brief(org_id: str, cve_id: str) -> dict:
+    """Step-by-step decision support for one warning: evidence, clocks, options, the recommended one and why."""
+    from . import live
+    from .engine import decide
+    detail = alert_detail(org_id, cve_id)
+    conn = db()
+    try:
+        return decide.brief(conn, scoring_config()[0], detail, _issued_at(conn), live.ENGINE.status() if live.ENGINE else None)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@app.post("/api/decide/{org_id}/{cve_id}")
+def decide_execute(org_id: str, cve_id: str, body: dict = Body(...)) -> dict:
+    """Carry out the analyst's decision through the engine's own mechanisms (workflow, case, escalation, notice);
+    every step is a hash-chained ledger event and is returned with its reference."""
+    from .engine import decide
+    detail = alert_detail(org_id, cve_id)
+    conn = db()
+    try:
+        return decide.execute(conn, scoring_config()[0], detail, str(body.get("decision") or ""), str(body.get("actor") or "analyst@ncew"),
+                              (body.get("note") or None), [str(x) for x in (body.get("escalate_to") or [])], bool(body.get("notify_org")),
+                              _issued_at(conn))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @app.post("/api/live/drill/{scenario}")
@@ -1422,17 +1498,6 @@ async def cap_ingest(request: Request) -> dict:
     redteam = request.headers.get("x-odyssey-redteam")
     src = request.client.host if request.client else None
     return _cap_guard().ingest(body, source_ip=src, redteam=redteam)
-
-
-@app.post("/api/sensor/cap/redteam")
-def cap_redteam(request: Request) -> dict:
-    """Fire the hostile CAP cases at this Odyssey's own ingest on loopback and score the guard."""
-    from .engine import capredteam
-    port = request.url.port or 8000
-    try:
-        return capredteam.run(db, f"http://127.0.0.1:{port}/api/sensor/cap")
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
 
 
 @app.get("/api/warnings/{org_id}/{cve_id}/cap")

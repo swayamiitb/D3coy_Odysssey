@@ -454,6 +454,12 @@ class _Builder:
                 if self.focus and self.focus not in org_ids and not any(m["where"] in ("firewall flows", "live flows") for m in matches):
                     continue
                 tier = {"Critical": "Compromise" if r["type"] == "ipv4-addr" else "Critical", "High": "High", "Medium": "Medium"}.get(r["severity"] or "", "Medium")
+                existing = self.nodes.get(f"indicator:{r['defanged']}")
+                if existing is not None:  # already drawn from our own telemetry (a C2 sighting): keep its record, note the import
+                    existing["facts"].update({"imported": True, "import_source": r["source"], "tlp": r["tlp"], "import_matches": matches[:4]})
+                    self.worse(existing["id"], tier, None)
+                    self.touch(existing["id"], r["last_seen"] or r["added_at"])
+                    continue
                 n = self.node(f"indicator:{r['defanged']}", "indicator", r["defanged"], provenance=MIXED,
                               source=f"imported from {r['source']} · matched in Odyssey's telemetry",
                               sub=f"imported {r['type']} · matched: {', '.join(sorted({m['where'] for m in matches}))}", tier=tier,

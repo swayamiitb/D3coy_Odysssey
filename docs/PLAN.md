@@ -38,15 +38,18 @@ One CVE → matched to a simulated asset → risk score with breakdown → AI ex
 
 ## PS objective traceability (rule 16)
 
+Every page and tab names the objective it serves in its header (a numbered pill, `frontend/src/ui.tsx` OBJECTIVES,
+`App.tsx` OBJ); the footer lists the seven and jumps to each. Checked Sun 1 Nov 2026 11:20 IST.
+
 | PS objective / deliverable | Feature(s) | Status |
 |---|---|---|
-| Threat intelligence aggregation | TBD | — |
-| AI-based threat analysis | TBD | — |
-| Early warning generation | TBD | — |
-| Risk prioritisation | TBD | — |
-| Actionable recommendations | TBD | — |
-| Threat intelligence dashboard | TBD | — |
-| Explanation of AI model, scoring, mitigation workflow | TBD | — |
+| 1 Threat intelligence aggregation | Intel › Overview (the aggregation table: 13 sources, 10 REAL; real-feed strips: blocklist.de, Exploit-DB, ransomware.live, HIBP, CISA ICS, GitHub advisories, Tor, Spamhaus DROP, Emerging Threats), Live › Real feeds (NVD, CISA KEV, Feodo, OpenPhish, SANS ISC DShield, CISA advisories, NDMA SACHET re-read live and written through to the snapshot), Intel › Indicators (import, TAXII) | Built |
+| 2 AI-based threat analysis | The AI brief on every warning (What to do), Intel › Advisories (advisory analysis with SecureBERT NER and the injection guard), Intel › Graph (relationships between threats), Intel › Threats (campaigns, ATT&CK), day-0 exploitation forecast, Bayesian compromise model, live detectors | Built |
+| 3 Early warning generation | Now (the duty desk), Live (NVD intake, detections, drills, the satellite threat map), SOC › Warnings, SOC › Log (the autopilot's actions), warning sheet › How it unfolded | Built |
+| 4 Risk prioritisation | Warning sheet › Why this score (Risk = 100·R·K·(0.55L+0.30S+0.15V), SSVC, evidence), SOC › Warnings (ranked), Intel › Risk plan, Organisations | Built |
+| 5 Actionable recommendations | Warning sheet › What to do (named fixed release, block, hunt, CERT-In draft), SOC › Cases (playbooks), Intel › Risk plan (change tickets), Organisations (fixes, notices in the operator's language) | Built |
+| 6 Threat intelligence dashboard | Now, SOC › Overview, Intel › Overview, Organisations, Live | Built |
+| D Explanation of AI model, scoring, mitigation workflow | Proof › How it works, Proof › Evidence (scorecard, test bench), `docs/MODEL_CARD.md`, `docs/PS_COVERAGE.md` | Built |
 
 ## Demo story
 

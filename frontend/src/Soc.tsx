@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { api, type Campaign, type IntelAdvisory, type IntelSource, type Soc as SocData, type Technology, type RiskPlan } from './api'
 import { BrandWatch } from './BrandWatch'
 import { Heatmap, type HeatData } from './Heatmap'
+import { SachetPanel } from './Sachet'
 import { SurfaceScan } from './SurfaceScan'
 import { RiskPlanView } from './Orgs'
 import { ForecastPanel } from './proactive'
@@ -276,6 +277,8 @@ export function Soc({ section, tick }: { section: SocSection; tick: number }) {
               panel: <div className="soc-card px-6 py-5"><BrandWatch /></div> },
             { key: 'surface', title: 'Attack surface, with consent', chip: <Prov p="REAL" />, preview: 'A read-only scan of a system you own: GET and HEAD only, graded A to F, every finding with its CWE and fix',
               panel: <div className="soc-card px-6 py-5"><SurfaceScan orgId="PWR-01" defaultUrl="http://127.0.0.1:8080" /></div> },
+            { key: 'sachet', title: 'Disaster alerts (SACHET)', chip: <Prov p="REAL" />, preview: "India's national CAP feed matched to our operators' states; every inbound CAP validated before it is trusted",
+              panel: <div className="soc-card px-6 py-5"><SachetPanel compact /></div> },
           ]} />
         </>
       )}

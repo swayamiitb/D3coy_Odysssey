@@ -8,6 +8,9 @@ writing), the API is pointed at the copies, and the script makes the same HTTP c
   - watches a graph entity and sees the rule fire on a drill; pastes indicators and matches them against telemetry and
     exposure (CSV and STIX out, a STIX bundle in); replays the graph as it stood; reads the TAXII 2.1 server; runs a
     brand scan against public sources (which may be offline) and a consented attack-surface scan of the demo portal;
+  - reads NDMA's SACHET feed (public domain, snapshot here) matched to the operators' states, walks the inbound CAP
+    guard's ladder (forged sender, a trusted alert, its replay, an XXE body), exports a warning as SACHET-compatible
+    CAP marked Exercise, and sees the disaster alerts drawn on the intelligence graph;
   - approves one proposal and rejects another (human in the loop), and checks that the notices went out;
   - works the top warning through its lifecycle, and a SOC case from new to closed;
   - analyses a pasted advisory (guard model and encoders; skipped with --no-ai);
@@ -109,7 +112,8 @@ def main_() -> int:
             "SOC": ["/api/soc/metrics", "/api/cases?status=open", "/api/heatmaps", "/api/autopilot",
                     "/api/alerts?limit=400", "/api/telemetry", "/api/soc/handover"],
             "Intel": ["/api/intel/technologies", "/api/intel/sources", "/api/intel/advisories", "/api/campaigns",
-                      "/api/riskplan", "/api/advisories", "/api/graph", "/api/watches", "/api/iocs", "/api/brand", "/api/surface"],
+                      "/api/riskplan", "/api/advisories", "/api/sachet?live=false", "/api/graph", "/api/watches", "/api/iocs", "/api/brand",
+                      "/api/surface"],
             "Organisations": ["/api/orgs"],
             "Proof": ["/api/scorecard", "/api/tests/last", "/api/ledger/verify", "/api/languages"],
         }
@@ -394,6 +398,107 @@ def main_() -> int:
             return (f"public target refused (400); no consent refused; loopback allowed; portal scored {s['score']} grade {s['grade']}: "
                     f"{s['n_findings']} findings ({worst['severity']} {worst['cwe']} first) in {s['requests']} requests, {s['seconds']}s")
         check("attack surface: refuse a public target, scan the portal with consent", surface)
+
+        def sachet_flow():
+            import datetime as _dt
+            import uuid
+            from backend.app.engine import graph as _graph
+            # the public feed, read-only (live=false: the snapshot, so the check does not depend on NDMA being reachable)
+            s = get("/api/sachet?live=false")
+            f = s["feed"]
+            assert f["count"] > 0 and f["provenance"] == "REAL" and f["status"] in ("fresh", "snapshot", "offline"), \
+                (f.get("count"), f.get("status"), f.get("detail"))
+            matched = s["matched_alerts"]
+            assert matched and all(m["orgs"] for m in matched), f"{f['matched']} of {f['count']} alerts matched to operators"
+            assert all(o["org_id"] and o["state"] and o["basis"] and 0 < o["confidence"] <= 1 for m in matched for o in m["orgs"]), matched[0]["orgs"]
+            assert all(m["states"] and m["states"][0]["basis"] for m in matched), "a matched alert without the basis of its state"
+            assert s["endpoint"] == "/api/sensor/cap" and {"xxe", "untrusted_sender", "replay", "stale"} <= set(s["ingest"]["refused"]), s["ingest"]
+            before = {"accepted": s["ingest"]["accepted"], **s["ingest"]["refused"]}
+
+            # the inbound guard: the same POST an upstream makes. Status Exercise and the red-team header on every message,
+            # so the ledger carries them as SIM and nothing here can pass for a real agency's alert.
+            now = _dt.datetime.now(_dt.timezone.utc)
+            sent = now.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+            expires = (now + _dt.timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+            ident = f"E2E-{now:%Y%m%d%H%M%S}-{uuid.uuid4().hex[:8]}"
+
+            def cap(sender: str, identifier: str) -> bytes:
+                # the shape of data/raw/sachet_cap_sample.xml (a real IMD Chennai message), as an exercise
+                return ('<?xml version="1.0" encoding="UTF-8"?>\n'
+                        '<cap:alert xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">'
+                        f'<cap:identifier>{identifier}</cap:identifier><cap:sender>{sender}</cap:sender><cap:sent>{sent}</cap:sent>'
+                        '<cap:status>Exercise</cap:status><cap:msgType>Alert</cap:msgType><cap:scope>Public</cap:scope>'
+                        '<cap:info><cap:language>en-IN</cap:language><cap:category>Met</cap:category><cap:event>Moderate Rain</cap:event>'
+                        '<cap:urgency>Expected</cap:urgency><cap:severity>Moderate</cap:severity><cap:certainty>Likely</cap:certainty>'
+                        f'<cap:expires>{expires}</cap:expires>'
+                        '<cap:headline>Light to Moderate Rain with Thunderstorm is very likely over Coimbatore, Erode, The Nilgiris in next 3 hours.</cap:headline>'
+                        '<cap:instruction>Please follow SDMA guidelines.</cap:instruction>'
+                        '<cap:area><cap:areaDesc>Coimbatore, Erode, The Nilgiris districts of Tamil Nadu</cap:areaDesc></cap:area>'
+                        '</cap:info></cap:alert>').encode("utf-8")
+
+            def send(body: bytes) -> dict:
+                r = c.post("/api/sensor/cap", content=body, headers={"content-type": "application/xml", "x-odyssey-redteam": "e2e"})
+                assert r.status_code == 200, f"POST /api/sensor/cap -> {r.status_code} {r.text[:160]}"
+                return r.json()
+
+            forged = send(cap("attacker@evil.example", f"{ident}-forged"))
+            assert not forged["accepted"] and forged["reason"] == "untrusted_sender" and forged["redteam"] == "e2e", forged
+            ok = send(cap("IMD-Chennai", ident))
+            assert ok["accepted"] and ok["reason"] is None and ok["identifier"] == ident, ok
+            assert ok["states"] and ok["states"][0]["state"] == "Tamil Nadu" and ok["states"][0]["basis"], ok["states"]
+            again = send(cap("IMD-Chennai", ident))
+            assert not again["accepted"] and again["reason"] == "replay", again
+            xxe = send(b'<?xml version="1.0"?><!DOCTYPE alert [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>'
+                       b'<cap:alert xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2"><cap:identifier>&xxe;</cap:identifier>'
+                       b'<cap:sender>IMD-Chennai</cap:sender><cap:sent>2026-01-01T00:00:00Z</cap:sent></cap:alert>')
+            assert not xxe["accepted"] and xxe["reason"] == "xxe" and not xxe.get("identifier"), xxe  # refused before parsing: nothing was read
+
+            after = get("/api/sachet?live=false")
+            counts = {"accepted": after["ingest"]["accepted"], **after["ingest"]["refused"]}
+            grew = {k: counts[k] - before[k] for k in ("accepted", "untrusted_sender", "replay", "xxe")}
+            assert grew == {"accepted": 1, "untrusted_sender": 1, "replay": 1, "xxe": 1}, grew
+            latest = after["decisions"][:4]
+            assert [d["reason"] for d in latest] == ["xxe", "replay", None, "untrusted_sender"] and all(d["redteam"] == "e2e" for d in latest), \
+                [(d["reason"], d["redteam"]) for d in latest]
+            assert any(a["identifier"] == ident and a["states"] for a in after["inbound"]), "the accepted alert is not among the inbound rows"
+            kinds = {e["kind"] for e in get("/api/events/recent?limit=80")}
+            assert {"cap.ingest.accepted", "cap.ingest.refused"} <= kinds, sorted(kinds)[:12]
+
+            # our own warning as SACHET-compatible CAP: Exercise unless a desk routes it otherwise, and it says what it is
+            r = c.get(f"/api/warnings/{org}/{cve}/cap")
+            assert r.status_code == 200, f"GET /api/warnings/{org}/{cve}/cap -> {r.status_code} {r.text[:160]}"
+            assert r.headers["content-type"].startswith("application/cap+xml"), r.headers.get("content-type")
+            assert "<status>Exercise</status>" in r.text and "urn:oasis:names:tc:emergency:cap:1.2" in r.text, r.text[:300]
+            langs = r.headers.get("x-odyssey-languages", "")
+            assert langs.startswith("en-IN") and "attachment" in r.headers.get("content-disposition", ""), dict(r.headers)
+            assert "not an NDMA/SACHET message" in r.text and "<!DOCTYPE" not in r.text, "the export must say what it is and carry no DTD"
+            rt = send(r.content)  # the export is itself CAP the guard admits (our own sender is on the allow-list)
+            assert rt["accepted"] or rt["reason"] == "replay", rt
+
+            # the graph: matched SACHET alerts as REAL disaster signals on their operators; the accepted inbound CAP as a signal too
+            def pick(g):
+                return ([n for n in g["nodes"] if n["kind"] == "signal" and n["facts"].get("signal") == "disaster"],
+                        [n for n in g["nodes"] if n["facts"].get("signal") == "cap_inbound" and n["facts"].get("identifier") == ident])
+            g = get("/api/graph")
+            disasters, inbound = pick(g)
+            if not disasters or not inbound:
+                time.sleep(_graph.CACHE_S + 0.5)  # the graph is cached for a few seconds; the inbound alert postdates any cached build
+                g = get("/api/graph")
+                disasters, inbound = pick(g)
+            assert disasters, "no SACHET disaster signal in the graph"
+            assert all(d["provenance"] == "REAL" and d["facts"]["operators"] and d["facts"]["basis"] for d in disasters), \
+                [(d["id"], d["provenance"]) for d in disasters]
+            dids = {d["id"] for d in disasters}
+            orgs_linked = {e["to"] for e in g["edges"] if e["from"] in dids and e["to"].startswith("org:")}
+            assert orgs_linked, "a disaster signal without an operator"
+            assert inbound and inbound[0]["provenance"] == "SIM", inbound  # an exercise, so never REAL
+            linked = {e["to"] for e in g["edges"] if e["from"] == inbound[0]["id"]}
+            assert linked >= {f"org:{o['org_id']}" for o in ok["orgs"]}, (sorted(linked), ok["orgs"])
+            return (f"feed {f['status']}: {f['count']} alerts, {f['matched']} on operators' states (most: {next(iter(f['by_state']), '?')}); "
+                    f"guard: forged sender refused, IMD-Chennai accepted for {', '.join(x['state'] for x in ok['states'])}, replay and XXE refused, "
+                    f"all audited; CAP export {org}:{cve} ({langs}) is Exercise{' and round-trips through the guard' if rt['accepted'] else ''}; "
+                    f"graph: {len(disasters)} disaster signal(s) on {len(orgs_linked)} operator(s), inbound CAP drawn as {inbound[0]['provenance']}")
+        check("SACHET: feed matched to operators, CAP guard ladder, CAP export", sachet_flow)
 
         # ---------------------------------------------------------------- human in the loop
         def approve():

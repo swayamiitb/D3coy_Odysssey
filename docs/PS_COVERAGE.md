@@ -79,6 +79,27 @@ only (a loopback or private address, or an app the Odyssey agent announced; GET 
 score and a grade). Dark-web collection, scanning of networks we do not own, takedowns and sandboxing stay out of
 scope by rule; each has a named plug-in point in the audit.
 
+**Paired with India's SACHET.** Built next (1 Nov 2026, 08:20 to 09:00 IST): Odyssey reads NDMA's SACHET feed, the
+national CAP 1.2 alert feed (public domain; IMD, the SDMAs, CWC, INCOIS), every 15 minutes, read-only and
+snapshot-backed like the other feeds, labelled REAL. Each alert's state is inferred with a stated basis (the sender
+office, a state name, a district name, the script of the text) and a confidence, and matched to the operators in that
+state, so an analyst looking at an outage can ask "weather or attack?" and see the disaster alert next to the cyber
+warnings; the intelligence graph draws matched alerts as REAL signals on those operators, marked as context and not as
+a cyber finding. Odyssey's own warnings leave as SACHET-compatible CAP 1.2 (`GET /api/warnings/{org}/{cve}/cap`,
+English always plus one `<info>` per language the local translator validated, `status=Exercise`): the format SACHET
+publishes, so routing a warning through an authorised agency is configuration, not redevelopment. The inbound side
+treats every CAP message as hostile until proven otherwise: `POST /api/sensor/cap` refuses, in order, a flood (30 per
+minute per source), an oversize body (over 2 MB), any DTD or entity declaration before parsing (XXE, billion laughs),
+a malformed body, a missing identifier, sender or sent, an unauthorised sender, a replayed identifier and an expired
+message; every decision is a `cap.ingest.accepted` or `cap.ingest.refused` event in the audit trail. A built-in
+red-team fires ten hostile cases at Odyssey's own loopback endpoint, with a planted secret file that an XXE would read
+and that must never appear in a response. Measured this morning on the live feed: 100 items, 99 with an inferred
+state, 80 matched to operators (Andhra Pradesh SDMA dominated the hour); red-team 10 of 10 cases in 0.36 s, no leak.
+The limits, stated plainly: SACHET is read-only public input and Odyssey's CAP is SACHET-compatible, not connected to
+SACHET; no hostile traffic ever goes to NDMA or any third party; most alerts are district-level, so the state inference
+is explainable but not perfect (the basis and confidence are shown on every row); no language model is involved;
+Bhashini is deliberately left out and the local IndicTrans2 stays the translator.
+
 ## Honest limitations
 
 - **Forecast precision is low (5%)**, because exploitation is rare (base rate 0.16%). That is why forecasts are proposals for a human, never automatic notices.

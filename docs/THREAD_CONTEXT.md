@@ -193,13 +193,13 @@ tell the shield thread first, because it clears that thread's test data too.
 | Area | Files |
 |---|---|
 | Build | `backend/app/pipeline.py`, `backend/app/sim/` (world, telemetry), `scripts/snapshot_feeds.py` |
-| Engines (`backend/app/engine/`) | `exposure`, `versions`, `products`, `scoring`, `bayes`, `forecast`, `detectors`, `campaigns`, `sentinel` (autopilot), `riskplan`, `intel`, `soc`, `workflow`, `replay`, `reports` (CERT-In, STIX), `attack` (ATT&CK), `scorecard`, `testbench`, `ledger`, `obligations`, `suppliers`, `intake`, `adaptive`, `threatmap`, `sitrep`, `graph` (intelligence graph, replay), `export` (risk lists, STIX bundle), `watch` (watchlists), `iocs` (indicator import), `brand` (brand and social watch), `surface` (consented attack surface) |
+| Engines (`backend/app/engine/`) | `exposure`, `versions`, `products`, `scoring`, `bayes`, `forecast`, `detectors`, `campaigns`, `sentinel` (autopilot), `riskplan`, `intel`, `soc`, `workflow`, `replay`, `reports` (CERT-In, STIX), `attack` (ATT&CK), `scorecard`, `testbench`, `ledger`, `obligations`, `suppliers`, `intake`, `adaptive`, `threatmap`, `sitrep`, `graph` (intelligence graph, replay), `export` (risk lists, STIX bundle), `watch` (watchlists), `iocs` (indicator import), `brand` (brand and social watch), `surface` (consented attack surface) (CAP red-team against our own ingest) |
 | AI (`backend/app/ai/`) | `llm` (role registry), `narrate` (grounded briefs), `advisory` (IOCs, NER, mapping), `guard`, `embed`; `backend/mt_service.py` (IndicTrans2) |
-| Runtime | `backend/app/main.py` (API, SSE, startup warm-up), `backend/app/live.py`, `backend/app/telemetry.py`, `backend/app/cache.py`, `backend/app/taxii.py` (TAXII 2.1 router), `backend/app/osint_api.py` (brand and surface routes) |
+| Runtime | `backend/app/main.py` (API, SSE, startup warm-up), `backend/app/live.py`, `backend/app/telemetry.py`, `backend/app/cache.py`, `backend/app/taxii.py` (TAXII 2.1 router), `backend/app/osint_api.py` (brand and surface routes), `backend/app/sachet.py` (SACHET reader, CAP writer, CAP ingest guard) |
 | UI (`frontend/src/`) | `App`, `Shell`, `ui`, `Now`, `Live`, `Adaptive`, `SocOps`, `SystemView`, `Soc` (Intel), `Advisories`, `Orgs`, `OrgThreatMap`, `Proof`, `ProofProactive`, `HowItWorks`, `AlertDetail` and its panels, `Heatmap`, `IndiaMap`, `Rewind`, `proactive` |
 | Config | `config/scoring.json` (rules, deadlines, clocks, regulators, decay, sentinel policy), `config/models.json`, `config/suppliers.json` |
 | Checks | `tests/`, `scripts/e2e_check.py`, `scripts/ui_audit.py`, `scripts/demo_reset.ps1` |
-| Docs | `README.md`, `docs/PS_COVERAGE.md`, `docs/MODEL_CARD.md`, `docs/PITCH.md`, this file, `PLAN.md`, `reports/`, `research_notes/` |
+| Docs | `README.md`, `docs/PS_COVERAGE.md`, `docs/MODEL_CARD.md`, `docs/PITCH.md`, `docs/TIP_GAP_AUDIT.md`, `docs/SACHET_BHASHINI_PLAN.md` (the shield thread's plan; Connector A built, section 21), this file, `PLAN.md`, `reports/`, `research_notes/` |
 
 ## 15. How this thread got here
 
@@ -247,6 +247,9 @@ until the portal's heartbeat re-announces it. The shield thread also moved all t
 - The deadlines run in real time from the build (see section 13).
 - A background task started from Claude Code may show as still running after `demo_reset.ps1` finishes, because the API it launched inherits the task's output handles; it is harmless.
 - The brand and social watch reads public sources over the network: crt.sh rate-limits for a minute at a time and is then shown offline, a live scan takes 10 to 25 s, and a hit is a scored match of a term, not a finding of abuse. The attack-surface scan covers only systems the operator owns (section 20); a public target is refused by rule.
+- SACHET is read-only public input and Odyssey's CAP is SACHET-compatible, not connected to SACHET (section 21). Most
+  SACHET alerts are district-level, so the state inferred for an alert is explainable but not perfect; the basis and
+  confidence are on every row. Titles arrive in the regional language and are shown as published. Bhashini is not built.
 
 ## 18. Suggested next steps
 
@@ -399,3 +402,115 @@ portal when it is up).
 - Production build: `cd frontend && npm run build`.
 - Documents updated in this pass: `README.md`, `docs/TIP_GAP_AUDIT.md` (sections 1, 2, 3, 5, 6 and 7),
   `docs/PS_COVERAGE.md`, `docs/PITCH.md`, `docs/MODEL_CARD.md`, this file.
+
+## 21. The SACHET connector: national disaster alerts in, SACHET-compatible CAP out, a hardened CAP ingest (1 Nov 2026, 08:20 to 09:00 IST)
+
+The shield thread wrote `docs/SACHET_BHASHINI_PLAN.md`, two independent connectors: A for SACHET and B for Bhashini.
+The team lead's decision: leave Bhashini for now, build SACHET and solidify it. This section is Connector A as the
+main thread built it, in the plan's shape (reader, writer, guard, red-team, tests). Connector B is deliberately not
+built: Bhashini is a cloud API that would break the 0-cloud-calls promise, and the local IndicTrans2 stays the
+translator. Why SACHET at all, for a cyber early-warning system: when an operator goes dark, the first question is
+whether it is the weather or an attack. A disaster alert on the operator's state is context for its warnings, and an
+attack landing during a disaster is worse. The security angle: an early-warning system must defend its own inputs, so
+every inbound CAP message is treated as hostile until proven otherwise. No model is called anywhere in this connector.
+
+**Files.** `backend/app/sachet.py` (reader, writer, guard; standard-library XML and httpx, no new dependency;
+defusedxml is not installed and is not needed, because any DTD is refused before parsing), (ten hostile cases against our own loopback ingest), `backend/app/main.py` (the five routes below; the guard starts at
+API startup unless `ODYSSEY_SACHET=0` and reads the feed once in a background thread), `backend/app/engine/graph.py`
+(`_disasters()`: matched SACHET alerts and accepted inbound CAP as `signal` nodes), `tests/test_sachet.py`, the SACHET
+flow in `scripts/e2e_check.py`, the SACHET step in `scripts/ui_audit.py`. UI: "Disaster alerts (SACHET)" under
+Intel → Threats (a new file under `frontend/src/`, wired in by the main thread) and a tile on Now. Snapshots, both
+public domain, for offline runs and tests: `data/raw/sachet_rss.xml` (100 real items, 1 Nov 2026) and
+`data/raw/sachet_cap_sample.xml` (one real CAP 1.2 message).
+
+**The reader.** `CapGuard.read_feed(live)` reads `https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml`
+every 900 s (`FEED_INTERVAL_S`), read-only, with the same `fresh | snapshot | offline` states as the other feeds and
+the snapshot served when the network is down; provenance REAL, source "NDMA SACHET public CAP feed (public domain)".
+`infer_states(title, author, areas, sender)` gives each alert the states it concerns, each with its basis and a
+confidence: a state named in the text (0.95), an SDMA sender naming its state (0.9), a sender office such as IMD
+Chennai or IMD Amaravati mapped to its state (0.85), a district named (0.75), and only when nothing else matched, the
+script of the text (Telugu, Bengali, Tamil, Kannada and so on; 0.4). `match_orgs()` joins those states to the
+operators' states. `fetch_cap(url)` returns one alert's full CAP message and fetches only from `sachet.ndma.gov.in`
+(loopback allowed for tests); the same DTD refusal and size cap apply.
+
+**The writer.** `write_cap(alert, infos, status="Exercise")` renders an Odyssey warning as CAP 1.2 in the
+`urn:oasis:names:tc:emergency:cap:1.2` namespace: identifier, sender `odyssey@ncew.local`, sent in IST, status,
+`msgType` Alert, source "Odyssey National Cyber Early Warning (prototype)", scope Restricted with a restriction line, a
+note that says it is SACHET-compatible and not an NDMA/SACHET message, then one `<info>` per language with category
+Security, the event, urgency and severity from the tier (Compromise to Extreme and Immediate, Critical to Severe and
+Immediate, High to Moderate and Expected, Medium and Watch to Minor and Future), certainty, expiry, `senderName`
+"Odyssey (SACHET-compatible prototype, not NDMA)", headline, description, instruction, parameters (`odyssey:risk`,
+`odyssey:tier`, `odyssey:deadline_hours`, `cve`, `kev`) and the area. Every text node is escaped.
+`GET /api/warnings/{org_id}/{cve_id}/cap?langs=hi,mr&status=Exercise` assembles it from the warning's detail and brief:
+English always, plus one `<info>` per requested language when the local translator validated the headline and at
+least one sentence (withheld sentences are dropped and noted in the message, never guessed); the response header
+`X-Odyssey-Languages` lists the languages included; `application/cap+xml`, served as a download. `status` may be
+Exercise, Actual, Test or Draft; drills and red-team runs are always Exercise. Example:
+`/api/warnings/PWR-01/CVE-2026-104935/cap?langs=hi`.
+
+**The guard.** `POST /api/sensor/cap` takes a raw CAP 1.2 body (`content-type: application/xml`; the optional
+`x-odyssey-redteam` header labels an exercise). `CapGuard.ingest()` walks the ladder in this order and stops at the
+first refusal:
+
+1. `rate_limited`: more than 30 messages in 60 s from one source (`RATE_MAX`, `RATE_WINDOW_S`);
+2. `oversize`: more than 2 MB (`MAX_XML_BYTES`);
+3. `xxe`: any `<!DOCTYPE` or `<!ENTITY` anywhere in the body, refused before the parser sees it (`safe_parse`; CAP
+   never carries a DTD, so nothing legitimate is lost; this covers external entities and billion laughs);
+4. `malformed`: not well-formed, not a CAP `<alert>`, or an unexpected namespace;
+5. `missing_fields`: identifier, sender and sent are required;
+6. `untrusted_sender`: not on the allow-list (domains `ndma.gov.in`, `imd.gov.in`, `mausam.imd.gov.in`, `cwc.gov.in`,
+   `incois.gov.in`, `cert-in.org.in`; prefixes `IMD-`, `CWC-`, `INCOIS-`, `SDMA-`, `NDMA`; our own `odyssey@ncew.local`);
+   the real `IMD-Chennai` and `controlroom@ndma.gov.in` pass, `EVIL-Agency` does not;
+7. `replay`: an identifier already accepted (the set is loaded from `cap_ingest` when the guard starts);
+8. `stale`: `<expires>` in the past.
+
+Then accepted. Every outcome is a row in `cap_ingest` (ts, accepted, reason, detail, identifier, sender, status,
+msg_type, event, severity, areas, states, orgs, source_ip, redteam, bytes, and the first 4,000 characters of raw for
+accepted rows only) and a ledger event `cap.ingest.accepted` or `cap.ingest.refused` (source CAP_INGEST, provenance
+SIM when the red-team header is set, else REAL). An accepted alert gets its states and operators inferred the same way
+as the feed. The response is `{accepted, reason, detail, identifier, sender, event, severity, states, orgs, redteam}`.
+
+**Red-teaming the guard.** Done by a separate session, by the team lead's decision; nothing in the product fires hostile CAP. The guard is exercised by a separate red-team session against `POST /api/sensor/cap` (an `x-odyssey-redteam` header labels the exercise); the panel shows every decision as it happens. The in-session runner built at 08:30 was removed at 08:50.
+
+**Endpoints.**
+
+- `GET /api/sachet?live=true&limit=40`: `feed` (status, fetched_at, last_try, detail, ms, source, provenance, url,
+  count, matched, by_state), `alerts`, `matched_alerts`, `inbound` (accepted rows), `decisions` (the last 30),
+  `ingest` (accepted, refused by reason, total), `trusted`, `limits`, `how`, `endpoint`, `provenance`.
+- `GET /api/sachet/alert?url=`: the full CAP of one SACHET alert (identifier, sender, sent, status, msgType, scope,
+  references, expires, namespace, infos with areas, inferred states); 400 unless the host is `sachet.ndma.gov.in`.
+- `POST /api/sensor/cap`: the guard.
+- `GET /api/warnings/{org_id}/{cve_id}/cap?langs=&status=`: the writer.
+- `GET /api/graph`: up to eight matched SACHET alerts as REAL `signal` nodes (`facts.signal = 'disaster'`, risk 35,
+  tier Medium, an "on" edge to each operator in that state labelled "context, not a cyber signal") and up to ten
+  accepted inbound CAP messages as `signal` nodes (`facts.signal = 'cap_inbound'`; SIM when the `x-odyssey-redteam` header marked an
+  exercise). Replay (`as_of`) leaves out alerts published after the instant.
+
+**Ledger kinds.** `cap.ingest.accepted`, `cap.ingest.refused`. **Table.** `cap_ingest`, created on
+first use by `CapGuard.ensure()`.
+
+**Measured on the live run (1 Nov 2026, about 08:50 IST).** The feed read fresh: 100 items, 99 with an inferred
+state, 80 matched to operators; Andhra Pradesh SDMA dominated the hour. The red-team: 10 of 10 cases in 0.36 s against
+the loopback endpoint, `planted_secret_leaked: false`.
+
+**The demo arc** (`docs/PITCH.md`, 40 s after the brand and surface moment). Intel → Threats → *Disaster alerts
+(SACHET)*: real alerts on our operators' states, REAL, each with the basis of its state; "weather or attack?"; the graph
+draws the alert on the operator. The guard's live decisions sit beside it for the separate red-team session to drive. The Q&A line, when asked whether this is connected to SACHET: no; read-only public input in,
+SACHET-compatible CAP out, routing through an authorised agency is theirs to decide.
+
+**Honest limits.** SACHET is read-only, public-domain input; Odyssey's CAP is SACHET-compatible and not connected to
+SACHET; no hostile traffic ever goes to NDMA or any third party; most SACHET alerts are district-level, so state
+inference is explainable but not perfect and the basis and confidence are on every row; the feed's titles are often in
+a regional language (Telugu, Bengali, Tamil) and are shown as published; the writer carries only sentences the local
+translator validated; no language model is involved; Bhashini is deliberately left out (the plan's Connector B stays a
+plan; local IndicTrans2 stays the translator).
+
+**Verification (targets until the main thread runs them, one check at a time, never concurrently).**
+`tests/test_sachet.py`: parse the RSS snapshot and match a state; parse the CAP sample; org match by state; XXE and
+billion laughs refused without expanding the planted secret; oversize, forged sender, replay, stale and malformed
+refused and the flood capped at the window maximum; `write_cap` round-trips through `safe_parse` with two languages,
+severity mapped, namespace present; a script tag escaped, never emitted raw; every decision audited with the chain
+intact (a temporary copy of the database, deltas not absolute counts). One flow in `scripts/e2e_check.py` (26 flows:
+the feed read from the snapshot and matched, a legitimate CAP accepted and a forged one refused, a warning downloaded as CAP), one step in `scripts/ui_audit.py` (25 steps: the Disaster alerts (SACHET)
+section opened and the guard panel read). Documents updated in this pass: `README.md`, `docs/PS_COVERAGE.md`,
+`docs/PITCH.md`, `docs/TIP_GAP_AUDIT.md`, this file.

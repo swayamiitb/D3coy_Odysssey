@@ -8,6 +8,18 @@ import re
 from pathlib import Path
 
 RAW = Path(__file__).resolve().parents[3] / "data" / "raw"
+
+
+def snapshot_date():
+    """The day the offline snapshot was taken (data/raw/manifest.json), today if there is none. Every 'as of'
+    computation keys off this date and never off a literal one: the candidate window, evidence ages, the sensor
+    timeline, the funnel's month and the backtest window all move when the snapshot is refreshed."""
+    import datetime as dt
+    try:
+        taken = json.loads((RAW / "manifest.json").read_text(encoding="utf-8"))["snapshot_at"]
+        return dt.datetime.fromisoformat(taken).date()
+    except (OSError, ValueError, KeyError, TypeError):
+        return dt.date.today()
 NVD_FEEDS = ["nvdcve-2.0-modified.json.gz", "nvdcve-2.0-recent.json.gz", "nvdcve-2.0-2026.json.gz",
              "nvdcve-2.0-2025.json.gz", "nvdcve-2.0-2024.json.gz", "nvdcve-2.0-2023.json.gz",
              "nvdcve-2.0-2022.json.gz", "nvdcve-2.0-2021.json.gz"]

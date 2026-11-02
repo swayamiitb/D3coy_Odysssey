@@ -118,6 +118,12 @@ def card(event: dict, public_url: str) -> dict | None:
             lines.append("the request got a 2xx: likely successful; a SOC incident case was opened")
         if p.get("redteam"):
             lines.append(f"red-team exercise {p['redteam']} (labelled in the audit trail)")
+    elif kind in ("analyst.escalate", "analyst.notify", "analyst.decision"):
+        sev = p.get("severity") if p.get("severity") in RANK else "High"
+        title = p.get("title") or f"Analyst {kind.split('.')[-1]}: {subject}"
+        lines = [f"by {p.get('actor', 'analyst')}", f"to {', '.join(p.get('recipients', []))}" if p.get("recipients") else "",
+                 f"note: {p['note']}" if p.get("note") else "", "decided by a person through the decision support (human in the loop)"]
+        link = f"{public_url}/?view=soc&tab=warnings&alert={subject}" if ":" in subject else f"{public_url}/?view=soc"
     elif kind in ("shield.block", "shield.unblock"):
         sev = "High"
         title = (f"Analyst {'blocked' if kind == 'shield.block' else 'unblocked'} {p.get('ip', subject)}"

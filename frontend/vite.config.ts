@@ -4,6 +4,8 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // CesiumJS finds its workers, decoders and bundled textures here (public/cesium, copied by scripts/cesium-assets.mjs).
+  define: { CESIUM_BASE_URL: JSON.stringify('/cesium/') },
   server: {
     proxy: {
       '/api': {

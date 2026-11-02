@@ -8,8 +8,10 @@ import { AlertCard, Delta, nf, SocCard, TabBoxes, useJson } from './soc/kit'
 import { Insight, ScoreCard, SectorExposure, SecurityKpis, TierDonut } from './soc/overview'
 import { IntelSources, LiveThreats, PostureGauges, TechThreats, ThreatTrend, useLiveThreatRows } from './soc/panels'
 import { deadlinesSummary, DeadlineTimeline, EventTicker, ExploitChip, LikelyNext, NoiseFunnel, useExploitDb } from './soc/telemetry'
+import { DecisionSheet } from './soc/DecisionSheet'
+import { Recommended } from './soc/Recommended'
 import { ThreatMap } from './soc/ThreatMap'
-import { Band, Figures, Prov, Row, TIER_FILL, TierPill, useToast, WRAP } from './ui'
+import { Band, Figures, Objectives, Prov, Row, TIER_FILL, TierPill, useToast, WRAP } from './ui'
 
 /* The duty desk, for a national CERT on shift (SOC black, ui-07). The header: the one sentence that matters and the
    trip card (one warning, one countdown, one action). Then the command centre: three alert cards, the headline
@@ -125,6 +127,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
   const [fc, setFc] = useState<ForecastView>()
   const [busy, setBusy] = useState(false)
   const [reportFor, setReportFor] = useState<Card>()
+  const [decideFor, setDecideFor] = useState<Card>()
   const live = useJson<Live>('/api/live', [], 5000).data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const metrics = useJson<any>('/api/soc/metrics', [tick]).data
@@ -175,6 +178,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
         <div className={`${WRAP} relative z-10 grid items-center gap-10 py-10 xl:grid-cols-[1fr_520px]`}>
           <div className="min-w-0">
             <p className="text-[13px] text-mute">National CERT duty desk · {new Date(feed.issued_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} IST</p>
+            <Objectives keys={['dashboard', 'warning']} className="mt-3" />
             <h1 className="mt-4 max-w-3xl text-[40px] font-semibold leading-[1.05] tracking-tight sm:text-[52px]">{headline}</h1>
             <p className="mt-5 max-w-2xl text-[17px] leading-relaxed text-mute">
               {feed.counts.needs_action} warnings need action across {soc?.orgs.length ?? '…'} operators, each told in its own language{langs ? ` (${langs} in use)` : ''}.
@@ -214,6 +218,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
               )}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button onClick={() => onOpen(hero)} className="rounded-full bg-panel-2 px-4 py-2 text-sm font-medium hover:bg-panel-3">Why this warning?</button>
+                <button onClick={() => setDecideFor(hero)} className="rounded-full bg-panel-2 px-4 py-2 text-sm font-medium hover:bg-panel-3">Decide, step by step</button>
                 {hero.tier === 'Compromise' && (
                   <button onClick={() => setReportFor(hero)} className="flex items-center gap-1.5 rounded-full bg-panel-2 px-4 py-2 text-sm font-medium hover:bg-panel-3">
                     <FileText size={14} /> CERT-In report
@@ -272,7 +277,9 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
 
         <EventTicker tick={tick} onOpen={() => onGo('soc', 'log')} />
 
-        <ThreatMap orgs={soc?.orgs} onOrg={onOrg} />
+        <ThreatMap orgs={soc?.orgs} onOrg={onOrg} live={live} />
+
+        <Recommended onOrg={onOrg} onAlert={(o, c) => onOpen({ id: `${o}:${c}`, org_id: o, cve_id: c } as unknown as Card)} onGo={(v, t) => onGo(v, t)} />
 
         {/* The feeds, as a strip of summary boxes with one panel open: less to scan, nothing taken away. */}
         <TabBoxes label="Feeds and deadlines" defaultOpen="next" items={[
@@ -363,6 +370,7 @@ export function Now({ onOpen, onOrg, onGo, tick }: {
         </div>
       </Band>
       {reportFor && <CertInReportModal orgId={reportFor.org_id} cveId={reportFor.cve_id} onClose={() => setReportFor(undefined)} />}
+      {decideFor && <DecisionSheet org={decideFor.org_id} cve={decideFor.cve_id} onClose={() => setDecideFor(undefined)} onDone={load} onGo={(v, t) => onGo(v, t)} />}
     </>
   )
 }

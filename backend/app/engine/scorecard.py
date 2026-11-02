@@ -10,13 +10,14 @@ have flagged:
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import re
 import statistics
 from pathlib import Path
 
 from . import cvss
-from ..ingest.cve_records import load_cve5, load_epss, load_kev, load_nvd
+from ..ingest.cve_records import load_cve5, load_epss, load_kev, load_nvd, snapshot_date
 
 ROOT = Path(__file__).resolve().parents[3]
 DOCS = ROOT / "docs"
@@ -28,7 +29,10 @@ def _read(name: str):
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
 
 
-def backtest(days_window: tuple[str, str] = ("2026-08-01", "2026-10-31")) -> dict:
+def backtest(days_window: tuple[str, str] | None = None) -> dict:
+    if days_window is None:  # the record's own window ends on the snapshot date, never on a literal one
+        end = snapshot_date()
+        days_window = ((end - dt.timedelta(days=91)).isoformat(), end.isoformat())
     kev = load_kev()
     epss, epss_header = load_epss()
     ids = sorted(c for c, k in kev.items() if days_window[0] <= k["dateAdded"] <= days_window[1])
@@ -82,6 +86,10 @@ def backtest(days_window: tuple[str, str] = ("2026-08-01", "2026-10-31")) -> dic
 def scorecard(conn) -> dict:
     meta = dict(conn.execute("SELECT key, value FROM meta").fetchall())
     months = json.loads(meta.get("nvd_month_counts", "{}"))
+    end = (meta.get("snapshot_date") or snapshot_date().isoformat())[:10]
+    go = (json.loads(meta.get("sentinel", "{}")).get("go_live")
+          or (dt.date.fromisoformat(end) - dt.timedelta(days=91)).isoformat())[:10]
+    month = end[:7]  # the snapshot's month
     alerts = conn.execute("""SELECT COUNT(*) FROM (SELECT DISTINCT org_id, cve_id FROM assessments
                              WHERE R >= 0.6 AND tier IN ('Compromise','Critical','High','Medium'))""").fetchone()[0]
     critical = conn.execute("""SELECT COUNT(*) FROM (SELECT DISTINCT org_id, cve_id FROM assessments
@@ -96,9 +104,9 @@ def scorecard(conn) -> dict:
         briefs["validated"] += b["status"] == "validated"
         briefs["first_attempt"] += b["status"] == "validated" and len(b.get("attempts", [])) <= 1
     return {
-        "funnel": {"cves_this_month": months.get("2026-10"), "candidates": int(meta.get("candidates", 0)),
+        "funnel": {"cves_this_month": months.get(month), "month": month, "candidates": int(meta.get("candidates", 0)),
                    "actionable_alerts": alerts, "critical_or_compromise": critical,
-                   "noise_reduction_x": round(months.get("2026-10", 0) / max(critical, 1), 1)},
+                   "noise_reduction_x": round(months.get(month, 0) / max(critical, 1), 1)},
         "exposure": {"cleared_by_version_evidence": cleared, "disputed_flagged_for_analyst": disputed,
                      "unit_tests": "Ivanti 4-asset real-record case: 0 false 'affected' (tests/test_exposure.py)"},
         "models": {
@@ -109,5 +117,5 @@ def scorecard(conn) -> dict:
             "indic22": _read("eval_indic22.json"),
         },
         "briefs": briefs,
-        "backtest": backtest(),
+        "backtest": backtest((go, end)),
     }

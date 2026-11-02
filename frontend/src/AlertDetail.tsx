@@ -8,7 +8,8 @@ import { DecisionPanel } from './DecisionPanel'
 import { ExportPanel } from './ExportPanel'
 import { RelatedPanel } from './RelatedPanel'
 import { ReplayPanel } from './ReplayPanel'
-import { Badge, deadlineText, fmtDate, Panel, Prov, Stat, Tabs, TierPill } from './ui'
+import { DecisionSheet } from './soc/DecisionSheet'
+import { Badge, deadlineText, fmtDate, Objectives, Panel, Prov, Stat, Tabs, TierPill, type ObjectiveKey } from './ui'
 
 /* One warning, Uber trip-details style: what it is and how urgent at the top (three figures), then one question per
    tab: what to do (summary), why this score, how it unfolded, what it relates to. */
@@ -16,12 +17,16 @@ import { Badge, deadlineText, fmtDate, Panel, Prov, Stat, Tabs, TierPill } from 
 const CRIT_LABEL = ['', 'context', 'corroborating', 'strong', 'confirmed']
 const VERDICT_TONE: Record<string, 'crit' | 'ok' | 'mute'> = { affected: 'crit', not_affected: 'ok', unknown: 'mute' }
 type Tab = 'summary' | 'why' | 'history' | 'related'
+/* The PS-01 objective each question of a warning answers: what to do (recommendations, from the AI brief), why this
+   score (risk prioritisation), how it unfolded (early warning), what it relates to (analysis of relationships). */
+const TAB_OBJ: Record<Tab, ObjectiveKey[]> = { summary: ['recommendations', 'analysis'], why: ['risk'], history: ['warning'], related: ['analysis'] }
 interface Clock { who: string; what: string; hours: number | null; route?: string }
 interface Supplier { id: string; name: string; service: string; only_via_supplier: number; dependents: { org_id: string; name: string; runs_it_too: boolean }[] }
 
 export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) {
   const [assetIdx, setAssetIdx] = useState(0)
   const [tab, setTab] = useState<Tab>('summary')
+  const [decide, setDecide] = useState(false)
   const a = d.assets[assetIdx]
   const v = d.vulnerability
   const waterfall = [
@@ -59,8 +64,9 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
           <Stat value={a.decision} label="SSVC decision" sub={a.decision_path.slice(0, 2).join(' · ')} />
           <Stat value={p != null ? `${p < 1 ? p.toFixed(2) : p.toFixed(1)}%` : '—'} label="chance of compromise" sub={p != null && p >= 50 ? 'suspected compromise' : 'hunt at 20%, compromise at 50%'} />
         </div>
-        <div className="mt-5">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <Tabs value={tab} onChange={setTab} items={[['summary', 'What to do'], ['why', 'Why this score'], ['history', 'How it unfolded'], ['related', 'Related']]} />
+          <Objectives keys={TAB_OBJ[tab]} />
         </div>
       </header>
 
@@ -80,6 +86,10 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
                 ))}
               </Panel>
             )}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line-2 bg-panel-2 px-5 py-3">
+              <div><div className="font-semibold">Decide what to do, step by step</div><div className="text-[13px] text-mute">Evidence, the options with Odyssey's recommendation, confirm, done: every step in the audit trail.</div></div>
+              <button onClick={() => setDecide(true)} className="rounded-full bg-text px-4 py-2 text-sm font-semibold text-ink hover:opacity-85">Decide</button>
+            </div>
             <BriefPanel orgId={d.org.id} cveId={v.id} />
             <Panel title="Recommended actions">
               <ul className="space-y-3">
@@ -223,6 +233,7 @@ export function AlertDetail({ d, onClose }: { d: Detail; onClose: () => void }) 
           </>
         )}
       </div>
+      {decide && <DecisionSheet org={d.org.id} cve={v.id} onClose={() => setDecide(false)} />}
     </aside>
   )
 }

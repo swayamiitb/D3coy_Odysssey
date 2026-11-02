@@ -1,4 +1,5 @@
 import { Activity, ArrowRight, Check, Loader2, Radar, ScanSearch, ShieldAlert, Waypoints } from 'lucide-react'
+import { IncomingCves } from './soc/IncomingCves'
 import { useEffect, useState } from 'react'
 import { istTime } from './proactive'
 import { ShieldSection } from './Shield'
@@ -31,7 +32,7 @@ export function LiveFigures({ s }: { s?: LiveState }) {
   return (
     <Figures items={[
       { value: `${s.sensors}/${s.sensors}`, label: 'decoy sensors reporting', sub: 'national grid, simulated (SIM); one tick is one sensor-hour', dot: 'bg-ok' },
-      { value: `${fresh}/${s.feeds.length}`, label: 'real feeds fresh', sub: `NVD, KEV, Feodo, OpenPhish · checked ${ago(s.feeds[0]?.last_ok ?? s.feeds[0]?.last_try)}`, dot: fresh === s.feeds.length ? 'bg-ok' : 'bg-high' },
+      { value: `${fresh}/${s.feeds.length}`, label: 'real feeds fresh', sub: `${s.feeds.length} public feeds re-read live · checked ${ago(s.feeds[0]?.last_ok ?? s.feeds[0]?.last_try)}`, dot: fresh === s.feeds.length ? 'bg-ok' : 'bg-high' },
       { value: s.pipeline.detections_hour, label: 'detections in the last hour', sub: 'surge, C2 beacon, flow anomaly' },
       { value: s.tick_ms_p50 != null ? `${Math.round(s.tick_ms_p50)} ms` : '—', label: 'per detection cycle', sub: `every ${s.tick_s} s · ${s.ticks.toLocaleString('en-IN')} cycles since start` },
     ]} />
@@ -102,7 +103,7 @@ function DrillCard({ d }: { d: any }) {
   )
 }
 
-export function Live({ s, onGo }: { s?: LiveState; onGo: (view: 'soc' | 'now', tab?: string) => void }) {
+export function Live({ s, onGo, onAlert }: { s?: LiveState; onGo: (view: 'soc' | 'now', tab?: string) => void; onAlert?: (org: string, cve: string) => void }) {
   const toast = useToast()
   const [busy, setBusy] = useState<string>()
   if (!s) return <div className="py-10 text-mute"><Loader2 size={16} className="mr-2 inline animate-spin" />Connecting to the live engine…</div>
@@ -124,7 +125,10 @@ export function Live({ s, onGo }: { s?: LiveState; onGo: (view: 'soc' | 'now', t
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-16">
       {/* The shield, the pipeline, the detections and the feeds, as a strip: open the one you want. */}
-      <TabBoxes label="Live system" defaultOpen="shield" items={[
+      <TabBoxes label="Live system" defaultOpen="incoming" items={[
+        { key: 'incoming', title: 'Incoming CVEs, ranked for you', chip: <Prov p="REAL" />, count: s.incoming ? `${s.incoming.total}` : '—',
+          preview: s.incoming?.last_check ? `${s.incoming.total} CVEs in the stream · ${s.incoming.ours} name our technologies · ${s.incoming.exploited} exploited or forecast · NVD read every 2 minutes` : 'Waiting for the first NVD read',
+          panel: <IncomingCves onAlert={onAlert} /> },
         { key: 'shield', title: 'A real app, protected', chip: <Prov p="SIM" />, preview: 'Every request to the protected app, inspected; red-team scenarios to run against it; attacks and attackers',
           panel: <div className="soc-card px-6 py-5"><ShieldSection onGo={onGo} /></div> },
         { key: 'pipeline', title: 'The pipeline, right now', count: `${p.detections_hour}`,
@@ -133,7 +137,7 @@ export function Live({ s, onGo }: { s?: LiveState; onGo: (view: 'soc' | 'now', t
             <Section title="The pipeline, right now" sub="What each stage did in the last hour. Every number refreshes on its own; nothing here is a static report.">
               <div className="flex flex-col gap-2 xl:flex-row xl:items-stretch">
                 {[
-                  { title: 'Sources', value: `${fresh}/${s.feeds.length}`, sub: 'real feeds fresh · 13 sources in all', status: fresh === s.feeds.length ? 'ok' : 'warn' },
+                  { title: 'Sources', value: `${fresh}/${s.feeds.length}`, sub: 'public feeds re-read live; the rest serve from the snapshot', status: fresh === s.feeds.length ? 'ok' : 'warn' },
                   { title: 'Sensors', value: sessionsNow.toLocaleString('en-IN'), sub: `decoy sessions this tick · ${flowsNow} firewall flows`, status: 'ok' },
                   { title: 'Detectors', value: p.detections_hour, sub: `detections in the last hour · ${s.detectors.length} running`, status: running ? 'busy' : 'ok' },
                   { title: 'Autopilot', value: p.auto_hour, sub: 'actions on its own in the last hour', status: 'ok' },
@@ -166,7 +170,7 @@ export function Live({ s, onGo }: { s?: LiveState; onGo: (view: 'soc' | 'now', t
         { key: 'feeds', title: 'Real feeds', chip: <Prov p="REAL" />, count: `${fresh}/${s.feeds.length}`,
           preview: `${s.feeds.map((f: any) => `${f.name} ${f.items != null ? f.items.toLocaleString('en-IN') : '—'}`).join(' · ')}`,
           panel: <div className="soc-card px-6 py-5">
-            <Section title="Real feeds" sub="Checked every 15 minutes when the network is up; new entries are matched to the inventory at once.">
+            <Section title="Real feeds" sub="Checked every 15 minutes (SANS ISC DShield and CISA advisories hourly) when the network is up and written through to the offline snapshot; new entries are matched to the inventory at once.">
                 {s.feeds.map((f: any) => (
                   <Row key={f.name} lead={<span className={`h-3 w-3 rounded-full ${f.status === 'fresh' ? 'bg-ok' : f.status === 'offline' ? 'bg-crit' : 'bg-watch'}`} />}
                        title={f.name} sub={f.detail}

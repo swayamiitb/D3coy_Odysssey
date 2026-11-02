@@ -1,6 +1,6 @@
 # Odyssey: pitch, demo script and judge Q&A
 
-Written for the team presenting at D3COY 1.0 (PS-01). About eight and a half minutes of demo, then questions.
+Written for the team presenting at D3COY 1.0 (PS-01). About nine minutes of demo, then questions.
 
 ## The one-line claim
 
@@ -14,7 +14,7 @@ and reproducible, and it has been ahead of CISA on real CVEs.
 "In July 2024 one supplier's unpatched Jenkins server took about 300 Indian banks offline for days. The CVE was
 public. Nobody connected it to who was exposed in time. Odyssey closes that gap."
 
-## Demo script (about 8 and a half minutes)
+## Demo script (about nine minutes)
 
 Before you start: run `scripts\demo_reset.ps1` ten minutes earlier, open http://127.0.0.1:5173, hard-refresh. Run the
 brand scan for the term IRCTC once (Intel → Threats → *Brand and social watch*, 10 to 25 s on the network) so its hits
@@ -58,6 +58,12 @@ grade is there; both are stored and shown again without a rescan.
    consent*: the CityPower portal, our own, scores 29, grade F: plain HTTP, open SSH and SMB ports, no CSP, an exposed
    OpenAPI document, a FastAPI fingerprint, each with a fix. "It scans only what you own and prove you own; anything
    else it refuses, and says why."
+   Then, 40 s, *Disaster alerts (SACHET)*: NDMA's national alert feed, public domain, read live and labelled REAL,
+   with the real alerts of the last hours on our operators' states (this morning: 100 alerts, 99 with a state, 80 on
+   our operators, most of them from Andhra Pradesh SDMA), each row with the basis of its state inference ("sender
+   office: IMD Amaravati", "district named: Krishna") and its confidence. "When an operator goes dark, the first
+   question is: weather or attack? Now the disaster alert sits next to the cyber warnings, and the graph draws it on
+   the operator." The guard is exercised by a separate red-team session against `POST /api/sensor/cap` (an `x-odyssey-redteam` header labels the exercise); the panel shows every decision as it happens.
 6. **Organisations (45 s).** Vidyut Grid West Corp opens on its threat map: hover the VPN gateway (compromised, calling a real QakBot C2), the HTTPS port under real attack pressure, the Ivanti scanning surge; then what outsiders see, its suppliers, its Marathi inbox. "Country threat maps draw arcs between nations; this is the same idea per operator, every line with its source."
 7. **Proof (60 s).** Eight claims, each with its evidence; press *Run them now* (135 checks, about two minutes,
    let it run while you take questions); *How it works*: six steps, the model table, the open formula.
@@ -73,7 +79,8 @@ grade is there; both are stored and shown again without a rescan.
    CVEs taken in live, attack drills anyone can start, live re-scoring, cases that open themselves, and thresholds that
    re-derive themselves from analysts' decisions, within bounds, with every change audited.
 4. **Built for India.** CERT-In Blueprint deadlines, the 6-hour incident clock, RBI DAKSH, SEBI CSCRF, DPDP, NCIIPC
-   and sector CSIRT routing, supplier fan-out, 22 Indian languages with validated translation.
+   and sector CSIRT routing, supplier fan-out, 22 Indian languages with validated translation, and India's SACHET
+   disaster alerts read alongside the cyber record (weather or attack?), with warnings out in SACHET-compatible CAP.
 5. **Trust by construction.** Hash-chained audit trail, REAL/SIM labels everywhere, a test bench you can re-run on
    stage, 0 cloud calls.
 6. **One connected, breathing picture.** The intelligence graph links every entity in the record and decays with
@@ -108,6 +115,13 @@ grade is there; both are stored and shown again without a rescan.
   reason. GET and HEAD only, at most 40 requests, a cooldown per target. Everything about other organisations comes
   from passive public sources: the feeds, certificate transparency, URL lists, news and public social feeds. Nothing
   touches them, and a brand hit is a scored match of a term, not a finding of abuse.
+- **"Is this connected to SACHET?"** No, and we do not say it is. Odyssey reads SACHET's public-domain CAP feed,
+  read-only, the way it reads NVD or KEV; nothing is sent to NDMA. Its own warnings are written in the same CAP 1.2
+  format SACHET publishes, status Exercise, labelled "SACHET-compatible" in the message itself, so an authorised agency
+  such as CERT-In could route them with configuration rather than redevelopment; that routing is theirs to decide, not
+  ours. Red-teaming the guard is done by a separate session, never from the product itself. Most SACHET alerts are district-level, so the
+  state we infer carries its basis and a confidence on the row and is not always right. Bhashini is not used; the
+  translator stays local.
 - **"Is anything here connected to something real?"** Yes. A real web application runs behind the Odyssey agent and
   is attacked by a real HTTP client over the wire, and the alerts leave the laptop by real webhooks: Slack, Discord,
   Teams, e-mail or your own app (the Ops Console in the demo). The organisations and sensors stay simulated and
@@ -130,3 +144,6 @@ grade is there; both are stored and shown again without a rescan.
   the stored hits still show. Say so; the row is the honest state of a public source.
 - Consented scan refused: the portal is down, or the agent has not re-announced it since the restart (up to 10 s), or
   the 60 s cooldown is running. Wait, or show the stored scan; the refusal reason on screen is the gate working.
+- SACHET feed offline: the panel says "offline, serving the snapshot" and shows the 100 real alerts saved on 1 Nov;
+  the state inference, the operator match, the CAP download and the guard work without the network. Say so; it is
+  the same honesty as the other feeds.

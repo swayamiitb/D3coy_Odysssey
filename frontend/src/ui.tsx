@@ -15,9 +15,51 @@ import { Plexus } from './soc/Plexus'
 /** Page width: one centred column, gutters that shrink on small screens. */
 export const WRAP = 'mx-auto w-full max-w-[1680px] px-4 sm:px-6 lg:px-10'
 
+/* PS-01 key objectives (the D3COY 1.0 brief) and its explanation deliverable. Every page and tab names the ones it
+   answers, in its header, so the six objectives can be traced to the screen that serves each (rule 16). */
+export type ObjectiveKey = 'aggregation' | 'analysis' | 'warning' | 'risk' | 'recommendations' | 'dashboard' | 'explain'
+export const OBJECTIVES: Record<ObjectiveKey, { n: string; name: string; ps: string; view: string; tab?: string }> = {
+  aggregation: { n: '1', name: 'Threat Intelligence Aggregation', view: 'intel', tab: 'overview',
+    ps: 'Collect and consolidate threat information from trusted feeds, public advisories, vulnerability databases, and simulated security logs.' },
+  analysis: { n: '2', name: 'AI-Based Threat Analysis', view: 'intel', tab: 'graph',
+    ps: 'Apply machine learning or natural language processing to identify suspicious indicators, recurring attack patterns, and relationships between reported threats.' },
+  warning: { n: '3', name: 'Early Warning Generation', view: 'live',
+    ps: 'Identify potentially emerging threats and generate timely alerts based on threat severity, confidence, and relevance.' },
+  risk: { n: '4', name: 'Risk Prioritisation', view: 'intel', tab: 'risk',
+    ps: 'Rank threats according to factors such as exploitability, asset criticality, potential impact, and available evidence.' },
+  recommendations: { n: '5', name: 'Actionable Recommendations', view: 'soc', tab: 'cases',
+    ps: 'Provide suggested mitigation measures, such as patching vulnerable systems, blocking known malicious indicators, or investigating suspicious activity.' },
+  dashboard: { n: '6', name: 'Threat Intelligence Dashboard', view: 'now',
+    ps: 'Display active threats, affected technologies, risk levels and alerts.' },
+  explain: { n: 'D', name: 'Explanation of the AI model, scoring and mitigation workflow', view: 'proof', tab: 'how',
+    ps: 'Expected deliverable: an explanation of the AI model, the threat scoring approach and the proposed mitigation workflow.' },
+}
+
+/** One objective as a quiet pill: its number in a ring, its name, the brief's own wording on hover. */
+export function Objective({ k, onClick }: { k: ObjectiveKey; onClick?: () => void }) {
+  const o = OBJECTIVES[k]
+  const cls = 'inline-flex items-center gap-1.5 rounded-full border border-line bg-panel-2 py-0.5 pl-1 pr-2.5 text-[12px] font-medium text-mute'
+  const body = <><span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-text text-[10px] font-semibold tabular-nums text-ink">{o.n}</span>{o.name}</>
+  const title = `PS-01 ${o.n === 'D' ? 'deliverable' : `key objective ${o.n}`}: ${o.ps}`
+  return onClick
+    ? <button onClick={onClick} className={`${cls} transition-colors hover:border-line-2 hover:text-text`} title={title}>{body}</button>
+    : <span className={cls} title={title}>{body}</span>
+}
+
+/** The objectives a page, tab or sheet serves, named in one line. */
+export function Objectives({ keys, className = '' }: { keys: ObjectiveKey[]; className?: string }) {
+  if (!keys.length) return null
+  return (
+    <div className={`flex flex-wrap items-center gap-1.5 ${className}`} aria-label="PS-01 objectives served here">
+      <span className="mr-0.5 text-[11px] font-semibold uppercase tracking-wide text-faint">PS-01 {keys.length > 1 ? 'objectives' : 'objective'}</span>
+      {keys.map((k) => <Objective key={k} k={k} />)}
+    </div>
+  )
+}
+
 /** Page header on a black band: where you are, the page's title and one line, tabs on the right, the figures below,
  *  the honeycomb moving quietly behind it all. */
-export function Hero({ title, sub, tabs, children }: { title: ReactNode; sub?: ReactNode; tabs?: ReactNode; children?: ReactNode }) {
+export function Hero({ title, sub, tabs, objectives, children }: { title: ReactNode; sub?: ReactNode; tabs?: ReactNode; objectives?: ObjectiveKey[]; children?: ReactNode }) {
   return (
     <section className="soc-dark relative overflow-hidden border-b border-line">
       <Honeycomb />
@@ -27,6 +69,7 @@ export function Hero({ title, sub, tabs, children }: { title: ReactNode; sub?: R
             <p className="flex items-center gap-1.5 text-[13px] text-faint">Odyssey <ChevronRight size={13} aria-hidden /> <span className="text-mute">{title}</span></p>
             <h1 className="mt-2 text-[32px] font-semibold leading-tight tracking-tight">{title}</h1>
             {sub && <p className="mt-1.5 text-[15px] text-mute">{sub}</p>}
+            {objectives && <Objectives keys={objectives} className="mt-3" />}
           </div>
           {tabs}
         </div>
